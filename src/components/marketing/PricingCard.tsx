@@ -27,10 +27,15 @@ interface PricingCardProps {
   index?: number;
 }
 
+function formatPrice(value: number): string {
+  return value.toFixed(2).replace('.', ',');
+}
+
 export default function PricingCard({ plan, isAnnual, index = 0 }: PricingCardProps) {
+  const rawPrice = isAnnual ? plan.price.annually : plan.price.monthly;
   const priceDisplay = plan.customPrice 
     ? plan.customPrice 
-    : isAnnual ? plan.price.annually : plan.price.monthly;
+    : formatPrice(rawPrice);
 
   const showCurrency = !plan.customPrice;
 
@@ -117,10 +122,27 @@ export default function PricingCard({ plan, isAnnual, index = 0 }: PricingCardPr
 
 export const pricingPlans: PricingPlan[] = [
   {
+    id: 'gratis',
+    name: 'Grátis',
+    description: 'Para começar. Recursos essenciais de agendamento.',
+    price: { monthly: 0, annually: 0 },
+    customPrice: 'Grátis',
+    features: [
+      'Agendamentos limitados',
+      'Sincronização de calendário',
+      'Histórico de clientes',
+      'Suporte por email',
+    ],
+    cta: {
+      text: 'Começar Grátis',
+      href: '/auth/signup',
+    },
+  },
+  {
     id: 'starter',
     name: 'Starter',
-    description: 'Perfeito para começar. Agendamento completo e gestão básica.',
-    price: { monthly: 99, annually: 79 },
+    description: 'Perfeito para crescer. Agendamento completo e confirmações.',
+    price: { monthly: 69.9, annually: 55.92 },
     features: [
       'Agendamentos ilimitados',
       'Lembretes WhatsApp/Email',
@@ -136,15 +158,14 @@ export const pricingPlans: PricingPlan[] = [
   {
     id: 'growth',
     name: 'Growth',
-    description: 'Para negócios em crescimento. Pagamentos e restaurante incluídos.',
-    price: { monthly: 199, annually: 159 },
+    description: 'Pagamentos, cardápio e comanda. Inclui cota de WhatsApp e notas fiscais.',
+    price: { monthly: 189.9, annually: 151.92 },
     popular: true,
     features: [
       'Tudo do Starter',
       'Pagamentos PIX e cartão',
-      'Cardápio digital',
-      'Comanda virtual',
-      'Gestão de mesas',
+      'Cardápio digital e comanda virtual',
+      '150 msgs WhatsApp + 30 NFS-e/NFC-e/mês',
       'Suporte prioritário',
     ],
     cta: {
@@ -155,15 +176,14 @@ export const pricingPlans: PricingPlan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    description: 'Solução completa com estoque, ponto eletrônico e relatórios avançados.',
-    price: { monthly: 399, annually: 319 },
+    description: 'Solução completa: estoque, ponto eletrônico e cotas maiores.',
+    price: { monthly: 399.9, annually: 319.92 },
     features: [
       'Tudo do Growth',
-      'Ponto eletrônico',
-      'Controle de estoque',
-      'Relatórios financeiros',
-      'Programa de fidelidade',
-      'API e webhooks',
+      'Ponto eletrônico e controle de estoque',
+      '300 msgs WhatsApp + 100 NFS-e/NFC-e/mês',
+      'Programa de fidelidade e campanhas',
+      'API, webhooks e relatórios avançados',
     ],
     cta: {
       text: 'Começar Grátis',

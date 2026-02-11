@@ -262,7 +262,7 @@ export default function VideosPage() {
               crescer seu negócio.
             </p>
             <a
-              href="https://youtube.com/@puncto"
+              href="https://www.youtube.com/@usepuncto"
               target="_blank"
               rel="noopener noreferrer"
               className="btn bg-red-600 text-white hover:bg-red-700"

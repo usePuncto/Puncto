@@ -65,7 +65,7 @@ export const industries = [
   },
   {
     id: 'corporate',
-    slug: 'corporativo',
+    slug: 'empresas',
     name: 'Grandes Empresas e Indústrias',
     shortName: 'Empresas',
     icon: 'calendar',
@@ -94,6 +94,70 @@ export const industries = [
         increaseLabel: 'operacional aumentada'
     },
     color: 'accent',
+  },
+  {
+    id: 'health',
+    slug: 'saude',
+    name: 'Saúde',
+    shortName: 'Saúde',
+    icon: 'stethoscope',
+    description:
+      'Clínicas, consultórios e operadoras. Agenda, prontuários e conformidade regulatória.',
+    longDescription:
+      'Soluções para o setor de saúde: agendamento integrado, gestão de pacientes, prontuários eletrônicos e emissão de documentos conforme exigências do setor.',
+    benefits: [
+      'Agendamento e confirmações automáticas',
+      'Gestão de pacientes e histórico',
+      'Integração com fluxos clínicos',
+      'Conformidade e segurança de dados',
+      'Relatórios e indicadores',
+    ],
+    useCases: [
+      'Clínicas e Consultórios',
+      'Laboratórios',
+      'Clínicas de Estética Médica',
+      'Fisioterapia e Reabilitação',
+      'Operadoras e Redes',
+    ],
+    stats: {
+        reduction: 'Faltas',
+        reductionLabel: 'com lembretes automáticos',
+        increase: 'Ocupação',
+        increaseLabel: 'e previsibilidade'
+    },
+    color: 'primary',
+  },
+  {
+    id: 'corporativo',
+    slug: 'corporativo',
+    name: 'Gestão Corporativa',
+    shortName: 'Corporativo',
+    icon: 'calendar',
+    description:
+      'Back-office, múltiplas unidades e gestão centralizada para grupos e redes.',
+    longDescription:
+      'Controle centralizado de múltiplas unidades, relatórios consolidados, ponto eletrônico e gestão financeira para redes e franquias.',
+    benefits: [
+      'Múltiplas unidades e consolidação',
+      'Ponto eletrônico e jornada',
+      'Relatórios e dashboards centralizados',
+      'Gestão de franquias',
+      'API e integrações',
+    ],
+    useCases: [
+      'Redes e Franquias',
+      'Grupos com múltiplas unidades',
+      'Gestão de back-office',
+      'Controladoria e financeiro',
+      'RH e folha de pagamento',
+    ],
+    stats: {
+        reduction: 'Custos',
+        reductionLabel: 'operacionais',
+        increase: 'Controle',
+        increaseLabel: 'centralizado'
+    },
+    color: 'secondary',
   },
 ];
 

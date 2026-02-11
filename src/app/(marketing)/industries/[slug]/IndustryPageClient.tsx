@@ -14,11 +14,11 @@ interface IndustryPageClientProps {
 
 // Map industries to relevant features
 const industryFeatureMap: Record<string, string[]> = {
-  salons: ['scheduling', 'payments', 'crm', 'analytics'],
-  restaurants: ['restaurant', 'payments', 'inventory', 'timeClock'],
-  clinics: ['scheduling', 'payments', 'crm', 'analytics'],
-  bakeries: ['scheduling', 'inventory', 'payments', 'crm'],
-  events: ['scheduling', 'payments', 'crm', 'analytics'],
+  services: ['scheduling', 'payments', 'crm', 'analytics'],
+  retail: ['restaurant', 'payments', 'inventory', 'timeClock'],
+  corporate: ['scheduling', 'payments', 'crm', 'analytics'],
+  health: ['scheduling', 'payments', 'crm', 'analytics'],
+  corporativo: ['scheduling', 'payments', 'crm', 'analytics'],
 };
 
 export default function IndustryPageClient({ industry }: IndustryPageClientProps) {

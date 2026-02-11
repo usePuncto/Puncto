@@ -13,12 +13,26 @@ import PricingCard, { pricingPlans } from '@/components/marketing/PricingCard';
 import { features } from '@/content/features';
 import { faqItems } from '@/content/faq';
 import { industries, industryIcons } from '@/content/industries';
+import {
+  businessTypeOptions,
+  planFeaturesByBusinessType,
+  type BusinessTypeKey,
+} from '@/content/pricingByBusinessType';
 
 export default function HomePage() {
   const [selectedIndustry, setSelectedIndustry] = useState(industries[0].id);
   const [isAnnual, setIsAnnual] = useState(true);
+  const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessTypeKey>('servicos');
 
   const activeIndustry = industries.find((i) => i.id === selectedIndustry) || industries[0];
+
+  const plansWithFeaturesForType = pricingPlans.map((plan) => ({
+    ...plan,
+    features:
+      plan.id in planFeaturesByBusinessType[selectedBusinessType]
+        ? planFeaturesByBusinessType[selectedBusinessType][plan.id as 'gratis' | 'starter' | 'growth' | 'pro']
+        : plan.features,
+  }));
 
   return (
     <>
@@ -250,7 +264,7 @@ export default function HomePage() {
               </h3>
               <p className="text-slate-600 mb-6">
                 Ideal para salões, restaurantes, clínicas e pequenos negócios. 
-                Comece em minutos com planos a partir de R$ 99/mês.
+                Comece grátis ou com planos a partir de R$ 69,90/mês.
               </p>
               <ul className="space-y-2 mb-6">
                 <li className="flex items-start gap-2 text-slate-600">
@@ -346,9 +360,26 @@ export default function HomePage() {
             <h2 className="heading-lg text-slate-900 mb-4">
               Escolha o plano ideal para você
             </h2>
-            <p className="body-lg max-w-2xl mx-auto mb-8">
-              Comece grátis por 14 dias. Sem compromisso, sem cartão de crédito.
+            <p className="body-lg max-w-2xl mx-auto mb-6">
+              Selecione seu tipo de negócio para ver os recursos de cada plano.
             </p>
+
+            {/* Business type selector */}
+            <div className="flex flex-wrap justify-center gap-2 mb-6">
+              {businessTypeOptions.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => setSelectedBusinessType(option.id)}
+                  className={`px-4 py-2 rounded-full font-medium transition-all text-sm ${
+                    selectedBusinessType === option.id
+                      ? 'bg-primary-600 text-white shadow-lg'
+                      : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
 
             {/* Billing toggle */}
             <div className="inline-flex items-center gap-4 bg-white rounded-full p-1 shadow-soft border border-slate-200">
@@ -379,7 +410,7 @@ export default function HomePage() {
           </motion.div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {pricingPlans.map((plan, index) => (
+            {plansWithFeaturesForType.map((plan, index) => (
               <PricingCard
                 key={plan.id}
                 plan={plan}

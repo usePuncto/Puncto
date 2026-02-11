@@ -6,6 +6,9 @@ export const metadata = {
   title: 'Puncto - Agendamentos',
   description: 'Plataforma de agendamentos para clínicas, salões e estabelecimentos',
   manifest: '/manifest.json',
+  icons: {
+    icon: '/favicon.ico',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

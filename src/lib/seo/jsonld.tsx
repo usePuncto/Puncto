@@ -6,7 +6,7 @@ export function generateOrganizationSchema() {
     '@type': 'Organization',
     name: 'Puncto',
     url: 'https://puncto.com.br',
-    logo: 'https://puncto.com.br/logo.png',
+    logo: 'https://puncto.com.br/logo.svg',
     description:
       'Plataforma SaaS completa para salões, restaurantes, clínicas e desenvolvimento customizado para grandes empresas e indústrias.',
     contactPoint: {
@@ -15,9 +15,12 @@ export function generateOrganizationSchema() {
       availableLanguage: ['Portuguese', 'English'],
     },
     sameAs: [
-      'https://linkedin.com/company/puncto',
-      'https://instagram.com/puncto.app',
-      'https://youtube.com/@puncto',
+      'https://discord.gg/GGX2mBejDf',
+      'https://www.facebook.com/people/Puncto/61587093252643/',
+      'https://www.instagram.com/usepuncto',
+      'https://x.com/usepuncto',
+      'https://www.tiktok.com/@usepuncto',
+      'https://www.youtube.com/@usepuncto',
     ],
   };
 }
@@ -108,7 +111,7 @@ export function generateArticleSchema(article: {
       name: 'Puncto',
       logo: {
         '@type': 'ImageObject',
-        url: 'https://puncto.com.br/logo.png',
+        url: 'https://puncto.com.br/logo.svg',
       },
     },
   };

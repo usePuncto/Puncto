@@ -225,6 +225,128 @@ body {
   .divider {
     @apply h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent;
   }
+
+  /* Legal / Policy pages */
+  .legal-page {
+    @apply section bg-slate-50/50;
+  }
+
+  .legal-page-container {
+    @apply container-marketing max-w-4xl mx-auto;
+  }
+
+  .legal-page-header {
+    @apply pb-8 mb-8 border-b border-slate-200;
+  }
+
+  .legal-page-title {
+    @apply heading-lg text-slate-900 mb-2;
+  }
+
+  .legal-page-updated {
+    @apply text-sm text-slate-500 font-medium;
+  }
+
+  .legal-section {
+    @apply mb-10 last:mb-0;
+  }
+
+  .legal-section h2 {
+    @apply text-xl md:text-2xl font-bold text-slate-900 mt-8 mb-4 first:mt-0;
+  }
+
+  .legal-section h3 {
+    @apply text-lg font-semibold text-slate-800 mt-6 mb-3;
+  }
+
+  .legal-section p {
+    @apply text-slate-600 leading-relaxed mb-4;
+  }
+
+  .legal-section ul {
+    @apply list-disc pl-6 space-y-2 text-slate-600 mb-4;
+  }
+
+  .legal-section li {
+    @apply leading-relaxed;
+  }
+
+  .legal-section a {
+    @apply text-primary-600 hover:text-primary-700 underline underline-offset-2;
+  }
+
+  .legal-section code {
+    @apply px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 text-sm font-mono;
+  }
+
+  .legal-highlight {
+    @apply rounded-xl border border-amber-200 bg-amber-50/80 p-5 my-6 text-slate-700;
+  }
+
+  .legal-highlight strong {
+    @apply text-amber-800;
+  }
+
+  .legal-contact {
+    @apply rounded-2xl bg-slate-900 text-white p-8 mt-10;
+  }
+
+  .legal-contact p {
+    @apply text-slate-300 mb-1 last:mb-0;
+  }
+
+  .legal-contact-email {
+    @apply text-lg font-semibold text-white mt-2 inline-block;
+  }
+
+  .legal-table-wrap {
+    @apply overflow-x-auto rounded-xl border border-slate-200 bg-white my-6 shadow-sm;
+  }
+
+  .legal-table {
+    @apply w-full min-w-[400px] text-left text-sm;
+  }
+
+  .legal-table th {
+    @apply bg-slate-50 px-4 py-3 font-semibold text-slate-900 border-b border-slate-200;
+  }
+
+  .legal-table td {
+    @apply px-4 py-3 text-slate-600 border-b border-slate-100 last:border-b-0;
+  }
+
+  .legal-table tbody tr:hover {
+    @apply bg-slate-50/50;
+  }
+
+  .legal-nav {
+    @apply flex flex-wrap gap-2 mb-8;
+  }
+
+  .legal-nav-link {
+    @apply px-4 py-2 rounded-lg text-sm font-medium text-slate-600 bg-white border border-slate-200
+           hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50/50 transition-colors;
+  }
+
+  .legal-nav-link.active {
+    @apply bg-primary-600 text-white border-primary-600 hover:bg-primary-700 hover:border-primary-700;
+  }
+
+  .legal-related {
+    @apply mt-12 pt-8 border-t border-slate-200;
+  }
+
+  .legal-related h3 {
+    @apply text-lg font-semibold text-slate-900 mb-4;
+  }
+
+  .legal-related ul {
+    @apply list-none pl-0 space-y-2;
+  }
+
+  .legal-related a {
+    @apply text-primary-600 hover:text-primary-700 font-medium;
+  }
 }
 
 /* ================================

@@ -92,6 +92,21 @@ Puncto simplifies daily operations for small and medium businesses in beauty, ae
 - **Monitoring:** Sentry (errors), LogTail/Axiom (logs), Vercel Analytics
 - **CI/CD:** GitHub Actions
 
+### Hybrid Pricing & Metered Billing Architecture
+
+The platform uses a **hybrid pricing model**:
+
+- **Standardized tiers:** Grátis (R$ 0), Starter (R$ 69,90), Growth (R$ 189,90), Pro (R$ 399,90), plus custom **Enterprise**.
+- **Metered billing (Pay-As-You-Go):** Variable costs—**WhatsApp messages** and **fiscal notes (NFS-e/NFC-e)**—are tracked per business. Growth and Pro plans include monthly quotas (e.g. Growth: 150 msgs / 30 notes; Pro: 300 msgs / 100 notes). Usage above quota is billed automatically via **Stripe** (metered billing or usage-based reporting).
+- **Implementation:** Subscription tier and quotas are stored in Firestore; usage is incremented on send/generation and reported to Stripe for overage charges. Same database and API support all tiers; tier + quotas drive entitlements and billing.
+
+### Modality-Based Feature Flagging
+
+- **Four business modalities:** Beauty, Health, Retail, Admin. All modalities share the **same subscription tiers and database structure**.
+- **Onboarding:** The client selects a **modality** (profile) during onboarding; this is persisted (e.g. `modality` on the business document) and used for feature-flagging.
+- **Frontend:** The admin UI **dynamically renders modality-specific modules** (e.g. KDS and Inventory for Retail; Electronic Health Records for Health; core scheduling for Beauty and Admin). Navigation and route guards use tier + modality to show/hide sections.
+- **Backend:** API routes validate both subscription tier and modality so that only allowed modules are accessible (e.g. Retail-only endpoints for KDS, orders; Health-only for EHR).
+
 ---
 
 ## 🏗️ Multi-Instance Architecture
@@ -269,39 +284,43 @@ For a quick start guide, see [QUICK_START.md](QUICK_START.md).
 
 Features are controlled by **two dimensions**:
 
-### 1. Subscription Tier
-- `free` - Limited features
-- `basic` (Starter) - Core scheduling features
-- `pro` (Growth) - Restaurant + scheduling
-- `enterprise` (Pro/Enterprise) - All features
+### 1. Subscription Tier (Hybrid Pricing Model)
 
-### 2. Business Type/Industry
+Four standardized tiers plus custom Enterprise:
 
-Different industries get access to relevant modules:
+| Tier | Price (BRL/month) | Description |
+|------|-------------------|-------------|
+| **Grátis** | R$ 0 | Limited features, entry-level |
+| **Starter** | R$ 69,90 | Core scheduling and confirmations |
+| **Growth** | R$ 189,90 | Scheduling + payments + restaurant/retail modules; includes metered quotas (see below) |
+| **Pro** | R$ 399,90 | Full feature set; higher metered quotas |
+| **Enterprise** | Custom | All features, custom limits, white-label, dedicated support |
+
+All tiers share the same database structure; tier controls which features and quotas apply.
+
+### 2. Business Modality (Feature-Flagging by Profile)
+
+The system supports **four business modalities**. The same subscription tiers and database schema apply to all; the **frontend dynamically renders modality-specific modules** based on the profile selected during onboarding.
 
 ```typescript
-type BusinessType = 
-  | 'salon'           // Beauty salons, barbershops
-  | 'clinic'          // Medical/dental/aesthetic clinics
-  | 'restaurant'      // Restaurants, cafes
-  | 'bakery'          // Bakeries, confectioneries
-  | 'event'           // Event spaces
-  | 'general';        // General service businesses
+type BusinessModality = 
+  | 'beauty'   // Beauty salons, barbershops, aesthetics
+  | 'health'   // Clinics, medical/dental, EHR-focused
+  | 'retail'   // Restaurants, cafes, commerce; KDS, inventory
+  | 'admin';  // Corporate/admin, general operations
 ```
 
-**Feature mapping by business type:**
+**Modality-based module visibility (examples):**
 
-| Feature | Salon | Clinic | Restaurant | Subscription Required |
-|---------|-------|--------|------------|----------------------|
-| Scheduling | ✅ | ✅ | ✅ | Basic+ |
-| Payments | ✅ | ✅ | ✅ | Growth+ |
-| CRM | ✅ | ✅ | ⚠️* | Pro+ |
-| Restaurant Menu | ❌ | ❌ | ✅ | Growth+ |
-| Table Ordering | ❌ | ❌ | ✅ | Growth+ |
-| Inventory | ❌ | ⚠️* | ✅ | Pro+ |
-| Time Clock | ⚠️* | ⚠️* | ✅ | Pro+ |
+| Modality | Dynamically Rendered Modules | Notes |
+|----------|------------------------------|-------|
+| **Beauty** | Scheduling, services, professionals, CRM, payments | Core agenda and client management |
+| **Health** | Scheduling, Electronic Health Records (EHR), patients, compliance | Health-specific workflows and records |
+| **Retail** | KDS (Kitchen Display System), digital menu, table ordering, inventory, orders | Restaurant/commerce operations |
+| **Admin** | Scheduling, time clock, financial reports, dashboards | General back-office and management |
 
-*⚠️ Available but not primary use case - can be enabled manually
+- **Backend:** Single API and data model; feature access validated by tier + modality.
+- **Frontend:** Navigation and module visibility (e.g. KDS, Inventory for Retail; EHR for Health) are driven by the client's **modality** chosen at onboarding.
 
 ### Using Feature Guards
 
@@ -349,8 +368,8 @@ if (!featureCheck?.hasAccess) {
 ```
 
 **Security Guarantee:**
-- ❌ A Salon business **CANNOT** access restaurant endpoints (403 Forbidden)
-- ✅ Server-side validation prevents bypass via Postman or direct API calls
+- ❌ A Beauty-modality business **CANNOT** access Retail-only endpoints (e.g. KDS, table ordering) (403 Forbidden)
+- ✅ Server-side validation by tier + modality prevents bypass via Postman or direct API calls
 
 ---
 
@@ -372,9 +391,9 @@ User Signup → Business Info → Plan Selection → Stripe Checkout → Webhook
    - Redirects to business onboarding
 
 2. **Business Information** (`/onboarding/business`)
-   - Collects business details (name, legal name, tax ID, industry, contact info)
+   - Collects business details (name, legal name, tax ID, contact info)
    - Auto-formatting for CPF/CNPJ and phone numbers
-   - Industry selection for feature access control
+   - **Modality selection** (Beauty, Health, Retail, Admin) for feature-flagging and dynamic module rendering
 
 3. **Plan Selection** (`/onboarding/plan`)
    - Displays available subscription plans
@@ -404,10 +423,12 @@ STRIPE_SECRET_KEY=sk_...
 STRIPE_WEBHOOK_SECRET=whsec_...
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_...
 
-# Stripe Price IDs for subscription plans
-STRIPE_PRICE_ID_STARTER=price_starter_...
-STRIPE_PRICE_ID_GROWTH=price_growth_...
-STRIPE_PRICE_ID_PRO=price_pro_...
+# Stripe Price IDs for subscription plans (Grátis = no Stripe; Starter, Growth, Pro, Enterprise)
+STRIPE_PRICE_ID_STARTER=price_starter_...   # R$ 69,90
+STRIPE_PRICE_ID_GROWTH=price_growth_...     # R$ 189,90 (includes metered quotas)
+STRIPE_PRICE_ID_PRO=price_pro_...           # R$ 399,90 (includes metered quotas)
+# Enterprise: custom pricing via Stripe or contract
+# Metered billing: WhatsApp messages and NFS-e/NFC-e usage reported to Stripe for overage
 
 # Application URL for Stripe redirects
 NEXT_PUBLIC_APP_URL=https://yourdomain.com
@@ -574,8 +595,8 @@ The platform admin instance provides comprehensive management tools for the Punc
 #### Business Management
 - **List View** (`/platform/businesses`)
   - Filter by status (active, suspended, cancelled)
-  - Filter by tier (free, basic, pro, enterprise)
-  - Filter by industry (salon, clinic, restaurant, etc.)
+  - Filter by tier (free, starter, growth, pro, enterprise)
+  - Filter by modality (beauty, health, retail, admin)
   - Search by name, email, or slug
   - Pagination support
   
@@ -587,7 +608,7 @@ The platform admin instance provides comprehensive management tools for the Punc
   
 - **Business Creation**
   - API endpoint for creating new businesses
-  - Requires business type (industry) selection
+  - Requires business modality (Beauty, Health, Retail, Admin) selection
   - Automatic slug generation
   - Stripe customer creation
 
@@ -810,21 +831,40 @@ Puncto/
 │   │   │   ├── table/[tableId]/       # Table ordering page
 │   │   │   └── my-bookings/           # Customer portal
 │   │   ├── platform/                  # Platform admin (superadmin)
+│   │   │   ├── dashboard/             # Platform dashboard
 │   │   │   ├── businesses/            # All businesses
 │   │   │   ├── users/                 # All users
-│   │   │   ├── support/               # Support tickets
-│   │   │   ├── billing/               # Subscription management
-│   │   │   └── analytics/             # Platform metrics
+│   │   │   └── billing/               # Subscription management
+│   │   ├── marketplace/               # Professional/establishment marketplace
+│   │   ├── onboarding/                # Business onboarding flow
+│   │   │   ├── business/              # Business info form
+│   │   │   ├── plan/                  # Plan selection
+│   │   │   ├── payment/               # Payment pending
+│   │   │   └── success/               # Payment success
+│   │   └── unauthorized/              # Unauthorized access page
 │   │   ├── (marketing)/               # Marketing site (puncto.com.br)
 │   │   │   ├── page.tsx               # Landing page
 │   │   │   ├── pricing/               # Pricing plans
 │   │   │   ├── features/              # Feature pages
-│   │   │   └── about/                 # About us
+│   │   │   ├── industries/            # Industry pages (servicos, varejo, corporativo)
+│   │   │   ├── about/                 # About us
+│   │   │   ├── contact/               # Contact page
+│   │   │   ├── blog/                  # Blog listing and posts
+│   │   │   ├── demo/                  # Demo request
+│   │   │   ├── press/                 # Press/media kit
+│   │   │   ├── videos/                # Video content
+│   │   │   ├── webinars/              # Webinars
+│   │   │   ├── resources/             # Resources page
+│   │   │   └── legal/                 # Terms, privacy, LGPD, cookies, accessibility
 │   │   ├── auth/                      # Authentication
-│   │   │   ├── login/                 # Login page
-│   │   │   ├── signup/                # Business signup
-│   │   │   ├── forgot-password/       # Password recovery
-│   │   │   └── verify-email/          # Email verification
+│   │   │   ├── login/                 # Generic login
+│   │   │   ├── signup/                # Generic signup
+│   │   │   ├── reset-password/        # Password recovery
+│   │   │   ├── business/login/        # Business owner login
+│   │   │   ├── business/signup/       # Business owner signup
+│   │   │   ├── customer/login/        # Customer login
+│   │   │   ├── customer/signup/       # Customer signup
+│   │   │   └── platform/login/        # Platform admin login
 │   │   └── api/                       # API routes
 │   │       ├── bookings/              # Booking endpoints
 │   │       ├── payments/              # Stripe webhooks
@@ -832,6 +872,13 @@ Puncto/
 │   │       ├── notifications/         # Send messages
 │   │       └── centrifugo/            # WebSocket auth
 │   ├── components/
+│   │   ├── marketing/                 # Marketing site components
+│   │   │   ├── Logo.tsx               # Logo (logo.svg, logo-white.svg)
+│   │   │   ├── Header.tsx             # Site header
+│   │   │   ├── Footer.tsx             # Site footer with social links
+│   │   │   ├── Hero.tsx               # Hero section
+│   │   │   ├── PricingCard.tsx        # Pricing cards
+│   │   │   └── ...                    # CTASection, TestimonialCard, etc.
 │   │   ├── booking/                   # Booking flow components
 │   │   │   ├── ServiceSelector.tsx
 │   │   │   ├── ProfessionalSelector.tsx
@@ -896,7 +943,7 @@ Puncto/
 │   │   └── features.ts                # Feature flags
 │   └── styles/
 │       └── globals.css                # Global styles
-├── functions/                         # Firebase Cloud Functions
+├── punctoFunctions/                   # Firebase Cloud Functions
 │   ├── src/
 │   │   ├── scheduled/                 # Scheduled functions
 │   │   │   ├── reminders.ts           # Booking reminders
@@ -962,7 +1009,9 @@ Puncto/
 - `src/components/business/PaymentGuard.tsx` - Payment status guard
 
 **Scripts:**
-- `scripts/set-admin.ts` - Set platform admin access
+- `scripts/set-admin.ts` - Set platform admin access for existing user
+- `scripts/create-platform-admin.ts` - Create new platform admin (npm run create-admin)
+- `scripts/upgrade-to-admin.ts` - Upgrade user to platform admin (npm run upgrade-admin)
 
 ---
 
@@ -980,9 +1029,9 @@ Puncto/
   taxId: string;                   // CPF or CNPJ
   email: string;
   phone: string;
-  industry: "salon" | "clinic" | "restaurant" | "bakery" | "event" | "general"; // Business type for feature access
+  modality: "beauty" | "health" | "retail" | "admin"; // Business modality for feature-flagging (selected at onboarding)
   subscription: {
-    tier: "free" | "basic" | "pro" | "enterprise";
+    tier: "free" | "starter" | "growth" | "pro" | "enterprise"; // Grátis, Starter, Growth, Pro, Enterprise
     status: "active" | "trial" | "suspended" | "cancelled" | "pending_payment"; // pending_payment for new businesses
     stripeCustomerId: string;
     stripeSubscriptionId: string | null;
@@ -990,6 +1039,15 @@ Puncto/
     stripePriceId: string;
     currentPeriodStart: Timestamp;
     currentPeriodEnd: Timestamp;
+    // Metered usage quotas (Growth/Pro); excess billed via Stripe
+    quotas: {
+      whatsappMessagesIncluded: number;   // e.g. 150 (Growth), 300 (Pro)
+      fiscalNotesIncluded: number;        // e.g. 30 (Growth), 100 (Pro)
+    };
+    usageCurrentPeriod?: {                // Tracked for metered billing
+      whatsappMessages: number;
+      fiscalNotes: number;
+    };
   };
   features: {
     scheduling: boolean;
@@ -998,7 +1056,7 @@ Puncto/
     tableOrdering: boolean;
     inventoryManagement: boolean;
     timeClock: boolean;
-    // ... other features based on tier and industry
+    // ... other features based on tier and modality
   };
   settings: {
     timezone: string;              // e.g., "America/Sao_Paulo"
@@ -1243,12 +1301,12 @@ if (!featureCheck?.hasAccess) {
 ```
 
 **Protected Endpoints:**
-- `/api/menu` - Validates `restaurantMenu` feature
-- `/api/orders` - Validates `tableOrdering` feature
+- `/api/menu` - Validates `restaurantMenu` feature (Retail modality)
+- `/api/orders` - Validates `tableOrdering` feature (Retail modality)
 - `/api/platform/*` - Validates platform admin access
 
 **Security Guarantee:**
-- ❌ Salon businesses cannot access restaurant endpoints (403 Forbidden)
+- ❌ Beauty-modality businesses cannot access Retail-only endpoints (403 Forbidden)
 - ❌ Cannot be bypassed via Postman or direct API calls
 - ✅ Server-side validation prevents unauthorized access
 
@@ -1264,28 +1322,43 @@ if (!featureCheck?.hasAccess) {
 
 ---
 
-## 📊 Subscription Plans
+## 📊 Subscription Plans (Hybrid Pricing)
 
-| Feature | Starter | Growth | Pro | Enterprise |
-|---------|---------|--------|-----|------------|
-| **Price (BRL/month)** | R$ 99 | R$ 249 | R$ 499 | Custom |
-| **Locations** | 1 | 3 | Unlimited | Unlimited |
-| **Professionals** | 5 | 15 | 50 | Unlimited |
-| **Monthly Bookings** | Unlimited | Unlimited | Unlimited | Unlimited |
-| **WhatsApp Reminders** | ✅ | ✅ | ✅ | ✅ |
-| **Calendar Integration** | ✅ | ✅ | ✅ | ✅ |
-| **Payments (PIX/Card)** | ❌ | ✅ | ✅ | ✅ |
-| **Commission Splits** | ❌ | ✅ | ✅ | ✅ |
-| **Digital Menu** | ❌ | ✅ | ✅ | ✅ |
-| **Virtual Tab** | ❌ | ✅ | ✅ | ✅ |
-| **Time Clock** | ❌ | ❌ | ✅ | ✅ |
-| **Inventory Management** | ❌ | ❌ | ✅ | ✅ |
-| **Tax Invoices (NFS-e)** | ❌ | ❌ | ✅ | ✅ |
-| **CRM & Campaigns** | ❌ | ❌ | ✅ | ✅ |
-| **API Access** | ❌ | ❌ | ✅ | ✅ |
-| **White-label** | ❌ | ❌ | ❌ | ✅ |
-| **Priority Support** | ❌ | ✅ | ✅ | ✅ |
-| **Dedicated Success Manager** | ❌ | ❌ | ❌ | ✅ |
+### Standardized Tiers
+
+| Feature | Grátis | Starter | Growth | Pro | Enterprise |
+|---------|--------|---------|--------|-----|------------|
+| **Price (BRL/month)** | R$ 0 | R$ 69,90 | R$ 189,90 | R$ 399,90 | Custom |
+| **Locations** | 1 | 1 | 3 | Unlimited | Unlimited |
+| **Professionals** | 2 | 5 | 15 | 50 | Unlimited |
+| **Monthly Bookings** | Limited | Unlimited | Unlimited | Unlimited | Unlimited |
+| **WhatsApp Reminders** | Limited | ✅ | ✅ (quota) | ✅ (quota) | Custom |
+| **Calendar Integration** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Payments (PIX/Card)** | ❌ | ✅ | ✅ | ✅ | ✅ |
+| **Commission Splits** | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Digital Menu / KDS** | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Virtual Tab / Orders** | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Time Clock** | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Inventory Management** | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Tax Invoices (NFS-e/NFC-e)** | ❌ | ❌ | ✅ (quota) | ✅ (quota) | Custom |
+| **CRM & Campaigns** | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **API Access** | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **White-label** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **Priority Support** | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Dedicated Success Manager** | ❌ | ❌ | ❌ | ❌ | ✅ |
+
+### Metered Billing (Pay-As-You-Go)
+
+Variable costs are billed via **metered usage** through Stripe. Growth and Pro plans include **monthly quotas**; usage above the quota is billed automatically.
+
+| Metered Item | Growth (included/month) | Pro (included/month) | Excess Billing |
+|-------------|-------------------------|------------------------|----------------|
+| **WhatsApp messages** | 150 | 300 | Per message above quota (Stripe metered) |
+| **Fiscal notes (NFS-e/NFC-e)** | 30 | 100 | Per note above quota (Stripe metered) |
+
+- **Architecture:** Usage is tracked server-side; Stripe Metered Billing (or usage-based reporting) is used to charge for excess WhatsApp messages and fiscal notes.
+- **Grátis / Starter:** No included quotas for metered items; upgrades or add-ons apply as defined.
+- **Enterprise:** Quotas and overage terms are custom per contract.
 
 ---
 
@@ -1301,6 +1374,7 @@ if (!featureCheck?.hasAccess) {
 | `npm run seed` | Seed database with demo data |
 | `npm run migrate` | Run database migrations |
 | `npm run set-admin` | Set platform admin access for a user (requires email) |
+| `npm run upgrade-admin` | Upgrade an existing user to platform admin (requires email) |
 | `npm test` | Run unit tests (Jest) |
 | `npm run test:e2e` | Run end-to-end tests (Playwright) |
 
@@ -1344,7 +1418,7 @@ Then visit: `http://demo.puncto.local:3000`
 
 2. **Business Information:**
    - Fill in business details
-   - Select industry (important for feature access)
+   - Select modality (Beauty, Health, Retail, Admin) for feature-flagging and module visibility
    - Should redirect to `/onboarding/plan`
 
 3. **Plan Selection:**
@@ -1381,33 +1455,33 @@ Then visit: `http://demo.puncto.local:3000`
 4. **Test Features:**
    - View dashboard with platform metrics
    - List all businesses
-   - Filter by status, tier, industry
+   - Filter by status, tier, modality
    - View business details
    - Manage users
 
 ### Testing Feature Access Control
 
-1. **Create Different Business Types:**
+1. **Create Different Business Modalities:**
    ```bash
-   # Create a salon business
-   # Create a restaurant business
+   # Create a Beauty-modality business
+   # Create a Retail-modality business
    ```
 
 2. **Test API Access:**
    ```bash
-   # Try accessing restaurant menu with salon business
-   curl -X GET "http://localhost:3000/api/menu?businessId=salon-id"
+   # Try accessing restaurant menu with Beauty-modality business
+   curl -X GET "http://localhost:3000/api/menu?businessId=beauty-business-id"
    # Should return 403 Forbidden
    
-   # Access with restaurant business
-   curl -X GET "http://localhost:3000/api/menu?businessId=restaurant-id"
+   # Access with Retail-modality business
+   curl -X GET "http://localhost:3000/api/menu?businessId=retail-business-id"
    # Should work if tier includes feature
    ```
 
 3. **Test UI Guards:**
-   - Log in as salon business
-   - Menu option should not appear in navigation
-   - Direct access to `/admin/menu` should show upgrade prompt
+   - Log in as Beauty-modality business
+   - Retail-only modules (e.g. KDS, menu) should not appear in navigation
+   - Direct access to `/admin/menu` should show upgrade or modality restriction
 
 ### Testing Stripe Webhooks Locally
 
@@ -1632,18 +1706,27 @@ firebase deploy --only functions:sendBookingReminder
 
 ### ✅ Phase 5: Marketing Website & Brand - **COMPLETED**
 
+**Website Navigation (Header):** Recursos, Preços, Setores, Sobre, Blog, Contato
+
+**Website Footer Structure:**
+- **Produto:** Recursos, Preços, Integrações, API, Changelog
+- **Setores:** Prestadores de Serviço (/industries/servicos), Comércio e Varejo (/industries/varejo), Gestão Corporativa (/industries/corporativo), Todos os Setores
+- **Empresa:** Sobre Nós, Blog, Carreiras, Contato, Imprensa
+- **Suporte:** Central de Ajuda (docs), Comunidade (Discord), Status, Segurança, Acessibilidade
+- **Legal:** Termos de Uso, Política de Privacidade, LGPD, Cookies
+
 **Website & Landing Pages:**
 | Feature | Status | Implementation |
 |---------|--------|----------------|
 | Brand guidelines | ✅ | `src/lib/brand/guidelines.ts` (colors, typography, spacing) |
 | Landing page | ✅ | `src/app/(marketing)/page.tsx` with Hero, Features, Testimonials |
 | Pricing page | ✅ | `src/app/(marketing)/pricing/page.tsx` |
-| Industry pages | ✅ | `src/app/(marketing)/industries/[slug]/` (salons, restaurants, clinics, bakeries) |
+| Industry pages | ✅ | `src/app/(marketing)/industries/[slug]/` (servicos, varejo, corporativo) |
 | Features page | ✅ | `src/app/(marketing)/features/page.tsx` |
 | About page | ✅ | `src/app/(marketing)/about/page.tsx` |
 | Contact page | ✅ | `src/app/(marketing)/contact/page.tsx` |
 | Blog | ✅ | `src/app/(marketing)/blog/`, `src/content/blog.ts` |
-| Legal pages | ✅ | `/legal/terms/`, `/legal/privacy/`, `/legal/lgpd/`, `/legal/cookies/` |
+| Legal pages | ✅ | `/legal/terms/`, `/legal/privacy/`, `/legal/lgpd/`, `/legal/cookies/`, `/legal/accessibility/` |
 | Press/Media kit | ✅ | `src/app/(marketing)/press/page.tsx` |
 
 **Lead Generation:**
@@ -1668,7 +1751,7 @@ firebase deploy --only functions:sendBookingReminder
 **SEO:**
 | Feature | Status | Implementation |
 |---------|--------|----------------|
-| JSON-LD structured data | ✅ | `src/lib/seo/jsonld.ts` |
+| JSON-LD structured data | ✅ | `src/lib/seo/jsonld.tsx` |
 | Sitemap | ✅ | `next-sitemap.config.js` |
 | robots.txt | ✅ | `public/robots.txt` |
 | Meta tags & Open Graph | ✅ | Metadata on all pages |
@@ -1676,6 +1759,7 @@ firebase deploy --only functions:sendBookingReminder
 **Marketing Components:**
 | Component | Status | File |
 |-----------|--------|------|
+| Logo | ✅ | `Logo.tsx` (uses `/logo.svg`, `/logo-white.svg` for dark backgrounds) |
 | Hero | ✅ | `Hero.tsx` |
 | FeatureCard | ✅ | `FeatureCard.tsx` |
 | PricingCard | ✅ | `PricingCard.tsx` |
@@ -1703,10 +1787,16 @@ firebase deploy --only functions:sendBookingReminder
 | Webinars page | ✅ | `src/app/(marketing)/webinars/page.tsx` |
 | Resources page | ✅ | `src/app/(marketing)/resources/page.tsx` |
 
+**Brand Assets:**
+| Asset | Location | Usage |
+|-------|----------|-------|
+| Logo (SVG) | `public/logo.svg` | Header, marketing pages (logo includes "Puncto" text) |
+| Logo white (SVG) | `public/logo-white.svg` | Footer dark background (optional, fallback to logo.svg) |
+| Favicon | `public/favicon.ico` | Browser tab, bookmarks, PWA |
+
 **Pending (Optional Enhancements):**
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Logo design | ⏳ | Requires design work |
 | Google Business Profile | ⏳ | Local SEO setup pending |
 | Explainer animations | ⏳ | Pending design assets |
 | Video testimonials | ⏳ | Pending recordings |
@@ -1870,8 +1960,9 @@ Copyright © 2026 Puncto. Unauthorized copying, distribution, or use is strictly
 
 - **Documentation:** [docs.puncto.com.br](https://docs.puncto.com.br)
 - **Email:** support@puncto.com.br
-- **Discord:** [discord.gg/puncto](https://discord.gg/puncto)
+- **Discord:** [discord.gg/GGX2mBejDf](https://discord.gg/GGX2mBejDf)
 - **Status Page:** [status.puncto.com.br](https://status.puncto.com.br)
+- **Social:** [Facebook](https://www.facebook.com/people/Puncto/61587093252643/) · [Instagram](https://www.instagram.com/usepuncto) · [X](https://x.com/usepuncto) · [TikTok](https://www.tiktok.com/@usepuncto) · [YouTube](https://www.youtube.com/@usepuncto)
 
 ---
 

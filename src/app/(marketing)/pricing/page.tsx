@@ -7,6 +7,11 @@ import { motion } from 'framer-motion';
 import PricingCard, { pricingPlans } from '@/components/marketing/PricingCard';
 import FAQAccordion from '@/components/marketing/FAQAccordion';
 import CTASection from '@/components/marketing/CTASection';
+import {
+  businessTypeOptions,
+  planFeaturesByBusinessType,
+  type BusinessTypeKey,
+} from '@/content/pricingByBusinessType';
 
 const pricingFAQ = [
   {
@@ -32,7 +37,7 @@ const pricingFAQ = [
   {
     question: 'O que acontece se eu ultrapassar os limites do meu plano?',
     answer:
-      'Entraremos em contato para ajudar você a escolher um plano mais adequado. Não cobramos automaticamente por excedentes. Você sempre terá a opção de fazer upgrade ou ajustar seu uso.',
+      'Nos planos Growth e Pro, você tem cotas mensais incluídas de mensagens WhatsApp e de notas fiscais (NFS-e/NFC-e). O uso acima da cota é faturado automaticamente via Stripe (Pay-As-You-Go). Você pode acompanhar o uso no painel e fazer upgrade de plano ou ajustar o uso quando quiser.',
   },
   {
     question: 'Tenho direito a suporte durante o período de teste?',
@@ -45,77 +50,93 @@ const featureComparison = [
   {
     category: 'Agendamento',
     features: [
-      { name: 'Agendamentos ilimitados', starter: true, growth: true, pro: true, enterprise: true },
-      { name: 'Lembretes WhatsApp/Email', starter: true, growth: true, pro: true, enterprise: true },
-      { name: 'Sincronização de calendário', starter: true, growth: true, pro: true, enterprise: true },
-      { name: 'Lista de espera automática', starter: true, growth: true, pro: true, enterprise: true },
-      { name: 'Bloqueio de horários', starter: true, growth: true, pro: true, enterprise: true },
+      { name: 'Agendamentos ilimitados', gratis: false, starter: true, growth: true, pro: true, enterprise: true },
+      { name: 'Lembretes WhatsApp/Email', gratis: false, starter: true, growth: true, pro: true, enterprise: true },
+      { name: 'Sincronização de calendário', gratis: true, starter: true, growth: true, pro: true, enterprise: true },
+      { name: 'Lista de espera automática', gratis: false, starter: true, growth: true, pro: true, enterprise: true },
+      { name: 'Bloqueio de horários', gratis: false, starter: true, growth: true, pro: true, enterprise: true },
     ],
   },
   {
     category: 'Pagamentos',
     features: [
-      { name: 'PIX instantâneo', starter: false, growth: true, pro: true, enterprise: true },
-      { name: 'Cartões de crédito/débito', starter: false, growth: true, pro: true, enterprise: true },
-      { name: 'Links de pagamento', starter: false, growth: true, pro: true, enterprise: true },
-      { name: 'Divisão de comissões', starter: false, growth: true, pro: true, enterprise: true },
-      { name: 'Relatórios financeiros', starter: false, growth: true, pro: true, enterprise: true },
+      { name: 'PIX instantâneo', gratis: false, starter: true, growth: true, pro: true, enterprise: true },
+      { name: 'Cartões de crédito/débito', gratis: false, starter: true, growth: true, pro: true, enterprise: true },
+      { name: 'Links de pagamento', gratis: false, starter: true, growth: true, pro: true, enterprise: true },
+      { name: 'Divisão de comissões', gratis: false, starter: false, growth: true, pro: true, enterprise: true },
+      { name: 'Relatórios financeiros', gratis: false, starter: false, growth: true, pro: true, enterprise: true },
     ],
   },
   {
-    category: 'Restaurante',
+    category: 'Uso medido (Pay-As-You-Go)',
     features: [
-      { name: 'Cardápio digital', starter: false, growth: true, pro: true, enterprise: true },
-      { name: 'Comanda virtual', starter: false, growth: true, pro: true, enterprise: true },
-      { name: 'Gestão de mesas', starter: false, growth: true, pro: true, enterprise: true },
-      { name: 'Divisão de conta', starter: false, growth: true, pro: true, enterprise: true },
-      { name: 'Impressão térmica', starter: false, growth: true, pro: true, enterprise: true },
+      { name: 'WhatsApp (cota incluída/mês)', gratis: false, starter: false, growth: true, pro: true, enterprise: true },
+      { name: 'Notas fiscais NFS-e/NFC-e (cota/mês)', gratis: false, starter: false, growth: true, pro: true, enterprise: true },
+    ],
+  },
+  {
+    category: 'Restaurante / Varejo',
+    features: [
+      { name: 'Cardápio digital', gratis: false, starter: false, growth: true, pro: true, enterprise: true },
+      { name: 'Comanda virtual', gratis: false, starter: false, growth: true, pro: true, enterprise: true },
+      { name: 'Gestão de mesas', gratis: false, starter: false, growth: true, pro: true, enterprise: true },
+      { name: 'Divisão de conta', gratis: false, starter: false, growth: true, pro: true, enterprise: true },
+      { name: 'Impressão térmica', gratis: false, starter: false, growth: true, pro: true, enterprise: true },
     ],
   },
   {
     category: 'Equipe e Operações',
     features: [
-      { name: 'Ponto eletrônico', starter: false, growth: false, pro: true, enterprise: true },
-      { name: 'Gestão de turnos', starter: false, growth: false, pro: true, enterprise: true },
-      { name: 'Banco de horas', starter: false, growth: false, pro: true, enterprise: true },
-      { name: 'Controle de estoque', starter: false, growth: false, pro: true, enterprise: true },
-      { name: 'Custeio de receitas', starter: false, growth: false, pro: true, enterprise: true },
+      { name: 'Ponto eletrônico', gratis: false, starter: false, growth: false, pro: true, enterprise: true },
+      { name: 'Gestão de turnos', gratis: false, starter: false, growth: false, pro: true, enterprise: true },
+      { name: 'Banco de horas', gratis: false, starter: false, growth: false, pro: true, enterprise: true },
+      { name: 'Controle de estoque', gratis: false, starter: false, growth: false, pro: true, enterprise: true },
+      { name: 'Custeio de receitas', gratis: false, starter: false, growth: false, pro: true, enterprise: true },
     ],
   },
   {
     category: 'CRM e Marketing',
     features: [
-      { name: 'Histórico de clientes', starter: true, growth: true, pro: true, enterprise: true },
-      { name: 'Programa de fidelidade', starter: false, growth: false, pro: true, enterprise: true },
-      { name: 'Campanhas de marketing', starter: false, growth: false, pro: true, enterprise: true },
-      { name: 'Segmentação avançada', starter: false, growth: false, pro: true, enterprise: true },
-      { name: 'Automações', starter: false, growth: false, pro: true, enterprise: true },
+      { name: 'Histórico de clientes', gratis: true, starter: true, growth: true, pro: true, enterprise: true },
+      { name: 'Programa de fidelidade', gratis: false, starter: false, growth: false, pro: true, enterprise: true },
+      { name: 'Campanhas de marketing', gratis: false, starter: false, growth: false, pro: true, enterprise: true },
+      { name: 'Segmentação avançada', gratis: false, starter: false, growth: false, pro: true, enterprise: true },
+      { name: 'Automações', gratis: false, starter: false, growth: false, pro: true, enterprise: true },
     ],
   },
   {
     category: 'Avançado',
     features: [
-      { name: 'API REST/GraphQL', starter: false, growth: false, pro: true, enterprise: true },
-      { name: 'Webhooks', starter: false, growth: false, pro: true, enterprise: true },
-      { name: 'Notas fiscais (NFS-e/NFC-e)', starter: false, growth: false, pro: true, enterprise: true },
-      { name: 'White-label', starter: false, growth: false, pro: false, enterprise: true },
-      { name: 'Gestão de franquias', starter: false, growth: false, pro: false, enterprise: true },
+      { name: 'API REST/GraphQL', gratis: false, starter: false, growth: false, pro: true, enterprise: true },
+      { name: 'Webhooks', gratis: false, starter: false, growth: false, pro: true, enterprise: true },
+      { name: 'Notas fiscais (NFS-e/NFC-e)', gratis: false, starter: false, growth: true, pro: true, enterprise: true },
+      { name: 'White-label', gratis: false, starter: false, growth: false, pro: false, enterprise: true },
+      { name: 'Gestão de franquias', gratis: false, starter: false, growth: false, pro: false, enterprise: true },
     ],
   },
   {
     category: 'Suporte',
     features: [
-      { name: 'Suporte por email', starter: true, growth: true, pro: true, enterprise: true },
-      { name: 'Suporte prioritário', starter: false, growth: true, pro: true, enterprise: true },
-      { name: 'Chat ao vivo', starter: false, growth: true, pro: true, enterprise: true },
-      { name: 'Gerente de sucesso', starter: false, growth: false, pro: false, enterprise: true },
-      { name: 'SLA garantido', starter: false, growth: false, pro: false, enterprise: true },
+      { name: 'Suporte por email', gratis: true, starter: true, growth: true, pro: true, enterprise: true },
+      { name: 'Suporte prioritário', gratis: false, starter: false, growth: true, pro: true, enterprise: true },
+      { name: 'Chat ao vivo', gratis: false, starter: false, growth: true, pro: true, enterprise: true },
+      { name: 'Gerente de sucesso', gratis: false, starter: false, growth: false, pro: false, enterprise: true },
+      { name: 'SLA garantido', gratis: false, starter: false, growth: false, pro: false, enterprise: true },
     ],
   },
 ];
 
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(true);
+  const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessTypeKey>('servicos');
+
+  const plansWithFeaturesForType = pricingPlans.map((plan) => ({
+    ...plan,
+    features:
+      plan.id in planFeaturesByBusinessType[selectedBusinessType]
+        ? planFeaturesByBusinessType[selectedBusinessType][plan.id as 'gratis' | 'starter' | 'growth' | 'pro']
+        : plan.features,
+  }));
 
   return (
     <>
@@ -131,10 +152,29 @@ export default function PricingPage() {
             <h1 className="heading-xl text-slate-900 mb-6">
               Planos para cada fase do seu negócio
             </h1>
-            <p className="body-lg mb-8">
-              Comece grátis e cresça no seu ritmo. Todos os planos incluem 14 dias de
-              teste sem compromisso.
+            <p className="body-lg mb-6">
+              Comece no plano Grátis ou escolha Starter, Growth ou Pro. Nos planos pagos,
+              cotas de WhatsApp e notas fiscais estão incluídas; uso acima da cota é
+              faturado automaticamente (Pay-As-You-Go).
             </p>
+
+            {/* Business type selector */}
+            <p className="text-sm text-slate-600 mb-2">Recursos mostrados para:</p>
+            <div className="flex flex-wrap justify-center gap-2 mb-6">
+              {businessTypeOptions.map((option) => (
+                <button
+                  key={option.id}
+                  onClick={() => setSelectedBusinessType(option.id)}
+                  className={`px-4 py-2 rounded-full font-medium transition-all text-sm ${
+                    selectedBusinessType === option.id
+                      ? 'bg-primary-600 text-white shadow-lg'
+                      : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
 
             {/* Billing toggle */}
             <div className="inline-flex items-center gap-4 bg-white rounded-full p-1.5 shadow-soft border border-slate-200">
@@ -169,8 +209,8 @@ export default function PricingPage() {
       {/* Pricing Cards */}
       <section className="section-sm bg-white -mt-8">
         <div className="container-marketing">
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-4 max-w-5xl mx-auto">
-            {pricingPlans.map((plan, index) => (
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-4 max-w-6xl mx-auto">
+            {plansWithFeaturesForType.map((plan, index) => (
               <PricingCard
                 key={plan.id}
                 plan={plan}
@@ -201,8 +241,9 @@ export default function PricingPage() {
 
           <div className="bg-white rounded-2xl shadow-soft border border-slate-200 overflow-hidden">
             {/* Header */}
-            <div className="grid grid-cols-5 bg-slate-50 border-b border-slate-200">
+            <div className="grid grid-cols-6 bg-slate-50 border-b border-slate-200">
               <div className="p-4 font-semibold text-slate-900">Recurso</div>
+              <div className="p-4 text-center font-semibold text-slate-900">Grátis</div>
               <div className="p-4 text-center font-semibold text-slate-900">Starter</div>
               <div className="p-4 text-center font-semibold text-slate-900">Growth</div>
               <div className="p-4 text-center font-semibold text-slate-900">Pro</div>
@@ -213,8 +254,8 @@ export default function PricingPage() {
             {featureComparison.map((category, catIndex) => (
               <div key={catIndex}>
                 {/* Category header */}
-                <div className="grid grid-cols-5 bg-slate-100 border-b border-slate-200">
-                  <div className="col-span-5 p-3 font-semibold text-primary-600">
+                <div className="grid grid-cols-6 bg-slate-100 border-b border-slate-200">
+                  <div className="col-span-6 p-3 font-semibold text-primary-600">
                     {category.category}
                   </div>
                 </div>
@@ -222,9 +263,20 @@ export default function PricingPage() {
                 {category.features.map((feature, featIndex) => (
                   <div
                     key={featIndex}
-                    className="grid grid-cols-5 border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                    className="grid grid-cols-6 border-b border-slate-100 hover:bg-slate-50 transition-colors"
                   >
                     <div className="p-4 text-slate-700 text-sm">{feature.name}</div>
+                    <div className="p-4 flex justify-center">
+                      {feature.gratis ? (
+                        <svg className="w-5 h-5 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      )}
+                    </div>
                     <div className="p-4 flex justify-center">
                       {feature.starter ? (
                         <svg className="w-5 h-5 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -357,7 +409,7 @@ export default function PricingPage() {
       {/* Final CTA */}
       <CTASection
         title="Comece sua transformação hoje"
-        description="14 dias grátis, sem cartão de crédito, sem compromisso."
+        description="Comece grátis ou escolha o plano ideal para o seu negócio."
         variant="gradient"
       />
     </>

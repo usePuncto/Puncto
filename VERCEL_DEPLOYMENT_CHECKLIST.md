@@ -160,6 +160,20 @@ git push origin main
 
 ---
 
+## Brand Assets (Logo & Favicon)
+
+Place your brand files in the `public/` folder:
+
+| File | Location | Usage |
+|------|----------|-------|
+| Logo (SVG) | `public/logo.svg` | Header, marketing pages (logo should include the "Puncto" text) |
+| Logo white (SVG) | `public/logo-white.svg` | Footer (dark background) – white/light version of your logo |
+| Favicon | `public/favicon.ico` | Browser tab, bookmarks, PWA |
+
+**Note:** The logo component displays only the image (no additional text), so your SVG should include the "Puncto" branding/text. For the footer on dark backgrounds, add `logo-white.svg` (light-colored version). If missing, it will fallback to `logo.svg`.
+
+---
+
 ## Support Resources
 
 - Vercel Docs: https://vercel.com/docs

@@ -7,7 +7,9 @@
   "background_color": "#ffffff",
   "theme_color": "#000000",
   "orientation": "portrait-primary",
-  "icons": [],
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "48x48", "type": "image/x-icon", "purpose": "any" }
+  ],
   "categories": ["business", "productivity"],
   "lang": "pt-BR"
 }

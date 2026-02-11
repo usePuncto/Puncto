@@ -1,28 +1,28 @@
 export const faqItems = [
   {
-    question: 'Como funciona o período de teste gratuito?',
+    question: 'Preciso pagar para começar a usar?',
     answer:
-      'Você tem 14 dias para testar todas as funcionalidades do Puncto sem compromisso e sem precisar de cartão de crédito. Ao final do período, você pode escolher um dos nossos planos ou continuar usando a versão gratuita com recursos limitados.',
+      'Não. Criamos o Plano Grátis justamente para quem está começando ou organizando a casa. Ele inclui tudo o que você precisa para sair do papel e da planilha. Você só migra para os planos Starter ou Growth quando sua operação estiver madura o suficiente para precisar de recursos avançados, como Ponto Eletrônico, WhatsApp Automático e Emissão Fiscal.',
   },
   {
     question: 'Preciso de conhecimento técnico para usar?',
     answer:
-      'Não! O Puncto foi desenvolvido para ser intuitivo e fácil de usar. Nossa equipe oferece suporte completo na configuração inicial e temos tutoriais em vídeo, documentação detalhada e suporte por chat para qualquer dúvida.',
+      'Não! A Puncto foi desenvolvida para ser intuitiva e fácil de usar. Nossa equipe oferece suporte completo na configuração inicial e temos tutoriais em vídeo, documentação detalhada e suporte por chat para qualquer dúvida.',
   },
   {
     question: 'Quais formas de pagamento são aceitas?',
     answer:
-      'Aceitamos PIX, cartões de crédito (Visa, Mastercard, Elo, Amex) e boleto bancário. Para assinatura do Puncto, você pode pagar mensalmente ou anualmente (com desconto). Para receber pagamentos dos seus clientes, oferecemos PIX instantâneo e todas as bandeiras de cartão via Stripe.',
+      'No momento aceitamos somente cartões de crédito (Visa, Mastercard, Elo, Amex). Para assinatura da Puncto, você pode pagar mensalmente ou anualmente (com desconto). Para receber pagamentos dos seus clientes, oferecemos PIX instantâneo e todas as bandeiras de cartão via Stripe.',
   },
   {
     question: 'O sistema emite nota fiscal?',
     answer:
-      'Sim! Nos planos Pro e Enterprise, você pode emitir NFS-e (serviços) e NFC-e (produtos) automaticamente. Temos integração com os principais sistemas de emissão de nota fiscal do Brasil (TecnoSpeed, eNotas, PlugNotas).',
+      'Sim! Nos planos Growth e Pro, você pode emitir NFS-e (serviços) e NFC-e (produtos) com uma cota por mês correspondente ao seu plano. Temos integração com os principais sistemas de emissão de nota fiscal do Brasil.',
   },
   {
     question: 'Posso usar o Puncto em mais de uma unidade?',
     answer:
-      'Sim! O Puncto foi desenvolvido para multi-unidades e franquias. Você pode gerenciar todas as suas unidades em um único lugar, com visão consolidada ou individual, e controle de acesso por localidade.',
+      'Sim! O Puncto foi desenvolvido para multi-unidades e franquias. A partir do plano Pro, você pode gerenciar todas as suas unidades em um único lugar, com visão consolidada ou individual, e controle de acesso por localidade.',
   },
   {
     question: 'Como funcionam as integrações com WhatsApp?',
@@ -37,7 +37,7 @@ export const faqItems = [
   {
     question: 'Posso migrar dados de outro sistema?',
     answer:
-      'Sim! Nossa equipe de suporte pode ajudar a migrar seus dados de clientes, serviços e histórico de outros sistemas. Para planos Pro e Enterprise, oferecemos migração assistida sem custo adicional.',
+      'Sim! Nossa equipe de suporte pode ajudar a migrar seus dados de clientes, serviços e histórico de outros sistemas. Para o planos Pro, oferecemos migração assistida sem custo adicional.',
   },
   {
     question: 'Existe contrato de fidelidade?',
