@@ -44,7 +44,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
         'planFeatures' in industry && industry.planFeatures
           ? industry.planFeatures[plan.id as keyof typeof industry.planFeatures]
           : plan.features,
-      cta: { text: 'Começar agora', href: '/auth/signup' },
+      cta: { text: 'Começar agora', href: '/contact' },
     };
   });
 
@@ -112,7 +112,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
               <p className="body-lg mb-8">{industry.longDescription}</p>
 
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                <Link href="/auth/signup" className="btn-primary btn-lg">
+                <Link href="/contact" className="btn-primary btn-lg">
                   Começar Grátis
                   <svg
                     className="w-5 h-5"
@@ -519,6 +519,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
       <CTASection
         title={`Pronto para transformar seu ${industry.shortName.toLowerCase()}?`}
         description="Comece gratuitamente e veja os resultados em poucos dias."
+        primaryCTA={{ text: 'Começar Grátis', href: '/contact' }}
         variant="gradient"
       />
     </>

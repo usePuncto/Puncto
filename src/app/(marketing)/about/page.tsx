@@ -288,7 +288,10 @@ export default function AboutPage() {
       </section>
 
       {/* CTA */}
-      <CTASection variant="gradient" />
+      <CTASection
+        primaryCTA={{ text: 'Começar Grátis', href: '/contact' }}
+        variant="gradient"
+      />
     </>
   );
 }

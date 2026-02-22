@@ -12,37 +12,46 @@ import {
   planFeaturesByBusinessType,
   type BusinessTypeKey,
 } from '@/content/pricingByBusinessType';
+import { featureDetailsByIndustry } from '@/content/featureDetailsByIndustry';
+
+const businessTypeToIndustrySlug: Record<BusinessTypeKey, string> = {
+  servicos: 'servicos',
+  comercio: 'varejo',
+  empresas: 'empresas',
+  saude: 'saude',
+  corporativo: 'corporativo',
+};
 
 const pricingFAQ = [
   {
-    question: 'Posso trocar de plano a qualquer momento?',
+    question: 'Preciso pagar para começar a usar?',
     answer:
-      'Sim! Você pode fazer upgrade ou downgrade do seu plano a qualquer momento. No upgrade, a diferença é calculada pro-rata. No downgrade, o novo valor será aplicado no próximo ciclo de faturamento.',
+      'Não. Criamos o Plano Grátis justamente para quem está começando ou organizando a casa. Ele inclui tudo o que você precisa para sair do papel e da planilha. Você só migra para os planos Starter ou Growth quando sua operação estiver madura o suficiente para precisar de recursos avançados, como Ponto Eletrônico, WhatsApp Automático e Emissão Fiscal.',
   },
   {
-    question: 'Como funciona o período de teste?',
+    question: 'Preciso de conhecimento técnico para usar?',
     answer:
-      'Todos os planos incluem 14 dias de teste grátis com acesso a todas as funcionalidades. Não pedimos cartão de crédito para começar. Ao final do período, você escolhe o plano que melhor atende suas necessidades.',
-  },
-  {
-    question: 'Existe fidelidade ou multa de cancelamento?',
-    answer:
-      'Não! Nossos planos são mensais e você pode cancelar a qualquer momento sem multa. Se você optou pelo plano anual e cancelar antes, fazemos a devolução proporcional dos meses restantes.',
+      'Não! A Puncto foi desenvolvida para ser intuitiva e fácil de usar. Nossa equipe oferece suporte completo na configuração inicial e temos tutoriais em vídeo, documentação detalhada e suporte por chat para qualquer dúvida.',
   },
   {
     question: 'Quais formas de pagamento são aceitas?',
     answer:
-      'Aceitamos PIX, cartões de crédito (Visa, Mastercard, Elo, Amex) e boleto bancário. Para o plano anual, você pode parcelar em até 12x no cartão.',
+      'No momento aceitamos somente cartões de crédito (Visa, Mastercard, Elo, Amex). Para assinatura da Puncto, você pode pagar mensalmente ou anualmente (com desconto). Para receber pagamentos dos seus clientes, oferecemos PIX instantâneo e todas as bandeiras de cartão via Stripe.',
   },
   {
-    question: 'O que acontece se eu ultrapassar os limites do meu plano?',
+    question: 'O sistema emite nota fiscal?',
     answer:
-      'Nos planos Growth e Pro, você tem cotas mensais incluídas de mensagens WhatsApp e de notas fiscais (NFS-e/NFC-e). O uso acima da cota é faturado automaticamente via Stripe (Pay-As-You-Go). Você pode acompanhar o uso no painel e fazer upgrade de plano ou ajustar o uso quando quiser.',
+      'Sim! Nos planos Growth e Pro, você pode emitir NFS-e (serviços) e NFC-e (produtos) com uma cota por mês correspondente ao seu plano. Temos integração com os principais sistemas de emissão de nota fiscal do Brasil.',
   },
   {
-    question: 'Tenho direito a suporte durante o período de teste?',
+    question: 'Posso usar o Puncto em mais de uma unidade?',
     answer:
-      'Claro! Durante o período de teste você tem acesso ao mesmo suporte do plano escolhido. Nossa equipe está disponível para ajudar na configuração inicial e tirar todas as dúvidas.',
+      'Sim! O Puncto foi desenvolvido para multi-unidades e franquias. A partir do plano Pro, você pode gerenciar todas as suas unidades em um único lugar, com visão consolidada ou individual, e controle de acesso por localidade.',
+  },
+  {
+    question: 'Tenho direito a suporte no plano Grátis?',
+    answer:
+      'Claro! Mesmo no plano Grátis você tem acesso ao nosso suporte em horário comercial. Nossa equipe está disponível para ajudar na configuração inicial e tirar todas as dúvidas.',
   },
 ];
 
@@ -130,13 +139,24 @@ export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(true);
   const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessTypeKey>('servicos');
 
-  const plansWithFeaturesForType = pricingPlans.map((plan) => ({
-    ...plan,
-    features:
-      plan.id in planFeaturesByBusinessType[selectedBusinessType]
-        ? planFeaturesByBusinessType[selectedBusinessType][plan.id as 'gratis' | 'starter' | 'growth' | 'pro']
-        : plan.features,
-  }));
+  const industrySlug = businessTypeToIndustrySlug[selectedBusinessType];
+  const detailsForBusinessType = featureDetailsByIndustry[industrySlug];
+
+  const plansWithFeaturesForType = pricingPlans.map((plan) => {
+    const planDetails = detailsForBusinessType?.[plan.id];
+    return {
+      ...plan,
+      description: planDetails?.intro ?? plan.description,
+      features:
+        plan.id in planFeaturesByBusinessType[selectedBusinessType]
+          ? planFeaturesByBusinessType[selectedBusinessType][plan.id as 'gratis' | 'starter' | 'growth' | 'pro']
+          : plan.features,
+      cta: {
+        ...plan.cta,
+        href: `/industries/${industrySlug}`,
+      },
+    };
+  });
 
   return (
     <>
@@ -410,6 +430,7 @@ export default function PricingPage() {
       <CTASection
         title="Comece sua transformação hoje"
         description="Comece grátis ou escolha o plano ideal para o seu negócio."
+        primaryCTA={{ text: 'Começar Grátis', href: '/contact' }}
         variant="gradient"
       />
     </>

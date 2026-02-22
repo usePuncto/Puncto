@@ -13,6 +13,7 @@ import PricingCard, { pricingPlans } from '@/components/marketing/PricingCard';
 import { features } from '@/content/features';
 import { faqItems } from '@/content/faq';
 import { industries, industryIcons } from '@/content/industries';
+import { featureDetailsByIndustry } from '@/content/featureDetailsByIndustry';
 import {
   businessTypeOptions,
   planFeaturesByBusinessType,
@@ -36,17 +37,23 @@ export default function HomePage() {
 
   const industrySlug = businessTypeToIndustrySlug[selectedBusinessType];
 
-  const plansWithFeaturesForType = pricingPlans.map((plan) => ({
-    ...plan,
-    features:
-      plan.id in planFeaturesByBusinessType[selectedBusinessType]
-        ? planFeaturesByBusinessType[selectedBusinessType][plan.id as 'gratis' | 'starter' | 'growth' | 'pro']
-        : plan.features,
-    cta: {
-      ...plan.cta,
-      href: `/industries/${industrySlug}`,
-    },
-  }));
+  const detailsForBusinessType = featureDetailsByIndustry[industrySlug];
+
+  const plansWithFeaturesForType = pricingPlans.map((plan) => {
+    const planDetails = detailsForBusinessType?.[plan.id];
+    return {
+      ...plan,
+      description: planDetails?.intro ?? plan.description,
+      features:
+        plan.id in planFeaturesByBusinessType[selectedBusinessType]
+          ? planFeaturesByBusinessType[selectedBusinessType][plan.id as 'gratis' | 'starter' | 'growth' | 'pro']
+          : plan.features,
+      cta: {
+        ...plan.cta,
+        href: `/industries/${industrySlug}`,
+      },
+    };
+  });
 
   return (
     <>
@@ -484,7 +491,7 @@ export default function HomePage() {
       <CTASection
         title="Pronto para transformar seu negócio?"
         description="Comece gratuitamente e descubra como o Puncto pode simplificar a gestão do seu negócio."
-        primaryCTA={{ text: 'Começar Grátis', href: `/industries/${industrySlug}` }}
+        primaryCTA={{ text: 'Começar Grátis', href: '/contact' }}
         secondaryCTA={{ text: 'Agendar Demonstração', href: '/demo' }}
         variant="gradient"
       />

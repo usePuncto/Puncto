@@ -136,7 +136,7 @@ export default function FeaturesPage() {
                     </ul>
 
                     <div className="flex gap-4">
-                      <Link href="/auth/signup" className="btn-primary btn-sm">
+                      <Link href="/industries" className="btn-primary btn-sm">
                         Experimentar grátis
                       </Link>
                       <Link href="/demo" className="btn-ghost btn-sm">
@@ -382,6 +382,7 @@ console.log('Agendamento criado:', booking.id);`}</code>
       <CTASection
         title="Pronto para explorar?"
         description="Comece gratuitamente e descubra como o Puncto pode simplificar a gestão do seu negócio."
+        primaryCTA={{ text: 'Começar Grátis', href: '/contact' }}
         variant="gradient"
       />
     </>

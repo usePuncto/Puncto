@@ -1,3 +1,9 @@
+/*
+ * ExitIntentPopup - Temporarily disabled
+ * This component will be re-enabled once the login/signup flow is ready.
+ */
+
+/*
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -75,7 +81,7 @@ export default function ExitIntentPopup({ delay = 5000 }: ExitIntentPopupProps) 
     <AnimatePresence>
       {isVisible && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop *}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -84,7 +90,7 @@ export default function ExitIntentPopup({ delay = 5000 }: ExitIntentPopupProps) 
             className="fixed inset-0 bg-black/50 z-50"
           />
 
-          {/* Popup */}
+          {/* Popup *}
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -92,7 +98,7 @@ export default function ExitIntentPopup({ delay = 5000 }: ExitIntentPopupProps) 
             className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-full max-w-lg p-4"
           >
             <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-              {/* Close button */}
+              {/* Close button *}
               <button
                 onClick={handleClose}
                 className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 z-10"
@@ -112,7 +118,7 @@ export default function ExitIntentPopup({ delay = 5000 }: ExitIntentPopupProps) 
                 </svg>
               </button>
 
-              {/* Content */}
+              {/* Content *}
               <div className="p-8">
                 {!submitted ? (
                   <>
@@ -198,7 +204,7 @@ export default function ExitIntentPopup({ delay = 5000 }: ExitIntentPopupProps) 
                 )}
               </div>
 
-              {/* Footer */}
+              {/* Footer *}
               <div className="bg-slate-50 px-8 py-4 text-center">
                 <button
                   onClick={handleClose}
@@ -213,4 +219,9 @@ export default function ExitIntentPopup({ delay = 5000 }: ExitIntentPopupProps) 
       )}
     </AnimatePresence>
   );
+}
+*/
+
+export default function ExitIntentPopup() {
+  return null;
 }

@@ -1,7 +1,7 @@
 import Header from '@/components/marketing/Header';
 import Footer from '@/components/marketing/Footer';
 import CookieConsent from '@/components/marketing/CookieConsent';
-import ExitIntentPopup from '@/components/marketing/ExitIntentPopup';
+// import ExitIntentPopup from '@/components/marketing/ExitIntentPopup'; // Temporarily disabled
 import GoogleAnalytics from '@/components/analytics/GoogleAnalytics';
 import FacebookPixel from '@/components/analytics/FacebookPixel';
 import HotjarAnalytics, { ClarityAnalytics } from '@/components/analytics/HotjarAnalytics';
@@ -101,8 +101,8 @@ export default function MarketingLayout({
       {/* Cookie Consent Banner */}
       <CookieConsent />
       
-      {/* Exit Intent Popup */}
-      <ExitIntentPopup />
+      {/* Exit Intent Popup - Temporarily disabled */}
+      {/* <ExitIntentPopup /> */}
     </div>
   );
 }
