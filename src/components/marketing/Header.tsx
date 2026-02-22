@@ -10,7 +10,7 @@ const navigation = [
   { name: 'Preços', href: '/pricing' },
   { name: 'Setores', href: '/industries' },
   { name: 'Sobre', href: '/about' },
-  { name: 'Blog', href: '/blog' },
+  // { name: 'Blog', href: '/blog' }, // Commented out until we have blog content
   { name: 'Contato', href: '/contact' },
 ];
 
@@ -53,7 +53,7 @@ export default function Header() {
             ))}
           </div>
 
-          {/* Desktop CTA Buttons */}
+          {/* Desktop CTA Buttons - Commented out until auth is ready
           <div className="hidden lg:flex items-center gap-4">
             <Link
               href="/auth/login"
@@ -65,6 +65,7 @@ export default function Header() {
               Começar Grátis
             </Link>
           </div>
+          */}
 
           {/* Mobile Menu Button */}
           <button
@@ -119,6 +120,7 @@ export default function Header() {
                   {item.name}
                 </Link>
               ))}
+              {/* Mobile CTA Buttons - Commented out until auth is ready
               <div className="pt-4 border-t border-slate-100 space-y-2">
                 <Link
                   href="/auth/login"
@@ -135,6 +137,7 @@ export default function Header() {
                   Começar Grátis
                 </Link>
               </div>
+              */}
             </div>
           </motion.div>
         )}

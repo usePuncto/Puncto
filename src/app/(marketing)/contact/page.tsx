@@ -100,38 +100,7 @@ function ContactContent() {
                   </div>
                 </div>
 
-                {/* Address */}
-                <div className="flex gap-4">
-                  <div className="w-12 h-12 bg-accent-100 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <svg
-                      className="w-6 h-6 text-accent-600"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900">Localização</h3>
-                    <p className="text-slate-600">
-                      Empresa brasileira focada em soluções SaaS
-                      <br />
-                      para pequenos e médios negócios
-                    </p>
-                  </div>
-                </div>
+                
               </div>
 
               {/* Quick Links */}
@@ -195,28 +164,7 @@ function ContactContent() {
         </div>
       </section>
 
-      {/* Map Placeholder */}
-      <section className="h-96 bg-slate-200 relative">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-center text-slate-400">
-            <svg
-              className="w-16 h-16 mx-auto mb-4 text-slate-300"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-              />
-            </svg>
-            <p className="font-medium">Mapa será exibido aqui</p>
-            <p className="text-sm">Integração com Google Maps</p>
-          </div>
-        </div>
-      </section>
+      
     </>
   );
 }

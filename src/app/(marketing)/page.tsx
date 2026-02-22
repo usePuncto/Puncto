@@ -19,6 +19,14 @@ import {
   type BusinessTypeKey,
 } from '@/content/pricingByBusinessType';
 
+const businessTypeToIndustrySlug: Record<BusinessTypeKey, string> = {
+  servicos: 'servicos',
+  comercio: 'varejo',
+  empresas: 'empresas',
+  saude: 'saude',
+  corporativo: 'corporativo',
+};
+
 export default function HomePage() {
   const [selectedIndustry, setSelectedIndustry] = useState(industries[0].id);
   const [isAnnual, setIsAnnual] = useState(true);
@@ -26,12 +34,18 @@ export default function HomePage() {
 
   const activeIndustry = industries.find((i) => i.id === selectedIndustry) || industries[0];
 
+  const industrySlug = businessTypeToIndustrySlug[selectedBusinessType];
+
   const plansWithFeaturesForType = pricingPlans.map((plan) => ({
     ...plan,
     features:
       plan.id in planFeaturesByBusinessType[selectedBusinessType]
         ? planFeaturesByBusinessType[selectedBusinessType][plan.id as 'gratis' | 'starter' | 'growth' | 'pro']
         : plan.features,
+    cta: {
+      ...plan.cta,
+      href: `/industries/${industrySlug}`,
+    },
   }));
 
   return (
@@ -470,7 +484,7 @@ export default function HomePage() {
       <CTASection
         title="Pronto para transformar seu negócio?"
         description="Comece gratuitamente e descubra como o Puncto pode simplificar a gestão do seu negócio."
-        primaryCTA={{ text: 'Começar Grátis', href: '/auth/signup' }}
+        primaryCTA={{ text: 'Começar Grátis', href: `/industries/${industrySlug}` }}
         secondaryCTA={{ text: 'Agendar Demonstração', href: '/demo' }}
         variant="gradient"
       />

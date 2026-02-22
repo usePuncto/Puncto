@@ -38,8 +38,8 @@ export default function CTASection({
 
   const descClasses = {
     default: 'text-slate-600',
-    gradient: 'text-primary-100',
-    dark: 'text-slate-300',
+    gradient: '!text-white',
+    dark: '!text-white',
   };
 
   return (

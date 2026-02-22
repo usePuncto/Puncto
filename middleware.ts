@@ -72,6 +72,11 @@ export async function middleware(request: NextRequest) {
 
   // Main domain (marketing site)
   if (!subdomain || subdomain === 'www' || hostname === 'puncto.com.br') {
+    // Redirect blog routes - commented out until we have blog content
+    if (url.pathname === '/blog' || url.pathname.startsWith('/blog/')) {
+      return NextResponse.redirect(new URL('/', request.url));
+    }
+
     // Allow marketing routes to pass through
     // Marketing pages are in (marketing) route group
     console.log('[Middleware] No subdomain or www/main domain, passing through to marketing site');

@@ -15,6 +15,8 @@ module.exports = {
     '/platform/*',
     '/404',
     '/500',
+    '/blog', // Commented out until we have blog content
+    '/blog/*', // Commented out until we have blog content
   ],
   
   // Custom transformations

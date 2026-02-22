@@ -1,10 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
 import { Industry, industryIcons } from '@/content/industries';
 import { features } from '@/content/features';
+import { featureDetailsByIndustry, addOnContentByIndustry } from '@/content/featureDetailsByIndustry';
+import PricingCard, { pricingPlans } from '@/components/marketing/PricingCard';
+import type { PricingPlan } from '@/components/marketing/PricingCard';
 import TestimonialCard, { testimonials } from '@/components/marketing/TestimonialCard';
 import CTASection from '@/components/marketing/CTASection';
 
@@ -21,11 +25,28 @@ const industryFeatureMap: Record<string, string[]> = {
   corporativo: ['scheduling', 'payments', 'crm', 'analytics'],
 };
 
+const planIds = ['gratis', 'starter', 'growth', 'pro'] as const;
+
 export default function IndustryPageClient({ industry }: IndustryPageClientProps) {
+  const [isAnnual, setIsAnnual] = useState(true);
   const relevantFeatureIds = industryFeatureMap[industry.id] || [];
   const relevantFeatures = features.filter((f) =>
     relevantFeatureIds.includes(f.id)
   );
+
+  const detailsForIndustry = featureDetailsByIndustry[industry.slug];
+  const plansForIndustry: PricingPlan[] = pricingPlans.map((plan) => {
+    const details = detailsForIndustry?.[plan.id];
+    return {
+      ...plan,
+      description: details?.intro ?? plan.description,
+      features:
+        'planFeatures' in industry && industry.planFeatures
+          ? industry.planFeatures[plan.id as keyof typeof industry.planFeatures]
+          : plan.features,
+      cta: { text: 'Começar agora', href: '/auth/signup' },
+    };
+  });
 
   // Get a relevant testimonial (in real app, filter by industry)
   const relevantTestimonial = testimonials[0];
@@ -188,6 +209,172 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
             </p>
           </motion.div>
 
+          {/* Detailed feature descriptions - BEFORE plan cards */}
+          {detailsForIndustry && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mb-12"
+            >
+              <h3 className="heading-md text-slate-900 mb-6 text-center">
+                Detalhes de cada funcionalidade
+              </h3>
+              <p className="body-md text-slate-600 text-center max-w-2xl mx-auto mb-8">
+                Entenda em profundidade o que cada plano oferece para {industry.name.toLowerCase()}.
+              </p>
+              <div className="space-y-6">
+                {planIds.map((planId) => {
+                  const planDetails = detailsForIndustry[planId];
+                  if (!planDetails) return null;
+                  const planLabels: Record<string, string> = {
+                    gratis: 'Grátis',
+                    starter: 'Starter',
+                    growth: 'Growth',
+                    pro: 'Pro',
+                  };
+                  const planColors: Record<string, string> = {
+                    gratis: 'from-slate-50 to-slate-100 border-slate-200',
+                    starter: 'from-primary-50 to-primary-100/50 border-primary-200',
+                    growth: 'from-secondary-50 to-secondary-100/50 border-secondary-200',
+                    pro: 'from-amber-50 to-amber-100/50 border-amber-200',
+                  };
+                  return (
+                    <motion.div
+                      key={planId}
+                      initial={{ opacity: 0, y: 10 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      className={`rounded-2xl border bg-gradient-to-br ${planColors[planId]} p-6 md:p-8 shadow-sm hover:shadow-md transition-shadow`}
+                    >
+                      <h4 className="font-bold text-slate-900 text-lg mb-2">
+                        Plano {planLabels[planId]}
+                      </h4>
+                      <p className="text-slate-600 text-sm mb-6">
+                        {planDetails.intro}
+                      </p>
+                      <div className="space-y-4">
+                        {planDetails.features.map((feat, i) => (
+                          <div key={i} className="bg-white/90 rounded-xl p-4 shadow-sm border border-slate-100">
+                            <h5 className="font-semibold text-slate-800 text-base mb-2">
+                              {feat.title}
+                            </h5>
+                            <p className="text-slate-600 text-sm leading-relaxed">
+                              {feat.description}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Plan cards - same style as index page */}
+          {'planFeatures' in industry && industry.planFeatures && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mb-12"
+            >
+              <h3 className="heading-md text-slate-900 mb-6 text-center">
+                O que está incluído em cada plano
+              </h3>
+
+              {/* Billing toggle */}
+              <div className="flex justify-center mb-8">
+                <div className="inline-flex items-center gap-4 bg-white rounded-full p-1 shadow-soft border border-slate-200">
+                  <button
+                    onClick={() => setIsAnnual(false)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      !isAnnual
+                        ? 'bg-primary-600 text-white'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Mensal
+                  </button>
+                  <button
+                    onClick={() => setIsAnnual(true)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      isAnnual
+                        ? 'bg-primary-600 text-white'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Anual
+                    <span className="ml-2 text-xs bg-secondary-500 text-white px-2 py-0.5 rounded-full">
+                      -20%
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {plansForIndustry.map((plan, index) => (
+                  <PricingCard
+                    key={plan.id}
+                    plan={plan}
+                    isAnnual={isAnnual}
+                    index={index}
+                  />
+                ))}
+              </div>
+
+              {addOnContentByIndustry[industry.slug] && (
+                <div className="mt-6 rounded-2xl bg-gradient-to-br from-primary-50 via-secondary-50/30 to-primary-50/50 border border-primary-200/80 p-6 md:p-8 shadow-sm">
+                  <h4 className="font-bold text-slate-900 text-lg mb-3">
+                    {addOnContentByIndustry[industry.slug].title}
+                  </h4>
+                  <p className="text-slate-700 text-sm leading-relaxed">
+                    {addOnContentByIndustry[industry.slug].description}
+                  </p>
+                </div>
+              )}
+
+              {/* Transparency info box */}
+              <div className="mt-8 p-6 md:p-8 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100/80 border border-slate-200 shadow-sm">
+                <h4 className="font-bold text-slate-900 text-lg mb-4">
+                  📋 Transparência: Entenda os limites do seu plano
+                </h4>
+                <p className="text-slate-700 mb-6 text-sm leading-relaxed">
+                  Nós crescemos junto com a sua empresa. Nossos planos possuem cotas desenhadas para atender diferentes estágios do seu negócio, garantindo que você só pague por aquilo que realmente precisa.
+                </p>
+                <div className="space-y-5 mb-5">
+                  <div className="bg-white/80 rounded-xl p-4 border border-slate-200/60">
+                    <p className="text-slate-800 font-semibold text-sm mb-2">👥 Limite de Colaboradores (Usuários no sistema)</p>
+                    <ul className="text-sm text-slate-600 space-y-1 ml-4">
+                      <li><strong>Starter:</strong> Até 10 colaboradores.</li>
+                      <li><strong>Growth:</strong> Até 20 colaboradores.</li>
+                      <li><strong>Pro:</strong> Até 30 colaboradores.</li>
+                    </ul>
+                    <p className="text-sm text-slate-500 italic mt-2">
+                      (Sua operação é maior? Fale com nosso time de vendas para montarmos um plano personalizado para o seu tamanho!)
+                    </p>
+                  </div>
+                  <div className="bg-white/80 rounded-xl p-4 border border-slate-200/60">
+                    <p className="text-slate-800 font-semibold text-sm mb-2">🚀 Cotas de Automação (WhatsApp e Notas Fiscais)</p>
+                    <p className="text-slate-600 text-sm mb-2">Disponíveis nos planos mais avançados para turbinar sua operação mensalmente:</p>
+                    <ul className="text-sm text-slate-600 space-y-1 ml-4">
+                      <li><strong>Growth:</strong> 150 mensagens de WhatsApp automáticas e 30 Notas Fiscais.</li>
+                      <li><strong>Pro:</strong> 300 mensagens de WhatsApp automáticas e 100 Notas Fiscais.</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="pt-4 border-t border-slate-200">
+                  <p className="text-slate-800 font-semibold text-sm mb-1">💡 E se eu ultrapassar a minha cota no mês?</p>
+                  <p className="text-slate-600 text-sm leading-relaxed">
+                    Fique tranquilo, o Puncto não vai travar a sua operação! Nós trabalhamos com o modelo Pay As You Go (pague pelo que usar). Se você tiver um mês de pico de vendas e precisar emitir mais notas ou enviar mais mensagens automáticas, o sistema continuará funcionando normalmente. O uso excedente será cobrado de forma avulsa apenas na sua próxima fatura, com valores super acessíveis.
+                  </p>
+                </div>
+              </div>
+
+            </motion.div>
+          )}
+
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {industry.benefits.map((benefit, index) => (
               <motion.div
@@ -313,7 +500,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
         </div>
       </section>
 
-      {/* Testimonial */}
+      {/* Testimonial - Commented out until we have real testimonials
       <section className="section bg-slate-50">
         <div className="container-marketing">
           <motion.div
@@ -326,6 +513,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
           </motion.div>
         </div>
       </section>
+      */}
 
       {/* CTA */}
       <CTASection

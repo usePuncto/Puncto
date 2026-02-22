@@ -46,9 +46,8 @@ export default function Hero() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              Plataforma SaaS completa para salões, restaurantes e clínicas. 
-              E também desenvolvemos sistemas sob medida para indústrias e grandes empresas. 
-              Tecnologia que se adapta ao seu negócio.
+              Seja com nossa plataforma de gestão pronta ou com desenvolvimento exclusivo para grandes indústrias, 
+              entregamos a solução exata que a sua operação exige
             </motion.p>
 
             {/* CTA Buttons */}

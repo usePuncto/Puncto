@@ -1,3 +1,9 @@
+/** Plan IDs used for feature availability */
+export type PlanId = 'gratis' | 'starter' | 'growth' | 'pro';
+
+/** Features available per plan for this business type */
+export type PlanFeatures = Record<PlanId, string[]>;
+
 export const industries = [
   {
     id: 'services',
@@ -30,6 +36,34 @@ export const industries = [
         increaseLabel: 'previsibilidade de caixa'
     },
     color: 'primary',
+    /** Features by subscription plan — everything this segment can access on the platform */
+    planFeatures: {
+      gratis: [
+        'Agendamentos digitais ilimitados (Link na Bio)',
+        'Cadastro e histórico de clientes',
+      ],
+      starter: [
+        'Tudo do Grátis',
+        'Lembretes automáticos por e-mail + manuais por WhatsApp',
+        'Relatório financeiro',
+      ],
+      growth: [
+        'Tudo do Starter',
+        'Lista de espera',
+        'WhatsApp Automático',
+        'Pagamentos PIX e cartão',
+        'Emissão de NFS-e',
+      ],
+      pro: [
+        'Tudo do Growth',
+        'Multi-agendas (Equipes)',
+        'DRE Gerencial + Metas',
+        'CRM (Aniversário/Retenção)',
+        'Controle de estoque completo',
+      ],
+    },
+    addOnNote:
+      'Você pode ativar funcionalidades de outros segmentos na plataforma (como cardápio/pedidos, ponto eletrônico, multi-estoque ou gestão de contratos) através de add-ons pagos, sem precisar mudar de plano.',
   },
   {
     id: 'retail',
@@ -62,12 +96,39 @@ export const industries = [
         increaseLabel: 'total dos insumos'
     },
     color: 'secondary',
+    planFeatures: {
+      gratis: [
+        'Vitrine digital (Link na Bio)',
+        'Cadastro e histórico de clientes',
+      ],
+      starter: [
+        'Tudo do Grátis',
+        'Controle de estoque simples',
+        'Relatório financeiro',
+      ],
+      growth: [
+        'Tudo do Starter',
+        'Cardápio/Catálogo QR Code + Pedidos',
+        'WhatsApp Automático',
+        'Pagamentos PIX e cartão',
+        'Emissão NFC-e/NFE',
+      ],
+      pro: [
+        'Tudo do Growth',
+        'Multi-estoque/Depósitos',
+        'Ponto eletrônico',
+        'DRE Gerencial + Metas',
+        'Controle de estoque completo',
+      ],
+    },
+    addOnNote:
+      'Funcionalidades de outros segmentos (agenda com lembretes, lista de espera, CRM e multi-agendas para equipes) podem ser habilitadas como add-ons pagos, permitindo combinar comércio com gestão de serviços.',
   },
   {
     id: 'corporate',
     slug: 'empresas',
     name: 'Grandes Empresas e Indústrias',
-    shortName: 'Empresas',
+    shortName: 'Indústria',
     icon: 'calendar',
     description:
       'Desenvolvimento customizado para indústrias, fábricas e grandes corporações.',
@@ -94,6 +155,33 @@ export const industries = [
         increaseLabel: 'operacional aumentada'
     },
     color: 'accent',
+    planFeatures: {
+      gratis: [
+        'Relatórios simples',
+        'Cadastro de funcionários',
+      ],
+      starter: [
+        'Tudo do Grátis',
+        'Controle de estoque simples',
+        'Ponto eletrônico',
+      ],
+      growth: [
+        'Tudo do Starter',
+        'Gestão de contratos',
+        'Ordem de produção automática',
+        'Banco de horas',
+        'Emissão NFC-e/NFE',
+      ],
+      pro: [
+        'Tudo do Growth',
+        'Multi-estoque/Depósitos',
+        'Integração com outras plataformas',
+        'Relatório financeiro completo',
+        'Controle de estoque completo',
+      ],
+    },
+    addOnNote:
+      'Recursos de outros segmentos (agendamento, cardápio/pedidos, WhatsApp automático, DRE gerencial e centros de custo) estão disponíveis como add-ons, para adaptar a plataforma ao seu processo industrial.',
   },
   {
     id: 'health',
@@ -126,12 +214,39 @@ export const industries = [
         increaseLabel: 'e previsibilidade'
     },
     color: 'primary',
+    planFeatures: {
+      gratis: [
+        'Agendamentos digitais ilimitados (Link na Bio)',
+        'Cadastro e histórico de pacientes',
+      ],
+      starter: [
+        'Tudo do Grátis',
+        'Lembretes automáticos por e-mail + manuais por WhatsApp',
+        'Relatório financeiro',
+      ],
+      growth: [
+        'Tudo do Starter',
+        'Lista de espera',
+        'WhatsApp Automático',
+        'Pagamentos PIX e cartão',
+        'Emissão de NFS-e',
+      ],
+      pro: [
+        'Tudo do Growth',
+        'Multi-agendas (Equipes)',
+        'DRE Gerencial + Metas',
+        'CRM (Aniversário/Retenção)',
+        'Controle de estoque completo',
+      ],
+    },
+    addOnNote:
+      'É possível incluir ferramentas de outros segmentos (controle de estoque avançado, ponto eletrônico, gestão de contratos ou centros de custo) mediante add-ons pagos, mantendo o foco em saúde.',
   },
   {
     id: 'corporativo',
     slug: 'corporativo',
     name: 'Gestão Corporativa',
-    shortName: 'Corporativo',
+    shortName: 'Escritório',
     icon: 'calendar',
     description:
       'Back-office, múltiplas unidades e gestão centralizada para grupos e redes.',
@@ -158,6 +273,33 @@ export const industries = [
         increaseLabel: 'centralizado'
     },
     color: 'secondary',
+    planFeatures: {
+      gratis: [
+        'Relatórios simples',
+        'Cadastro de funcionários',
+      ],
+      starter: [
+        'Tudo do Grátis',
+        'Contatos automáticos por e-mail + manuais por WhatsApp',
+        'Ponto eletrônico',
+      ],
+      growth: [
+        'Tudo do Starter',
+        'Gestão de contratos',
+        'WhatsApp Automático',
+        'Banco de horas',
+        'Emissão NFC-e/NFE',
+      ],
+      pro: [
+        'Tudo do Growth',
+        'DRE Gerencial + Metas',
+        'Integração com outras plataformas',
+        'Centros de Custo',
+        'Gestão de Franquia',
+      ],
+    },
+    addOnNote:
+      'Você pode adicionar funcionalidades de outros segmentos (agenda com lembretes, lista de espera, controle de estoque, cardápio/pedidos ou CRM) através de add-ons com valor acessível, unificando operações em um só lugar.',
   },
 ];
 

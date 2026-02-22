@@ -26,7 +26,7 @@ export default function FeaturesPage() {
   const filteredFeatures =
     activeCategory === 'all'
       ? features
-      : features.filter((f) => f.id === activeCategory);
+      : features.filter((f) => f.categories.includes(activeCategory));
 
   return (
     <>
@@ -169,6 +169,54 @@ export default function FeaturesPage() {
               </motion.div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Pay As You Go / Transparency Section */}
+      <section className="section bg-white">
+        <div className="container-marketing">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="max-w-3xl mx-auto"
+          >
+            <div className="p-6 md:p-8 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100/80 border border-slate-200 shadow-sm">
+              <h3 className="font-bold text-slate-900 text-xl mb-4">
+                📋 Transparência: Entenda os limites do seu plano
+              </h3>
+              <p className="text-slate-700 mb-6 leading-relaxed">
+                Nós crescemos junto com a sua empresa. Nossos planos possuem cotas desenhadas para atender diferentes estágios do seu negócio, garantindo que você só pague por aquilo que realmente precisa.
+              </p>
+              <div className="space-y-5 mb-5">
+                <div className="bg-white/80 rounded-xl p-4 border border-slate-200/60">
+                  <p className="text-slate-800 font-semibold text-sm mb-2">👥 Limite de Colaboradores (Usuários no sistema)</p>
+                  <ul className="text-sm text-slate-600 space-y-1 ml-4">
+                    <li><strong>Starter:</strong> Até 10 colaboradores.</li>
+                    <li><strong>Growth:</strong> Até 20 colaboradores.</li>
+                    <li><strong>Pro:</strong> Até 30 colaboradores.</li>
+                  </ul>
+                  <p className="text-sm text-slate-500 italic mt-2">
+                    (Sua operação é maior? Fale com nosso time de vendas para montarmos um plano personalizado para o seu tamanho!)
+                  </p>
+                </div>
+                <div className="bg-white/80 rounded-xl p-4 border border-slate-200/60">
+                  <p className="text-slate-800 font-semibold text-sm mb-2">🚀 Cotas de Automação (WhatsApp e Notas Fiscais)</p>
+                  <p className="text-slate-600 text-sm mb-2">Disponíveis nos planos mais avançados para turbinar sua operação mensalmente:</p>
+                  <ul className="text-sm text-slate-600 space-y-1 ml-4">
+                    <li><strong>Growth:</strong> 150 mensagens de WhatsApp automáticas e 30 Notas Fiscais.</li>
+                    <li><strong>Pro:</strong> 300 mensagens de WhatsApp automáticas e 100 Notas Fiscais.</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="pt-4 border-t border-slate-200">
+                <p className="text-slate-800 font-semibold text-sm mb-1">💡 E se eu ultrapassar a minha cota no mês?</p>
+                <p className="text-slate-600 text-sm leading-relaxed">
+                  Fique tranquilo, o Puncto não vai travar a sua operação! Nós trabalhamos com o modelo Pay As You Go (pague pelo que usar). Se você tiver um mês de pico de vendas e precisar emitir mais notas ou enviar mais mensagens automáticas, o sistema continuará funcionando normalmente. O uso excedente será cobrado de forma avulsa apenas na sua próxima fatura, com valores super acessíveis.
+                </p>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
@@ -333,7 +381,7 @@ console.log('Agendamento criado:', booking.id);`}</code>
       {/* CTA */}
       <CTASection
         title="Pronto para explorar?"
-        description="Teste todas as funcionalidades gratuitamente por 14 dias."
+        description="Comece gratuitamente e descubra como o Puncto pode simplificar a gestão do seu negócio."
         variant="gradient"
       />
     </>

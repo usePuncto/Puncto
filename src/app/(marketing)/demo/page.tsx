@@ -55,7 +55,7 @@ export default function DemoPage() {
                 ))}
               </div>
 
-              {/* Testimonial */}
+              {/* Testimonial - Commented out until we have real testimonials
               <div className="bg-white rounded-xl p-6 shadow-soft border border-slate-100">
                 <div className="flex gap-1 mb-3">
                   {[...Array(5)].map((_, i) => (
@@ -88,6 +88,7 @@ export default function DemoPage() {
                   </div>
                 </div>
               </div>
+              */}
             </motion.div>
 
             {/* Right: Form */}

@@ -1,44 +1,57 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
 import CTASection from '@/components/marketing/CTASection';
 import StatsCounter from '@/components/marketing/StatsCounter';
 
-// Team information will be added when available
-const teamMembers: Array<{ name: string; role: string; bio: string }> = [];
+const teamMembers = [
+  {
+    name: 'Vinícius Quadros',
+    role: 'Co-fundador & CEO',
+    bio: 'Engenheiro de Software, Vinícius atua como sócio e CEO na Puncto, onde está diretamente envolvido no desenvolvimento do sistema. Sua missão é garantir a entrega do que existe de melhor no mercado, cuidando não só da parte técnica e do código, mas também auxiliando em todas as decisões estratégicas que moldam o produto.',
+    image: '/team/fotoVinicius.png',
+  },
+  {
+    name: 'Beatriz Marques',
+    role: 'Co-fundadora & COO',
+    bio: 'Como sócia e COO, Beatriz une sua visão de empresária à sua expertise técnica como Engenheira de Software para guiar as operações da Puncto. Sua paixão pela tecnologia a impulsiona a traduzir desafios complexos de mercado em soluções escaláveis, garantindo que o sistema seja não apenas robusto no back-end, mas incrivelmente intuitivo para o usuário final.',
+    image: '/team/fotoBeatriz.png',
+  },
+];
 
 const values = [
   {
-    title: 'Simplicidade',
+    title: 'Modularidade',
     description:
-      'Acreditamos que a tecnologia deve simplificar a vida, não complicar. Por isso, criamos soluções intuitivas.',
+      'Acreditamos que você só deve pagar pelo que usa. Nossas ferramentas se encaixam como blocos para montar a operação perfeita.',
     icon: 'M13 10V3L4 14h7v7l9-11h-7z',
   },
   {
-    title: 'Parceria',
+    title: 'Transparência Absoluta',
     description:
-      'O sucesso do nosso cliente é o nosso sucesso. Trabalhamos lado a lado para alcançar resultados.',
+      'Sem letras miúdas. Regras claras de limites de planos, cotas visíveis e modelo pay-as-you-go sem surpresas na fatura.',
     icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
   },
   {
-    title: 'Inovação',
+    title: 'Simplicidade Operacional',
     description:
-      'Buscamos constantemente novas formas de resolver problemas antigos e criar valor para nossos clientes.',
+      'Do escritório à bancada da fábrica, nossas telas são desenhadas para serem entendidas em segundos, sem necessidade de manuais complexos.',
     icon: 'M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z',
   },
   {
-    title: 'Transparência',
+    title: 'Inovação Orientada a Resultados',
     description:
-      'Preços claros, comunicação honesta e compromisso com a verdade em todas as interações.',
+      'Não criamos funcionalidades apenas por criar. Desenvolvemos soluções focadas em reduzir desperdício, cortar retrabalho e aumentar suas vendas.',
     icon: 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z',
   },
 ];
 
 const milestones = [
-  { year: '2023', title: 'Fundação', description: 'Puncto nasce para simplificar a gestão de negócios de serviços no Brasil' },
-  { year: '2024', title: 'Lançamento', description: 'Primeira versão da plataforma com agendamento e pagamentos integrados' },
+  { year: '2025', title: 'Fundação', description: 'Puncto nasce para simplificar a gestão de negócios de serviços no Brasil' },
+  { year: '2026', title: 'Lançamento', description: 'Primeira versão da plataforma, um ecossistema modular completo' },
 ];
 
 export default function AboutPage() {
@@ -59,14 +72,11 @@ export default function AboutPage() {
             <p className="body-lg">
               Nascemos da frustração de empreendedores que perdiam tempo com
               sistemas complicados. Nossa missão é trazer tecnologia de ponta para
-              pequenos e médios negócios de forma simples e acessível.
+              pequenos, médios e grandes negócios de forma simples e acessível.
             </p>
           </motion.div>
         </div>
       </section>
-
-      {/* Stats */}
-      <StatsCounter />
 
       {/* Our Story */}
       <section className="section bg-white">
@@ -80,20 +90,22 @@ export default function AboutPage() {
               <h2 className="heading-lg text-slate-900 mb-6">Nossa história</h2>
               <div className="space-y-4 text-slate-600">
                 <p>
-                  O Puncto nasceu em 2023 com uma visão dupla: oferecer uma plataforma 
-                  SaaS acessível para pequenos e médios negócios de serviços, e também 
-                  desenvolver sistemas customizados para grandes empresas e indústrias.
+                  A Puncto nasceu em 2026 com uma observação simples: empreendedores de todos 
+                  os tamanhos perdiam horas preciosas com burocracia, agendas de papel e sistemas 
+                  engessados. O mercado forçava o dono do negócio a se adaptar ao software. Nós 
+                  decidimos inverter essa lógica.
                 </p>
                 <p>
-                  Para pequenos negócios, criamos uma plataforma completa que reúne 
-                  agendamento, pagamentos, estoque e gestão em um único sistema simples 
-                  e acessível. Para grandes empresas, desenvolvemos soluções sob medida 
-                  que se integram aos processos existentes e resolvem desafios específicos.
+                  Construímos uma plataforma verdadeiramente modular. Para pequenos prestadores 
+                  de serviço e comércios locais, oferecemos agendamento, vitrine digital e controle 
+                  financeiro de forma intuitiva. Conforme crescemos, entendemos que clínicas, 
+                  escritórios corporativos e indústrias também precisavam dessa mesma facilidade, 
+                  mas com governança avançada, módulos de produção (KDS) e automações potentes.
                 </p>
                 <p>
-                  Nossa missão é tornar a tecnologia acessível para todos os tamanhos 
-                  de negócio, seja através de nossa plataforma SaaS pronta para uso ou 
-                  através de desenvolvimento customizado para necessidades específicas.
+                  Hoje, a Puncto é o motor que impulsiona operações de ponta a ponta. Seja reduzindo 
+                  filas no varejo ou traduzindo ordens de serviço no chão de fábrica, nossa missão é 
+                  democratizar a tecnologia de alto nível com transparência e um modelo justo de pagamento.
                 </p>
               </div>
             </motion.div>
@@ -118,7 +130,7 @@ export default function AboutPage() {
                     d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
                   />
                 </svg>
-                <p className="font-medium">Foto do escritório</p>
+                <p className="font-medium">Foto</p>
               </div>
             </motion.div>
           </div>
@@ -136,7 +148,7 @@ export default function AboutPage() {
           >
             <h2 className="heading-lg text-slate-900 mb-4">Nossos valores</h2>
             <p className="body-lg max-w-2xl mx-auto">
-              Os princípios que guiam tudo o que fazemos.
+              Os princípios que guiam tudo o que fazemos
             </p>
           </motion.div>
 
@@ -243,89 +255,34 @@ export default function AboutPage() {
             </p>
           </motion.div>
 
-          {teamMembers.length > 0 ? (
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {teamMembers.map((member, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: index * 0.1 }}
-                  className="bg-white rounded-xl p-6 shadow-soft border border-slate-100 text-center"
-                >
-                  <div className="w-20 h-20 bg-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <span className="text-2xl font-bold text-primary-600">
-                      {member.name.charAt(0)}
-                    </span>
-                  </div>
-                  <h3 className="text-lg font-semibold text-slate-900">
-                    {member.name}
-                  </h3>
-                  <p className="text-primary-600 text-sm font-medium mb-2">
-                    {member.role}
-                  </p>
-                  <p className="text-slate-600 text-sm">{member.bio}</p>
-                </motion.div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-slate-600">
-                Informações da equipe serão adicionadas em breve.
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Careers */}
-      <section id="careers" className="section bg-white">
-        <div className="container-marketing">
-          <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-2xl p-8 md:p-12 text-white text-center">
-            <h2 className="text-3xl font-bold mb-4">Junte-se ao time</h2>
-            <p className="text-primary-100 text-lg mb-8 max-w-2xl mx-auto">
-              Estamos sempre buscando pessoas talentosas e apaixonadas por
-              tecnologia e inovação. Confira nossas vagas abertas.
-            </p>
-            <Link
-              href="/contact?subject=careers"
-              className="btn bg-white text-primary-600 hover:bg-slate-100"
-            >
-              Ver vagas abertas
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Press */}
-      <section id="press" className="section bg-slate-50">
-        <div className="container-marketing">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="heading-lg text-slate-900 mb-4">Na imprensa</h2>
-            <p className="body-lg max-w-2xl mx-auto">
-              O que estão dizendo sobre o Puncto.
-            </p>
-          </motion.div>
-
-          <div className="text-center py-12">
-            <p className="text-slate-600 mb-4">
-              Materiais de imprensa serão adicionados quando disponíveis.
-            </p>
-            <p className="text-sm text-slate-500">
-              Para solicitações de imprensa, entre em contato através do formulário abaixo.
-            </p>
-          </div>
-
-          <div className="text-center mt-8">
-            <Link href="/contact?subject=press" className="btn-secondary">
-              Contato para imprensa
-            </Link>
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {teamMembers.map((member, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-white rounded-2xl p-8 shadow-soft border border-slate-100 text-center"
+              >
+                <div className="w-32 h-32 rounded-full overflow-hidden mx-auto mb-6 ring-4 ring-primary-100">
+                  <Image
+                    src={member.image}
+                    alt={member.name}
+                    width={128}
+                    height={128}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <h3 className="text-xl font-semibold text-slate-900">
+                  {member.name}
+                </h3>
+                <p className="text-primary-600 font-medium mb-4">
+                  {member.role}
+                </p>
+                <p className="text-slate-600 text-sm leading-relaxed">{member.bio}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
       </section>

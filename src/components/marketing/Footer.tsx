@@ -10,7 +10,7 @@ const footerLinks = {
     { name: 'Preços', href: '/pricing' },
     { name: 'Integrações', href: '/features#integrations' },
     { name: 'API', href: '/features#api' },
-    { name: 'Changelog', href: '/blog' },
+    // { name: 'Changelog', href: '/blog' }, // Commented out until we have blog content
   ],
   setores: [
     { name: 'Prestadores de Serviço', href: '/industries/servicos' },
@@ -22,7 +22,7 @@ const footerLinks = {
   ],
   empresa: [
     { name: 'Sobre Nós', href: '/about' },
-    { name: 'Blog', href: '/blog' },
+    // { name: 'Blog', href: '/blog' }, // Commented out until we have blog content
     { name: 'Carreiras', href: '/about#careers' },
     { name: 'Contato', href: '/contact' },
     { name: 'Imprensa', href: '/about#press' },

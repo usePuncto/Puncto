@@ -19,7 +19,7 @@ const videoCategories = [
   { id: 'all', name: 'Todos' },
   { id: 'demo', name: 'Demonstrações' },
   { id: 'tutorial', name: 'Tutoriais' },
-  { id: 'testimonials', name: 'Depoimentos' },
+  // { id: 'testimonials', name: 'Depoimentos' }, // Commented out until we have real testimonials
   { id: 'webinars', name: 'Webinars' },
 ];
 
@@ -40,14 +40,15 @@ const videos: Video[] = [
     duration: '8:15',
     category: 'tutorial',
   },
-  {
-    id: '3',
-    videoId: 'dQw4w9WgXcQ',
-    title: 'Salão Bela Vista: Como reduzimos 80% dos no-shows',
-    description: 'Case de sucesso de um salão de beleza que transformou sua gestão com o Puncto.',
-    duration: '5:42',
-    category: 'testimonials',
-  },
+  // Commented out until we have real testimonials
+  // {
+  //   id: '3',
+  //   videoId: 'dQw4w9WgXcQ',
+  //   title: 'Salão Bela Vista: Como reduzimos 80% dos no-shows',
+  //   description: 'Case de sucesso de um salão de beleza que transformou sua gestão com o Puncto.',
+  //   duration: '5:42',
+  //   category: 'testimonials',
+  // },
   {
     id: '4',
     videoId: 'dQw4w9WgXcQ',
@@ -56,14 +57,15 @@ const videos: Video[] = [
     duration: '6:30',
     category: 'tutorial',
   },
-  {
-    id: '5',
-    videoId: 'dQw4w9WgXcQ',
-    title: 'Restaurante São Pedro: Comanda digital na prática',
-    description: 'Veja como um restaurante implementou a comanda digital e melhorou o atendimento.',
-    duration: '7:18',
-    category: 'testimonials',
-  },
+  // Commented out until we have real testimonials
+  // {
+  //   id: '5',
+  //   videoId: 'dQw4w9WgXcQ',
+  //   title: 'Restaurante São Pedro: Comanda digital na prática',
+  //   description: 'Veja como um restaurante implementou a comanda digital e melhorou o atendimento.',
+  //   duration: '7:18',
+  //   category: 'testimonials',
+  // },
   {
     id: '6',
     videoId: 'dQw4w9WgXcQ',
@@ -88,14 +90,15 @@ const videos: Video[] = [
     duration: '9:20',
     category: 'tutorial',
   },
-  {
-    id: '9',
-    videoId: 'dQw4w9WgXcQ',
-    title: 'Clínica Estética Renove: Depoimento',
-    description: 'Como uma clínica de estética organizou sua agenda e aumentou o faturamento.',
-    duration: '4:55',
-    category: 'testimonials',
-  },
+  // Commented out until we have real testimonials
+  // {
+  //   id: '9',
+  //   videoId: 'dQw4w9WgXcQ',
+  //   title: 'Clínica Estética Renove: Depoimento',
+  //   description: 'Como uma clínica de estética organizou sua agenda e aumentou o faturamento.',
+  //   duration: '4:55',
+  //   category: 'testimonials',
+  // },
 ];
 
 export default function VideosPage() {

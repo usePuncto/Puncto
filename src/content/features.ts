@@ -1,5 +1,61 @@
 export const features = [
   {
+    id: 'scheduling',
+    icon: 'calendar',
+    title: 'Agendamento Inteligente e Multi-agendas',
+    description:
+      'Gerencie sua disponibilidade e da sua equipe em um só lugar. Permita que seus clientes reservem horários online 24 horas por dia, sem burocracia.',
+    benefits: [
+      'Link de agendamento na bio',
+      'Gestão de agendas da equipe',
+      'Redução drástica de faltas (no-shows)',
+      'Sincronização com calendários',
+    ],
+    categories: ['scheduling'],
+  },
+  {
+    id: 'timeClock',
+    icon: 'clock',
+    title: 'Ponto Eletrônico e Banco de Horas',
+    description:
+      'Controle a jornada de trabalho da sua equipe com segurança jurídica. Cálculo automático de horas extras, faltas e banco de horas integrado.',
+    benefits: [
+      'Registro via celular ou tablet',
+      'Banco de horas automático',
+      'Gestão de pausas e intervalos',
+      'Conformidade com a legislação',
+    ],
+    categories: ['timeClock'],
+  },
+  {
+    id: 'restaurant',
+    icon: 'utensils',
+    title: 'Catálogo, Cardápio Digital e Pedidos',
+    description:
+      'Transforme acessos em vendas. Ofereça uma vitrine virtual ou cardápio via QR Code integrados diretamente ao seu estoque e sistema financeiro.',
+    benefits: [
+      'Autoatendimento via QR Code',
+      'Catálogo atualizado em tempo real',
+      'Pedidos integrados ao WhatsApp',
+      'Redução de filas e erros de anotação',
+    ],
+    categories: ['restaurant'],
+  },
+  {
+    id: 'production',
+    icon: 'chart',
+    title: 'Módulo de Produção (KDS) e Qualidade',
+    description:
+      'Digitalize seu chão de fábrica. Instruções visuais, checklists obrigatórios de qualidade e tradução automática para equipes multiculturais.',
+    benefits: [
+      'Telas interativas nas bancadas',
+      'Checklists visuais anti-erro',
+      'Tradução multilíngue automática',
+      'Rastreabilidade total de pedidos',
+    ],
+    categories: ['analytics', 'inventory'],
+  },
+  {
     id: 'automacao',
     icon: 'clock',
     title: 'Automação de Processos',
@@ -11,6 +67,7 @@ export const features = [
       'Processos padronizados',
       'Lembretes WhatsApp/Email automáticos',
     ],
+    categories: ['scheduling', 'analytics'],
   },
   {
     id: 'financeiro',
@@ -24,6 +81,7 @@ export const features = [
       'Conciliação bancária',
       'Relatórios de inadimplência',
     ],
+    categories: ['payments'],
   },
   {
     id: 'dashboards',
@@ -37,6 +95,7 @@ export const features = [
       'Comparativos mensais',
       'Acesso rápido pelo celular',
     ],
+    categories: ['analytics'],
   },
   {
     id: 'estoque',
@@ -50,6 +109,7 @@ export const features = [
       'Gestão de fornecedores',
       'Cálculo de custo por produto',
     ],
+    categories: ['inventory'],
   },
   {
     id: 'crm',
@@ -63,6 +123,7 @@ export const features = [
       'Segmentação de clientes',
       'Pós-venda eficiente',
     ],
+    categories: ['crm'],
   },
   {
     id: 'integracao',
@@ -76,6 +137,7 @@ export const features = [
       'Integrações com calendários',
       'Segurança da informação',
     ],
+    categories: ['api'],
   },
 ];
 
