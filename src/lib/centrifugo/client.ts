@@ -1,4 +1,4 @@
-import { Centrifuge } from 'centrifuge';
+import { Centrifuge, State } from 'centrifuge';
 import { auth } from '@/lib/firebase';
 
 let centrifugeClient: Centrifuge | null = null;
@@ -8,7 +8,7 @@ let centrifugeClient: Centrifuge | null = null;
  * Call this after user is authenticated to get a token
  */
 export function getCentrifugeClient(token: string): Centrifuge {
-  if (centrifugeClient && centrifugeClient.connected) {
+  if (centrifugeClient && centrifugeClient.state === State.Connected) {
     return centrifugeClient;
   }
 
