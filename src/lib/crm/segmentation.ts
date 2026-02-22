@@ -16,8 +16,11 @@ export function matchesSegment(customer: Customer, segment: CustomerSegment): bo
   }
 
   if (criteria.lastVisitDays && customer.lastBookingAt) {
+    const lastBookingDate = 'toDate' in customer.lastBookingAt 
+      ? customer.lastBookingAt.toDate() 
+      : new Date(customer.lastBookingAt);
     const daysSinceLastVisit =
-      (Date.now() - new Date(customer.lastBookingAt).getTime()) / (1000 * 60 * 60 * 24);
+      (Date.now() - lastBookingDate.getTime()) / (1000 * 60 * 60 * 24);
     if (daysSinceLastVisit > criteria.lastVisitDays) {
       return false;
     }
