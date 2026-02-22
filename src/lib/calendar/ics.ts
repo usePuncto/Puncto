@@ -1,5 +1,3 @@
-import { ICalCalendar, ICalEventBusyStatus, ICalEventStatus } from 'ics';
-
 export interface CalendarEventData {
   title: string;
   description: string;
