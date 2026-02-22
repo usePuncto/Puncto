@@ -3,6 +3,8 @@ import { db } from '@/lib/firebaseAdmin';
 import { calculateAvailableSlots } from '@/lib/utils/slots';
 import { Timestamp } from 'firebase-admin/firestore';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/availability
  * Get available time slots for a given date/service/professional

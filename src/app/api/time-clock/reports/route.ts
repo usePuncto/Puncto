@@ -3,6 +3,8 @@ import { db } from '@/lib/firebaseAdmin';
 import { Shift } from '@/types/timeClock';
 import { calculateShiftHours, calculateOvertime } from '@/lib/time-clock/calculations';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Generate attendance report
 export async function GET(request: NextRequest) {
   try {

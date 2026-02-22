@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { MarketplaceFilters, MarketplaceSearchResult } from '@/types/marketplace';
 
+export const dynamic = 'force-dynamic';
+
 // GET - Search marketplace (professionals and establishments)
 export async function GET(request: NextRequest) {
   try {

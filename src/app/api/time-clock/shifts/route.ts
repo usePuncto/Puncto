@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Shift } from '@/types/timeClock';
 
+export const dynamic = 'force-dynamic';
+
 // GET - List shifts
 export async function GET(request: NextRequest) {
   try {

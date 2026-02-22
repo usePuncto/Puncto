@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { ClockIn } from '@/types/timeClock';
 
+export const dynamic = 'force-dynamic';
+
 // GET - List clock-ins
 export async function GET(request: NextRequest) {
   try {

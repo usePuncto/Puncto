@@ -3,6 +3,8 @@ import { db } from '@/lib/firebaseAdmin';
 import { Order } from '@/types/restaurant';
 import { verifyBusinessFeatureAccess, extractBusinessIdFromQuery } from '@/lib/api/featureValidation';
 
+export const dynamic = 'force-dynamic';
+
 // GET - List all orders for a business
 export async function GET(request: NextRequest) {
   try {
