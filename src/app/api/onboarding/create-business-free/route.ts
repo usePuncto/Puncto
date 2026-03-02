@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { auth, db } from '@/lib/firebaseAdmin';
-import { createSubscriptionCheckout, getOrCreateCustomer } from '@/lib/stripe/subscriptions';
 import { getFeaturesByTier } from '@/types/features';
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify authentication
     const authHeader = request.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
       return NextResponse.json(
@@ -29,52 +27,16 @@ export async function POST(request: NextRequest) {
 
     const userId = decodedToken.uid;
 
-    // Parse request body
     const body = await request.json();
-    const {
-      displayName,
-      legalName,
-      taxId,
-      email,
-      phone,
-      industry,
-      selectedPlan,
-      billingPeriod = 'monthly',
-      stripePriceId,
-    } = body;
+    const { displayName, legalName, taxId, email, phone, industry } = body;
 
-    // Validation (stripePriceId can be resolved from selectedPlan for paid plans)
-    if (!displayName || !legalName || !taxId || !email || !phone || !industry || !selectedPlan) {
+    if (!displayName || !legalName || !taxId || !email || !phone || !industry) {
       return NextResponse.json(
         { error: 'Validation Error', message: 'Todos os campos são obrigatórios' },
         { status: 400 }
       );
     }
 
-    // Resolve Stripe price ID from selectedPlan + billingPeriod (server-side)
-    // Monthly prices: STRIPE_PRICE_ID_STARTER, etc.
-    // Annual prices: STRIPE_PRICE_ID_STARTER_ANNUAL, etc. (add to .env when you create them in Stripe)
-    const isAnnual = billingPeriod === 'annual';
-    const priceIdMap: Record<string, string> = isAnnual
-      ? {
-          starter: process.env.STRIPE_PRICE_ID_STARTER_ANNUAL || process.env.STRIPE_PRICE_ID_STARTER || '',
-          growth: process.env.STRIPE_PRICE_ID_GROWTH_ANNUAL || process.env.STRIPE_PRICE_ID_GROWTH || '',
-          pro: process.env.STRIPE_PRICE_ID_PRO_ANNUAL || process.env.STRIPE_PRICE_ID_PRO || '',
-        }
-      : {
-          starter: process.env.STRIPE_PRICE_ID_STARTER || '',
-          growth: process.env.STRIPE_PRICE_ID_GROWTH || '',
-          pro: process.env.STRIPE_PRICE_ID_PRO || '',
-        };
-    const resolvedPriceId = stripePriceId || priceIdMap[selectedPlan];
-    if (!resolvedPriceId) {
-      return NextResponse.json(
-        { error: 'Validation Error', message: 'Plano inválido ou configuração de pagamento ausente' },
-        { status: 400 }
-      );
-    }
-
-    // Generate slug from displayName
     const slug = displayName
       .toLowerCase()
       .normalize('NFD')
@@ -82,7 +44,6 @@ export async function POST(request: NextRequest) {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/(^-|-$)/g, '');
 
-    // Check if slug already exists
     const existingBusiness = await db
       .collection('businesses')
       .where('slug', '==', slug)
@@ -96,33 +57,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Map plan ID to tier
-    const tierMap: Record<string, 'free' | 'basic' | 'pro' | 'enterprise'> = {
-      starter: 'basic',
-      growth: 'pro',
-      pro: 'pro',
-      enterprise: 'enterprise',
-    };
-
-    const tier = tierMap[selectedPlan] || 'basic';
-
-    // Create or get Stripe customer
-    const stripeCustomer = await getOrCreateCustomer({
-      email,
-      name: displayName,
-      metadata: {
-        businessName: displayName,
-        taxId,
-        userId,
-      },
-    });
-
-    // Create business document with pending_payment status
     const businessRef = db.collection('businesses').doc();
     const businessId = businessRef.id;
-
     const now = Timestamp.now();
-    const features = getFeaturesByTier(tier);
+    const features = getFeaturesByTier('free');
 
     const businessData = {
       id: businessId,
@@ -151,13 +89,11 @@ export async function POST(request: NextRequest) {
         country: 'BR',
       },
       subscription: {
-        tier,
-        status: 'pending_payment' as const,
+        tier: 'free' as const,
+        status: 'active' as const,
         currentPeriodStart: now,
-        currentPeriodEnd: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
+        currentPeriodEnd: Timestamp.fromDate(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
         billingEmail: email,
-        stripeCustomerId: stripeCustomer.id,
-        stripePriceId: resolvedPriceId,
       },
       features,
       settings: {
@@ -189,30 +125,9 @@ export async function POST(request: NextRequest) {
 
     await businessRef.set(businessData);
 
-    // Create Stripe Checkout Session
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const checkoutSession = await createSubscriptionCheckout({
-      customerId: stripeCustomer.id,
-      priceId: resolvedPriceId,
-      successUrl: `${baseUrl}/onboarding/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${baseUrl}/industries?canceled=true`,
-      metadata: {
-        businessId,
-        userId,
-        tier,
-      },
-    });
-
-    // Store checkout session ID in business document
-    await businessRef.update({
-      'subscription.stripeCheckoutSessionId': checkoutSession.id,
-    });
-
-    // Get existing custom claims (if any)
     const userRecord = await auth.getUser(userId);
     const existingClaims = userRecord.customClaims || {};
 
-    // Set custom claims for the user as business_user with owner role
     await auth.setCustomUserClaims(userId, {
       ...existingClaims,
       userType: 'business_user',
@@ -221,32 +136,32 @@ export async function POST(request: NextRequest) {
         [businessId]: 'owner',
       },
       primaryBusinessId: businessId,
-      // Remove customer-specific claims if they exist
       customerId: undefined,
-      // Remove platform admin claims if they exist (shouldn't happen but safety)
       platformAdmin: undefined,
       platformRole: undefined,
     });
 
-    // Update user document in Firestore
     const userDocRef = db.collection('users').doc(userId);
-    await userDocRef.set({
-      id: userId,
-      email: userRecord.email,
-      displayName: userRecord.displayName || displayName,
-      type: 'business_user',
-      businessId,
-      role: 'owner',
-      updatedAt: now,
-    }, { merge: true });
+    await userDocRef.set(
+      {
+        id: userId,
+        email: userRecord.email,
+        displayName: userRecord.displayName || displayName,
+        type: 'business_user',
+        businessId,
+        role: 'owner',
+        updatedAt: now,
+      },
+      { merge: true }
+    );
 
     return NextResponse.json({
       success: true,
       businessId,
-      checkoutUrl: checkoutSession.url,
+      redirectUrl: `/tenant?subdomain=${businessId}`,
     });
   } catch (error: any) {
-    console.error('Error creating business:', error);
+    console.error('Error creating free business:', error);
     return NextResponse.json(
       { error: 'Internal Server Error', message: error.message || 'Erro ao criar negócio' },
       { status: 500 }

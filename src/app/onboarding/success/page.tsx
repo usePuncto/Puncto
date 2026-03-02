@@ -20,24 +20,39 @@ export default function OnboardingSuccessPage() {
       return;
     }
 
-    // The webhook will handle updating the business status
-    // We just need to show a success message and redirect
-    const timer = setTimeout(() => {
-      setStatus('success');
-    }, 2000);
+    let cancelled = false;
 
-    return () => clearTimeout(timer);
-  }, [searchParams]);
+    async function fetchAndRedirect() {
+      try {
+        const res = await fetch(`/api/onboarding/get-checkout-session?sessionId=${sessionId}`);
+        const data = await res.json();
+        if (cancelled) return;
 
-  useEffect(() => {
-    if (status === 'success') {
-      const redirectTimer = setTimeout(() => {
-        router.push('/admin');
-      }, 3000);
+        setStatus('success');
 
-      return () => clearTimeout(redirectTimer);
+        const businessId = data.businessId;
+        const redirectUrl = businessId
+          ? `/tenant?subdomain=${businessId}`
+          : '/tenant';
+
+        const redirectTimer = setTimeout(() => {
+          router.push(redirectUrl);
+        }, 3000);
+
+        return () => clearTimeout(redirectTimer);
+      } catch {
+        if (cancelled) return;
+        setStatus('success');
+        setTimeout(() => router.push('/tenant'), 3000);
+      }
     }
-  }, [status, router]);
+
+    fetchAndRedirect();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams, router]);
 
   if (status === 'loading') {
     return (
@@ -77,10 +92,10 @@ export default function OnboardingSuccessPage() {
             Não foi possível confirmar seu pagamento. Por favor, tente novamente.
           </p>
           <button
-            onClick={() => router.push('/onboarding/plan')}
+            onClick={() => router.push('/industries')}
             className="mt-6 rounded-xl bg-neutral-900 px-6 py-3 text-sm font-medium text-white hover:bg-neutral-800"
           >
-            Tentar Novamente
+            Escolher plano novamente
           </button>
         </div>
       </div>
@@ -115,7 +130,17 @@ export default function OnboardingSuccessPage() {
           </div>
         </div>
         <button
-          onClick={() => router.push('/admin')}
+          onClick={() => {
+            const sessionId = searchParams.get('session_id');
+            if (sessionId) {
+              fetch(`/api/onboarding/get-checkout-session?sessionId=${sessionId}`)
+                .then((r) => r.json())
+                .then((d) => router.push(d.businessId ? `/tenant?subdomain=${d.businessId}` : '/tenant'))
+                .catch(() => router.push('/tenant'));
+            } else {
+              router.push('/tenant');
+            }
+          }}
           className="mt-6 text-sm text-neutral-600 hover:text-neutral-900 underline"
         >
           Ir para o dashboard agora

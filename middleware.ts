@@ -11,14 +11,28 @@ export async function middleware(request: NextRequest) {
   const hostname = request.headers.get('host') || '';
   const url = request.nextUrl;
 
+  // Early redirect for admin subdomain on localhost (fixes query param detection issues)
+  const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
+  const rawUrl = request.url;
+  const hasAdminSubdomain = rawUrl.includes('subdomain=admin') || rawUrl.includes('subdomain%3Dadmin');
+  if (isLocalhost && hasAdminSubdomain && url.pathname === '/' && !request.cookies.has('__session') && !request.cookies.has('firebase-auth-token') && !request.cookies.has('firebaseIdToken')) {
+    return NextResponse.redirect(new URL('/auth/platform/login?subdomain=admin&returnUrl=/platform/dashboard', request.url));
+  }
+
   // Extract subdomain (handle localhost and production domains)
   let subdomain = '';
 
   if (hostname.includes('localhost') || hostname.includes('127.0.0.1')) {
-    // Local development: use query param or header for testing
-    // e.g., http://localhost:3000?subdomain=demo
-    subdomain = url.searchParams.get('subdomain') || '';
-    console.log('[Middleware] Detected localhost, subdomain from query:', subdomain);
+    // Local development: use query param for testing
+    // e.g., http://localhost:3000?subdomain=admin
+    subdomain = url.searchParams.get('subdomain') ?? '';
+    // Fallback: Next.js may normalize URLs; check raw request URL for subdomain=admin
+    if (!subdomain && request.url.includes('subdomain=admin')) {
+      subdomain = 'admin';
+    }
+    if (!subdomain && request.url.includes('subdomain%3Dadmin')) {
+      subdomain = 'admin';
+    }
   } else {
     // Production: extract from hostname
     // e.g., demo.puncto.com.br -> demo
@@ -47,9 +61,10 @@ export async function middleware(request: NextRequest) {
   if (subdomain === 'admin') {
     // Require authentication for platform routes
     if (!hasAuthCookie && !url.pathname.startsWith('/auth/')) {
-      return NextResponse.redirect(
-        new URL(`/auth/platform/login?returnUrl=${encodeURIComponent(url.pathname)}`, request.url)
-      );
+      const loginUrl = new URL('/auth/platform/login', request.url);
+      loginUrl.searchParams.set('returnUrl', url.pathname || '/platform/dashboard');
+      loginUrl.searchParams.set('subdomain', 'admin');
+      return NextResponse.redirect(loginUrl);
     }
 
     // CRITICAL: Verify user is platform admin
@@ -156,8 +171,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // Rewrite to /tenant/* routes with slug in header
+  // When pathname already starts with /tenant (e.g. /tenant?subdomain=xxx from success redirect), don't double-prefix
+  const rewritePath = url.pathname.startsWith('/tenant')
+    ? url.pathname
+    : `/tenant${url.pathname}`;
   const response = NextResponse.rewrite(
-    new URL(`/tenant${url.pathname}${url.search}`, request.url),
+    new URL(`${rewritePath}${url.search}`, request.url),
     {
       request: {
         headers: requestHeaders,
@@ -181,6 +200,9 @@ export const config = {
      * - favicon.ico (favicon file)
      * - public folder files
      */
+    '/',
+    // Explicitly match root with subdomain=admin (fixes localhost query param detection)
+    { source: '/', has: [{ type: 'query', key: 'subdomain', value: 'admin' }] },
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

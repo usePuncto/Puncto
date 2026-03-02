@@ -3,8 +3,16 @@ import { db } from './firebaseAdmin';
 import { Business } from '@/types/business';
 
 /**
+ * Check if string looks like a Firestore document ID (20 chars, alphanumeric)
+ */
+function looksLikeDocId(value: string): boolean {
+  return /^[a-zA-Z0-9]{19,21}$/.test(value);
+}
+
+/**
  * Get the current business based on subdomain
  * Server-side only - uses headers set by middleware
+ * Supports both business slug and Firestore document ID (e.g. from onboarding redirect)
  */
 export async function getCurrentBusiness(): Promise<Business | null> {
   const businessSlug = getBusinessSlug();
@@ -14,7 +22,14 @@ export async function getCurrentBusiness(): Promise<Business | null> {
   }
 
   try {
-    // Query business by slug
+    // If it looks like a Firestore doc ID, fetch by ID (e.g. from /tenant?subdomain=xxx after onboarding)
+    if (looksLikeDocId(businessSlug)) {
+      const doc = await db.collection('businesses').doc(businessSlug).get();
+      if (!doc.exists) return null;
+      return { id: doc.id, ...doc.data() } as Business;
+    }
+
+    // Otherwise query by slug (production subdomain)
     const businessSnapshot = await db
       .collection('businesses')
       .where('slug', '==', businessSlug)

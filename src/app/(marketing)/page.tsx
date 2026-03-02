@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -29,6 +29,15 @@ const businessTypeToIndustrySlug: Record<BusinessTypeKey, string> = {
 };
 
 export default function HomePage() {
+  // Redirect to platform admin login when ?subdomain=admin (fallback when middleware doesn't run on localhost)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('subdomain') === 'admin') {
+      window.location.replace('/auth/platform/login?subdomain=admin&returnUrl=/platform/dashboard');
+    }
+  }, []);
+
   const [selectedIndustry, setSelectedIndustry] = useState(industries[0].id);
   const [isAnnual, setIsAnnual] = useState(true);
   const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessTypeKey>('servicos');

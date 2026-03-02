@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const INDUSTRIES = [
   { value: 'salon', label: 'Salão de Beleza' },
@@ -13,9 +13,19 @@ const INDUSTRIES = [
   { value: 'general', label: 'Outro' },
 ];
 
+// Map industry page slugs to onboarding industry values
+const INDUSTRY_SLUG_TO_VALUE: Record<string, string> = {
+  servicos: 'salon',
+  varejo: 'restaurant',
+  empresas: 'general',
+  saude: 'clinic',
+  corporativo: 'general',
+};
+
 export default function OnboardingBusinessPage() {
-  const { user, loading } = useAuth();
+  const { user, firebaseUser, loading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   const [displayName, setDisplayName] = useState('');
   const [legalName, setLegalName] = useState('');
@@ -26,19 +36,40 @@ export default function OnboardingBusinessPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Redirect if not logged in
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/auth/signup');
-    }
-  }, [user, loading, router]);
+  // Pre-selected plan, industry, and billing from checkout/industry pages
+  const preselectedPlan = searchParams.get('plan') || '';
+  const preselectedIndustrySlug = searchParams.get('industry') || '';
+  const preselectedBilling = searchParams.get('billing') || 'monthly';
 
-  // Pre-fill email from user
+  // Redirect if not logged in - send to checkout (where they register)
+  // Use firebaseUser (not user) - user can be null for new signups before Firestore doc is ready
   useEffect(() => {
-    if (user?.email) {
-      setEmail(user.email);
+    if (!loading && !firebaseUser) {
+      router.push(`/checkout?plan=${preselectedPlan || 'gratis'}&industry=${preselectedIndustrySlug || 'servicos'}&billing=${preselectedBilling || 'monthly'}`);
     }
-  }, [user]);
+  }, [firebaseUser, loading, router, preselectedPlan, preselectedIndustrySlug, preselectedBilling]);
+
+  // Redirect if no plan selected (user came directly without choosing a plan)
+  useEffect(() => {
+    if (!loading && firebaseUser && !preselectedPlan) {
+      router.push('/industries');
+    }
+  }, [loading, firebaseUser, preselectedPlan, router]);
+
+  // Pre-fill email from auth (firebaseUser has it immediately; user may be null for new signups)
+  useEffect(() => {
+    const emailToUse = firebaseUser?.email || user?.email;
+    if (emailToUse) {
+      setEmail(emailToUse);
+    }
+  }, [firebaseUser, user]);
+
+  // Pre-fill industry from industry page slug (only on initial load)
+  useEffect(() => {
+    if (preselectedIndustrySlug && INDUSTRY_SLUG_TO_VALUE[preselectedIndustrySlug]) {
+      setIndustry(INDUSTRY_SLUG_TO_VALUE[preselectedIndustrySlug]);
+    }
+  }, [preselectedIndustrySlug]);
 
   const formatTaxId = (value: string) => {
     const numbers = value.replace(/\D/g, '');
@@ -87,32 +118,88 @@ export default function OnboardingBusinessPage() {
     e.preventDefault();
     setError(null);
 
-    // Validation
     if (!displayName || !legalName || !taxId || !email || !phone || !industry) {
       setError('Por favor, preencha todos os campos obrigatórios');
+      return;
+    }
+
+    const plan = preselectedPlan || 'gratis';
+    const billingPeriod = preselectedBilling || 'monthly';
+
+    if (!['gratis', 'starter', 'growth', 'pro'].includes(plan)) {
+      setError('Plano inválido. Volte e escolha um plano.');
+      return;
+    }
+
+    if (!firebaseUser) {
+      setError('Sessão expirada. Faça login novamente.');
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // Store business info in sessionStorage for next step
       const businessData = {
         displayName,
         legalName,
-        taxId: taxId.replace(/\D/g, ''), // Remove formatting
+        taxId: taxId.replace(/\D/g, ''),
         email,
-        phone: phone.replace(/\D/g, ''), // Remove formatting
+        phone: phone.replace(/\D/g, ''),
         industry,
         createdBy: user?.id,
       };
 
-      sessionStorage.setItem('onboarding_business', JSON.stringify(businessData));
+      const token = await firebaseUser!.getIdToken();
 
-      // Redirect to plan selection
-      router.push('/onboarding/plan');
+      // Free plan: create business and redirect to tenant
+      if (plan === 'gratis') {
+        const response = await fetch('/api/onboarding/create-business-free', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(businessData),
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.message || 'Erro ao criar negócio');
+        }
+
+        const { redirectUrl } = await response.json();
+        window.location.href = redirectUrl;
+        return;
+      }
+
+      // Paid plan: create business and redirect to Stripe Checkout (Stripe hosts payment page)
+      const response = await fetch('/api/onboarding/create-business', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...businessData,
+          selectedPlan: plan,
+          billingPeriod,
+        }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Erro ao criar negócio');
+      }
+
+      const { checkoutUrl } = await response.json();
+
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      } else {
+        throw new Error('URL de pagamento não foi gerada');
+      }
     } catch (err: any) {
-      setError(err.message || 'Erro ao processar informações do negócio');
+      setError(err.message || 'Erro ao processar');
     } finally {
       setIsSubmitting(false);
     }
@@ -132,7 +219,7 @@ export default function OnboardingBusinessPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 py-12">
       <div className="w-full max-w-2xl">
-        {/* Progress Indicator */}
+        {/* Progress Indicator - Plan already chosen on industry page */}
         <div className="mb-8">
           <div className="flex items-center justify-center gap-2">
             <div className="flex items-center">
@@ -146,14 +233,9 @@ export default function OnboardingBusinessPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-300 text-neutral-600 text-sm font-medium">
                 2
               </div>
-              <span className="ml-2 text-sm text-neutral-600">Escolher Plano</span>
-            </div>
-            <div className="h-px w-12 bg-neutral-300"></div>
-            <div className="flex items-center">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-300 text-neutral-600 text-sm font-medium">
-                3
-              </div>
-              <span className="ml-2 text-sm text-neutral-600">Pagamento</span>
+              <span className="ml-2 text-sm text-neutral-600">
+                {preselectedPlan === 'gratis' ? 'Concluir' : 'Pagamento (Stripe)'}
+              </span>
             </div>
           </div>
         </div>
@@ -288,7 +370,11 @@ export default function OnboardingBusinessPage() {
             <div className="flex gap-4">
               <button
                 type="button"
-                onClick={() => router.push('/auth/login')}
+                onClick={() =>
+                  router.push(
+                    `/checkout?plan=${preselectedPlan || 'gratis'}&industry=${preselectedIndustrySlug || 'servicos'}&billing=${preselectedBilling || 'monthly'}`
+                  )
+                }
                 className="flex-1 rounded-xl border border-neutral-300 px-4 py-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
               >
                 Voltar
@@ -298,7 +384,11 @@ export default function OnboardingBusinessPage() {
                 disabled={isSubmitting || !displayName || !legalName || !taxId || !email || !phone || !industry}
                 className="flex-1 rounded-xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isSubmitting ? 'Processando...' : 'Continuar'}
+                {isSubmitting
+                  ? 'Processando...'
+                  : preselectedPlan === 'gratis'
+                    ? 'Criar conta grátis'
+                    : 'Ir para pagamento'}
               </button>
             </div>
           </form>
