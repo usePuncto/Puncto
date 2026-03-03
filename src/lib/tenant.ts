@@ -1,4 +1,4 @@
-import { headers } from 'next/headers';
+import { headers, cookies } from 'next/headers';
 import { db } from './firebaseAdmin';
 import { Business } from '@/types/business';
 
@@ -52,17 +52,41 @@ export async function getCurrentBusiness(): Promise<Business | null> {
 }
 
 /**
- * Get the business slug from middleware header
+ * Get the business slug from middleware header or cookie
  * Server-side only
  */
 export function getBusinessSlug(): string | null {
   try {
+    // First try to get from header (set by middleware)
     const headersList = headers();
-    return headersList.get('x-business-slug') || null;
-  } catch (error) {
-    // Headers not available (probably client-side or not in request context)
+    const headerSlug = headersList.get('x-business-slug');
+    if (headerSlug) return headerSlug;
+
+    // Fallback to cookie (set by API or middleware)
+    const cookieStore = cookies();
+    const cookieSlug = cookieStore.get('x-business-slug')?.value;
+    if (cookieSlug) return cookieSlug;
+
+    return null;
+  } catch {
     return null;
   }
+}
+
+/**
+ * Serialize business for Client Components (converts Firestore Timestamps to ISO strings).
+ * Server Components cannot pass class instances (e.g. Firestore Timestamp) to Client Components.
+ */
+export function serializeBusinessForClient<T extends object>(obj: T): T {
+  return JSON.parse(
+    JSON.stringify(obj, (_, value) => {
+      // Firestore Timestamp has toDate()
+      if (value && typeof value === 'object' && typeof (value as { toDate?: () => Date }).toDate === 'function') {
+        return (value as { toDate: () => Date }).toDate().toISOString();
+      }
+      return value;
+    })
+  ) as T;
 }
 
 /**

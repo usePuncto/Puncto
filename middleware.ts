@@ -93,8 +93,6 @@ export async function middleware(request: NextRequest) {
     }
 
     // Allow marketing routes to pass through
-    // Marketing pages are in (marketing) route group
-    console.log('[Middleware] No subdomain or www/main domain, passing through to marketing site');
     return NextResponse.next();
   }
 
@@ -112,8 +110,6 @@ export async function middleware(request: NextRequest) {
       }
     );
   }
-
-  console.log('[Middleware] Business subdomain detected:', subdomain, '- rewriting to /tenant');
 
   // Business subdomain
   // Store businessSlug in header for server components to access
@@ -170,39 +166,49 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Rewrite to /tenant/* routes with slug in header
-  // When pathname already starts with /tenant (e.g. /tenant?subdomain=xxx from success redirect), don't double-prefix
-  const rewritePath = url.pathname.startsWith('/tenant')
-    ? url.pathname
-    : `/tenant${url.pathname}`;
+  // Set locale header for i18n (will be read by next-intl in server components)
+  requestHeaders.set('x-locale', 'pt-BR'); // Default, will be overridden by business settings
+
+  // If path already starts with /tenant, use next() to pass through with headers
+  // Otherwise, rewrite to /tenant/* routes
+  if (url.pathname.startsWith('/tenant')) {
+    const response = NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+    // Also set a cookie as fallback for server components
+    response.cookies.set('x-business-slug', subdomain, {
+      path: '/',
+      httpOnly: true,
+      sameSite: 'lax',
+      maxAge: 60 * 60, // 1 hour
+    });
+    return response;
+  }
+
+  // Rewrite non-tenant paths to /tenant/* routes with slug in header
   const response = NextResponse.rewrite(
-    new URL(`${rewritePath}${url.search}`, request.url),
+    new URL(`/tenant${url.pathname}${url.search}`, request.url),
     {
       request: {
         headers: requestHeaders,
       },
     }
   );
-
-  // Set locale header for i18n (will be read by next-intl in server components)
-  // Locale will be determined from business settings in tenant layout
-  response.headers.set('x-locale', 'pt-BR'); // Default, will be overridden by business settings
-
+  // Also set a cookie as fallback for server components
+  response.cookies.set('x-business-slug', subdomain, {
+    path: '/',
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 60 * 60, // 1 hour
+  });
   return response;
 }
 
 export const config = {
+  // Run middleware for all routes - omit matcher to ensure /tenant/* is always processed
   matcher: [
-    /*
-     * Match all paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public folder files
-     */
-    '/',
-    // Explicitly match root with subdomain=admin (fixes localhost query param detection)
-    { source: '/', has: [{ type: 'query', key: 'subdomain', value: 'admin' }] },
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:ico|png|jpg|jpeg|gif|webp|svg)$).*)',
   ],
 };

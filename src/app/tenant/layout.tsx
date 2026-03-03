@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
-import { getCurrentBusiness } from '@/lib/tenant';
+import { getCurrentBusiness, serializeBusinessForClient } from '@/lib/tenant';
 import { BusinessProvider } from '@/lib/contexts/BusinessContext';
 import { BrandingWrapper } from '@/components/branding/BrandingWrapper';
 
@@ -48,9 +48,12 @@ export default async function TenantLayout({
     );
   }
 
+  // Serialize for Client Components (Firestore Timestamps are not plain objects)
+  const serialized = serializeBusinessForClient(business);
+
   return (
-    <BusinessProvider business={business}>
-      <BrandingWrapper branding={business.branding}>
+    <BusinessProvider business={serialized}>
+      <BrandingWrapper branding={serialized.branding}>
         {children}
       </BrandingWrapper>
     </BusinessProvider>

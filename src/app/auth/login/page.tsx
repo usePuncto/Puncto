@@ -7,23 +7,41 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
+function getRedirectUrl(user: { type?: string; primaryBusinessId?: string } | null, explicitReturnUrl: string | null): string {
+  // Use explicit returnUrl when provided and not homepage
+  if (explicitReturnUrl && explicitReturnUrl !== '/') {
+    return explicitReturnUrl;
+  }
+  // Business users: redirect to business admin dashboard
+  if (user?.type === 'business_user' && user?.primaryBusinessId) {
+    return `/tenant/admin/dashboard?subdomain=${user.primaryBusinessId}`;
+  }
+  return '/';
+}
+
 export default function LoginPage() {
   const { login, loading, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnUrl = searchParams.get('returnUrl') || '/';
+  const explicitReturnUrl = searchParams.get('returnUrl');
+
+  // Guest option is only for business clients (e.g. booking flow), not for business admins/employees
+  const isCustomerContext =
+    explicitReturnUrl != null &&
+    !explicitReturnUrl.startsWith('/tenant/admin') &&
+    !explicitReturnUrl.startsWith('/admin');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Redirect if already logged in
+  // Redirect if already logged in or just logged in
   useEffect(() => {
     if (user && !loading) {
-      router.push(returnUrl);
+      router.push(getRedirectUrl(user, explicitReturnUrl));
     }
-  }, [user, loading, router, returnUrl]);
+  }, [user, loading, router, explicitReturnUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,7 +50,7 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
-      router.push(returnUrl);
+      // Redirect is handled by useEffect when user state updates
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -136,15 +154,17 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Guest Option */}
-        <div className="mt-4 text-center">
-          <button
-            onClick={() => router.push(returnUrl)}
-            className="text-sm text-neutral-600 hover:text-neutral-900"
-          >
-            Continuar como convidado
-          </button>
-        </div>
+        {/* Guest Option - only for customers (booking, checkout), not for business admins/employees */}
+        {isCustomerContext && (
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => router.push(explicitReturnUrl || '/')}
+              className="text-sm text-neutral-600 hover:text-neutral-900"
+            >
+              Continuar como convidado
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

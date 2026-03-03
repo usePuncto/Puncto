@@ -1,6 +1,8 @@
 import './globals.css';
+import { NextIntlClientProvider } from 'next-intl';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 import { QueryProvider } from '@/components/providers/QueryProvider';
+import ptBR from '@/messages/pt-BR.json';
 
 export const metadata = {
   title: 'Puncto - Agendamentos',
@@ -28,11 +30,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="pt-BR">
       <body>
-        <QueryProvider>
-          <AuthProvider>
-            {children}
-          </AuthProvider>
-        </QueryProvider>
+        <NextIntlClientProvider locale="pt-BR" messages={ptBR}>
+          <QueryProvider>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </QueryProvider>
+        </NextIntlClientProvider>
       </body>
     </html>
   );

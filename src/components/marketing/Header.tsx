@@ -53,7 +53,6 @@ export default function Header() {
             ))}
           </div>
 
-          {/* Desktop CTA Buttons - Commented out until auth is ready
           <div className="hidden lg:flex items-center gap-4">
             <Link
               href="/auth/login"
@@ -61,11 +60,10 @@ export default function Header() {
             >
               Entrar
             </Link>
-            <Link href="/auth/signup" className="btn-primary btn-sm">
+            <Link href="/industries" className="btn-primary btn-sm">
               Começar Grátis
             </Link>
           </div>
-          */}
 
           {/* Mobile Menu Button */}
           <button
