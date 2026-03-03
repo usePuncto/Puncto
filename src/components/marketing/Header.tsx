@@ -120,7 +120,7 @@ export default function Header() {
                   {item.name}
                 </Link>
               ))}
-              {/* Mobile CTA Buttons - Commented out until auth is ready
+              {/* Mobile CTA Buttons - Commented out until auth is readie
               <div className="pt-4 border-t border-slate-100 space-y-2">
                 <Link
                   href="/auth/login"
