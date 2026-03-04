@@ -118,7 +118,7 @@ export default function Header() {
                   {item.name}
                 </Link>
               ))}
-              {/* Mobile CTA Buttons - Commented out until auth is ready
+
               <div className="pt-4 border-t border-slate-100 space-y-2">
                 <Link
                   href="/auth/login"
@@ -128,14 +128,14 @@ export default function Header() {
                   Entrar
                 </Link>
                 <Link
-                  href="/auth/signup"
+                  href="/industries"
                   className="block btn-primary text-center"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Começar Grátis
                 </Link>
               </div>
-              */}
+
             </div>
           </motion.div>
         )}

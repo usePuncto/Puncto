@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
         displayName: userRecord.displayName || displayName,
         type: 'business_user',
         businessId,
+        primaryBusinessId: businessId,
         role: 'owner',
         updatedAt: now,
       },

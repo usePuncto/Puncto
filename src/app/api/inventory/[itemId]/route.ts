@@ -79,9 +79,13 @@ export async function PUT(
     if (updates.cost !== undefined) {
       updates.cost = Math.round(updates.cost * 100);
     }
+    // Remove null/undefined values (Firestore rejects them)
+    const cleanUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([, v]) => v != null)
+    );
 
     await itemRef.update({
-      ...updates,
+      ...cleanUpdates,
       updatedAt: new Date(),
     });
 

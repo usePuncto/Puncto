@@ -18,18 +18,25 @@ export async function getCurrentBusiness(): Promise<Business | null> {
   const businessSlug = getBusinessSlug();
 
   if (!businessSlug) {
+    console.log('[Tenant] getCurrentBusiness: no slug, returning null');
     return null;
   }
 
   try {
     // If it looks like a Firestore doc ID, fetch by ID (e.g. from /tenant?subdomain=xxx after onboarding)
     if (looksLikeDocId(businessSlug)) {
+      console.log('[Tenant] getCurrentBusiness: lookup by doc ID:', businessSlug);
       const doc = await db.collection('businesses').doc(businessSlug).get();
-      if (!doc.exists) return null;
+      if (!doc.exists) {
+        console.log('[Tenant] getCurrentBusiness: doc does not exist:', businessSlug);
+        return null;
+      }
+      console.log('[Tenant] getCurrentBusiness: found by ID:', doc.id);
       return { id: doc.id, ...doc.data() } as Business;
     }
 
     // Otherwise query by slug (production subdomain)
+    console.log('[Tenant] getCurrentBusiness: lookup by slug:', businessSlug);
     const businessSnapshot = await db
       .collection('businesses')
       .where('slug', '==', businessSlug)
@@ -37,16 +44,18 @@ export async function getCurrentBusiness(): Promise<Business | null> {
       .get();
 
     if (businessSnapshot.empty) {
+      console.log('[Tenant] getCurrentBusiness: no business found for slug:', businessSlug);
       return null;
     }
 
     const doc = businessSnapshot.docs[0];
+    console.log('[Tenant] getCurrentBusiness: found by slug:', doc.id);
     return {
       id: doc.id,
       ...doc.data()
     } as Business;
   } catch (error) {
-    console.error('Error fetching business:', error);
+    console.error('[Tenant] getCurrentBusiness error:', error);
     return null;
   }
 }
@@ -57,18 +66,42 @@ export async function getCurrentBusiness(): Promise<Business | null> {
  */
 export function getBusinessSlug(): string | null {
   try {
-    // First try to get from header (set by middleware)
     const headersList = headers();
+
+    // First try x-business-slug (set by middleware on request or response)
     const headerSlug = headersList.get('x-business-slug');
-    if (headerSlug) return headerSlug;
+    if (headerSlug) {
+      console.log('[Tenant] getBusinessSlug: from x-business-slug header:', headerSlug);
+      return headerSlug;
+    }
+
+    // Fallback: parse subdomain from request URL (middleware sets x-middleware-request-url)
+    const requestUrl = headersList.get('x-middleware-request-url');
+    if (requestUrl) {
+      try {
+        const url = new URL(requestUrl);
+        const subdomain = url.searchParams.get('subdomain');
+        if (subdomain) {
+          console.log('[Tenant] getBusinessSlug: from x-middleware-request-url query:', subdomain);
+          return subdomain;
+        }
+      } catch {
+        // ignore URL parse errors
+      }
+    }
 
     // Fallback to cookie (set by API or middleware)
     const cookieStore = cookies();
     const cookieSlug = cookieStore.get('x-business-slug')?.value;
-    if (cookieSlug) return cookieSlug;
+    if (cookieSlug) {
+      console.log('[Tenant] getBusinessSlug: from cookie:', cookieSlug);
+      return cookieSlug;
+    }
 
+    console.log('[Tenant] getBusinessSlug: null (no header, url, or cookie)');
     return null;
-  } catch {
+  } catch (err) {
+    console.error('[Tenant] getBusinessSlug error:', err);
     return null;
   }
 }

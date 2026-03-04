@@ -7,14 +7,23 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-function getRedirectUrl(user: { type?: string; primaryBusinessId?: string } | null, explicitReturnUrl: string | null): string {
+function getRedirectUrl(
+  user: { type?: string; primaryBusinessId?: string; businessId?: string; customClaims?: { primaryBusinessId?: string } } | null,
+  explicitReturnUrl: string | null
+): string {
   // Use explicit returnUrl when provided and not homepage
   if (explicitReturnUrl && explicitReturnUrl !== '/') {
     return explicitReturnUrl;
   }
   // Business users: redirect to business admin dashboard
-  if (user?.type === 'business_user' && user?.primaryBusinessId) {
-    return `/tenant/admin/dashboard?subdomain=${user.primaryBusinessId}`;
+  if (user?.type === 'business_user') {
+    const businessId =
+      user.primaryBusinessId ||
+      user.businessId ||
+      user.customClaims?.primaryBusinessId;
+    if (businessId) {
+      return `/tenant/admin/dashboard?subdomain=${businessId}`;
+    }
   }
   return '/';
 }
@@ -38,9 +47,32 @@ export default function LoginPage() {
 
   // Redirect if already logged in or just logged in
   useEffect(() => {
-    if (user && !loading) {
-      router.push(getRedirectUrl(user, explicitReturnUrl));
+    if (!user || loading) return;
+
+    const url = getRedirectUrl(user, explicitReturnUrl);
+
+    // For tenant admin: set cookie first (same as onboarding success flow)
+    // Middleware headers don't reach server components reliably
+    if (url.startsWith('/tenant/admin') || url.startsWith('/tenant?') || (explicitReturnUrl && explicitReturnUrl.startsWith('/tenant'))) {
+      const match = url.match(/subdomain=([^&]+)/) || (explicitReturnUrl && explicitReturnUrl.match(/subdomain=([^&]+)/));
+      const businessId =
+        match?.[1] ||
+        (user.type === 'business_user' && (user.primaryBusinessId || (user as { businessId?: string }).businessId || user.customClaims?.primaryBusinessId));
+
+      if (businessId) {
+        fetch('/api/tenant/set-context', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ businessId }),
+          credentials: 'include',
+        }).then(() => {
+          window.location.href = url.includes('?') ? url.split('?')[0] : '/tenant/admin/dashboard';
+        });
+        return;
+      }
     }
+
+    router.push(url);
   }, [user, loading, router, explicitReturnUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {

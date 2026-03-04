@@ -36,7 +36,7 @@
     "franchise": "Franquicia",
     "settings": "Configuración",
     "adminPanel": "Panel de Administración",
-    "backToPublic": "Volver al sitio público"
+    "logout": "Cerrar sesión"
   },
   "dashboard": {
     "title": "Panel",
@@ -60,5 +60,29 @@
     "portuguese": "Português",
     "english": "English",
     "spanish": "Español"
+  },
+  "settings": {
+    "branding": {
+      "title": "Branding y White-label",
+      "noWhiteLabelWarning": "Las funciones white-label (CSS personalizado, ocultar branding) requieren el plan Enterprise. La personalización básica sigue disponible.",
+      "logoLabel": "Logo",
+      "logoHint": "Sube un archivo de imagen (PNG, JPG o SVG). Máx. 2MB.",
+      "uploading": "Subiendo...",
+      "coverLabel": "Imagen de portada",
+      "coverHint": "Imagen grande mostrada en las páginas públicas de reservas.",
+      "primaryColorLabel": "Color primario",
+      "secondaryColorLabel": "Color secundario",
+      "faviconLabel": "Favicon",
+      "faviconHint": "Icono mostrado en la pestaña del navegador.",
+      "customCssLabel": "CSS personalizado",
+      "customCssPlaceholder": ".custom-class { color: red; }",
+      "customCssHint": "El CSS se inyectará en las páginas públicas. Úsalo con cuidado.",
+      "hideBrandingLabel": "Ocultar el branding de Puncto en páginas públicas",
+      "submitSaving": "Guardando...",
+      "submitLabel": "Guardar cambios",
+      "linkInBioLabel": "Link en la bio",
+      "linkInBioDescription": "Esta es la dirección pública de tu página Puncto.",
+      "linkInBioSupportNote": "Para cambiar la URL, ponte en contacto con soporte."
+    }
   }
 }

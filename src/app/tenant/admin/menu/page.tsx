@@ -14,10 +14,10 @@ export default function AdminMenuPage() {
   const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    loadData();
-  }, [business?.id]);
+  const [showCategoryForm, setShowCategoryForm] = useState(false);
+  const [categoryName, setCategoryName] = useState('');
+  const [categoryError, setCategoryError] = useState<string | null>(null);
+  const [categoryLoading, setCategoryLoading] = useState(false);
 
   const loadData = async () => {
     if (!business?.id) return;
@@ -49,6 +49,34 @@ export default function AdminMenuPage() {
     router.push('/tenant/admin/menu/new');
   };
 
+  const handleCreateCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCategoryError(null);
+    if (!categoryName.trim()) {
+      setCategoryError('Nome da categoria é obrigatório');
+      return;
+    }
+    setCategoryLoading(true);
+    try {
+      const res = await fetch('/api/menu/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId: business.id,
+          category: { name: categoryName.trim(), displayOrder: categories.length, active: true },
+        }),
+      });
+      if (!res.ok) throw new Error('Erro ao criar categoria');
+      setShowCategoryForm(false);
+      setCategoryName('');
+      loadData();
+    } catch {
+      setCategoryError('Erro ao criar categoria');
+    } finally {
+      setCategoryLoading(false);
+    }
+  };
+
   const filteredProducts = selectedCategory
     ? products.filter((p) => p.category === selectedCategory)
     : products;
@@ -69,13 +97,53 @@ export default function AdminMenuPage() {
           <p className="text-neutral-600 mt-2">Gerencie os produtos do menu</p>
         </div>
 
-        <button
-          onClick={handleCreate}
-          className="rounded-lg bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800"
-        >
-          + Novo Produto
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setShowCategoryForm(true)}
+            className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            + Nova Categoria
+          </button>
+          <button
+            onClick={handleCreate}
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800"
+          >
+            + Novo Produto
+          </button>
+        </div>
       </div>
+
+      {showCategoryForm && (
+        <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-6">
+          <h2 className="text-lg font-semibold text-neutral-900 mb-4">Nova categoria</h2>
+          <form onSubmit={handleCreateCategory} className="space-y-2 max-w-md">
+            <div className="flex gap-2">
+            <input
+              type="text"
+              value={categoryName}
+              onChange={(e) => setCategoryName(e.target.value)}
+              className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              placeholder="Nome da categoria"
+            />
+            <button
+              type="submit"
+              disabled={categoryLoading}
+              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+            >
+              {categoryLoading ? 'Salvando...' : 'Criar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setShowCategoryForm(false); setCategoryError(null); }}
+              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            >
+              Cancelar
+            </button>
+            </div>
+            {categoryError && <p className="text-sm text-red-600">{categoryError}</p>}
+          </form>
+        </div>
+      )}
 
       {categories.length > 0 && (
         <MenuCategoryFilter

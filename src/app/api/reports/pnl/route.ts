@@ -41,11 +41,27 @@ export async function GET(request: NextRequest) {
       revenue += data.amount || 0;
     });
 
-    // Get expenses from ledger entries
     const ledgerRef = db
       .collection('businesses')
       .doc(businessId)
       .collection('ledgerEntries');
+
+    // Add manual revenue from ledger entries
+    let manualRevenueQuery = ledgerRef
+      .where('account', '==', 'revenue')
+      .where('type', '==', 'credit');
+    if (start && end) {
+      manualRevenueQuery = manualRevenueQuery
+        .where('date', '>=', start)
+        .where('date', '<=', end) as any;
+    }
+    const manualRevenueSnapshot = await manualRevenueQuery.get();
+    manualRevenueSnapshot.forEach((doc) => {
+      const data = doc.data();
+      revenue += data.amount || 0;
+    });
+
+    // Get expenses from ledger entries
 
     let expensesQuery = ledgerRef
       .where('account', 'in', ['expenses', 'commission_expense', 'refunds'])

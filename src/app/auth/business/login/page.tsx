@@ -12,7 +12,8 @@ export default function BusinessLoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const subdomain = searchParams.get('subdomain');
-  const returnUrl = searchParams.get('returnUrl') || (subdomain ? `?subdomain=${subdomain}` : '/');
+  const returnUrlParam = searchParams.get('returnUrl');
+  const returnUrl = returnUrlParam || (subdomain ? `/tenant/admin/dashboard?subdomain=${subdomain}` : '/tenant/admin/dashboard');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -20,15 +21,36 @@ export default function BusinessLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  async function redirectToTenant(targetUrl: string, businessId: string) {
+    await fetch('/api/tenant/set-context', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ businessId }),
+      credentials: 'include',
+    });
+    const path = targetUrl.includes('?') ? targetUrl.split('?')[0] : targetUrl;
+    window.location.href = path;
+  }
+
   // Redirect if already logged in as business user
   useEffect(() => {
-    if (user && !loading) {
-      const customClaims = (user as any).customClaims;
-      if (customClaims?.userType === 'business_user') {
-        router.push(returnUrl);
-      }
+    if (!user || loading) return;
+
+    const customClaims = (user as { customClaims?: { userType?: string } }).customClaims;
+    if (customClaims?.userType !== 'business_user') return;
+
+    const businessId =
+      subdomain ||
+      (user as { primaryBusinessId?: string; businessId?: string }).primaryBusinessId ||
+      (user as { primaryBusinessId?: string; businessId?: string }).businessId;
+
+    if (businessId && (returnUrl.startsWith('/tenant') || returnUrl.includes('subdomain='))) {
+      redirectToTenant(returnUrl, businessId);
+      return;
     }
-  }, [user, loading, router, returnUrl]);
+
+    router.push(returnUrl);
+  }, [user, loading, router, returnUrl, subdomain]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,19 +58,8 @@ export default function BusinessLoginPage() {
     setIsSubmitting(true);
 
     try {
-      const loggedInUser = await login(email, password);
-
-      // Verify user is business user
-      const customClaims = (loggedInUser as any).customClaims;
-      if (customClaims?.userType !== 'business_user') {
-        setError('Esta conta não tem acesso à área de negócios. Verifique se você está usando a conta correta.');
-        // Don't sign out, just show error
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Redirect to business admin or returnUrl
-      router.push(returnUrl);
+      await login(email, password);
+      // User state updates async via onAuthStateChanged - useEffect will handle redirect with set-context
     } catch (err: any) {
       setError(err.message || 'Erro ao fazer login');
     } finally {

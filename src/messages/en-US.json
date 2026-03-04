@@ -36,7 +36,7 @@
     "franchise": "Franchise",
     "settings": "Settings",
     "adminPanel": "Admin Panel",
-    "backToPublic": "Back to public site"
+    "logout": "Log out"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -60,5 +60,29 @@
     "portuguese": "Português",
     "english": "English",
     "spanish": "Español"
+  },
+  "settings": {
+    "branding": {
+      "title": "Branding & White-label",
+      "noWhiteLabelWarning": "White-label features (custom CSS, hide branding) require the Enterprise plan. Basic branding customization is still available.",
+      "logoLabel": "Logo",
+      "logoHint": "Upload an image file (PNG, JPG or SVG). Max 2MB.",
+      "uploading": "Uploading...",
+      "coverLabel": "Cover image",
+      "coverHint": "Large image shown on your public booking pages.",
+      "primaryColorLabel": "Primary color",
+      "secondaryColorLabel": "Secondary color",
+      "faviconLabel": "Favicon",
+      "faviconHint": "Icon shown in the browser tab.",
+      "customCssLabel": "Custom CSS",
+      "customCssPlaceholder": ".custom-class { color: red; }",
+      "customCssHint": "Custom CSS will be injected into public pages. Use with care.",
+      "hideBrandingLabel": "Hide Puncto branding on public pages",
+      "submitSaving": "Saving...",
+      "submitLabel": "Save changes",
+      "linkInBioLabel": "Link in bio",
+      "linkInBioDescription": "This is the public address of your Puncto page.",
+      "linkInBioSupportNote": "To change the URL, please contact support."
+    }
   }
 }

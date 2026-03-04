@@ -16,9 +16,11 @@ export async function GET(request: NextRequest) {
     }
 
     const suppliersRef = db.collection('businesses').doc(businessId).collection('suppliers');
-    const snapshot = await suppliersRef.where('active', '==', true).orderBy('name', 'asc').get();
-    
-    const suppliers = snapshot.docs.map((doc) => ({
+    const snapshot = await suppliersRef.orderBy('name', 'asc').get();
+
+    const suppliers = snapshot.docs
+      .filter((doc) => (doc.data().active ?? true) === true)
+      .map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
@@ -56,25 +58,25 @@ export async function POST(request: NextRequest) {
     const suppliersRef = db.collection('businesses').doc(businessId).collection('suppliers');
     const now = new Date();
 
-    const supplierData: Omit<Supplier, 'id'> = {
+    const baseData: Record<string, unknown> = {
       businessId,
       name: supplier.name,
-      contactName: supplier.contactName,
-      email: supplier.email,
-      phone: supplier.phone,
-      address: supplier.address,
-      taxId: supplier.taxId,
-      paymentTerms: supplier.paymentTerms,
       active: supplier.active !== undefined ? supplier.active : true,
       createdAt: now,
       updatedAt: now,
     };
+    if (supplier.contactName != null && supplier.contactName !== '') baseData.contactName = supplier.contactName;
+    if (supplier.email != null && supplier.email !== '') baseData.email = supplier.email;
+    if (supplier.phone != null && supplier.phone !== '') baseData.phone = supplier.phone;
+    if (supplier.address != null) baseData.address = supplier.address;
+    if (supplier.taxId != null && supplier.taxId !== '') baseData.taxId = supplier.taxId;
+    if (supplier.paymentTerms != null && supplier.paymentTerms !== '') baseData.paymentTerms = supplier.paymentTerms;
 
-    const docRef = await suppliersRef.add(supplierData);
+    const docRef = await suppliersRef.add(baseData);
 
     return NextResponse.json({
       id: docRef.id,
-      ...supplierData,
+      ...baseData,
     });
   } catch (error) {
     console.error('[suppliers POST] Error:', error);

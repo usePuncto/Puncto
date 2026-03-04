@@ -14,6 +14,7 @@ export default async function TenantLayout({
 
   if (!business) {
     // Business not found - show 404
+    console.log('[TenantLayout] business not found, calling notFound() -> 404');
     notFound();
   }
 

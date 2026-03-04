@@ -26,6 +26,7 @@ export async function middleware(request: NextRequest) {
     // Local development: use query param for testing
     // e.g., http://localhost:3000?subdomain=admin
     subdomain = url.searchParams.get('subdomain') ?? '';
+    console.log('[Middleware] localhost subdomain from query:', subdomain || '(empty)', 'pathname:', url.pathname);
     // Fallback: Next.js may normalize URLs; check raw request URL for subdomain=admin
     if (!subdomain && request.url.includes('subdomain=admin')) {
       subdomain = 'admin';
@@ -87,6 +88,9 @@ export async function middleware(request: NextRequest) {
 
   // Main domain (marketing site)
   if (!subdomain || subdomain === 'www' || hostname === 'puncto.com.br') {
+    if (url.pathname.startsWith('/tenant')) {
+      console.log('[Middleware] tenant path but no subdomain - main domain block, subdomain:', subdomain || '(empty)');
+    }
     // Redirect blog routes - commented out until we have blog content
     if (url.pathname === '/blog' || url.pathname.startsWith('/blog/')) {
       return NextResponse.redirect(new URL('/', request.url));
@@ -115,6 +119,7 @@ export async function middleware(request: NextRequest) {
   // Store businessSlug in header for server components to access
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-business-slug', subdomain);
+  console.log('[Middleware] business subdomain:', subdomain, 'pathname:', url.pathname);
 
   // Protected admin routes within tenant subdomain - STRICT USER TYPE ENFORCEMENT
   if (url.pathname.startsWith('/tenant/admin') || url.pathname.startsWith('/admin')) {
@@ -172,12 +177,16 @@ export async function middleware(request: NextRequest) {
   // If path already starts with /tenant, use next() to pass through with headers
   // Otherwise, rewrite to /tenant/* routes
   if (url.pathname.startsWith('/tenant')) {
+    console.log('[Middleware] passing through /tenant with x-business-slug:', subdomain);
     const response = NextResponse.next({
       request: {
         headers: requestHeaders,
       },
     });
-    // Also set a cookie as fallback for server components
+    // Set on response - Next.js copies response headers to the request that server components read
+    response.headers.set('x-business-slug', subdomain);
+    // Fallback: pass URL so tenant can parse subdomain if header isn't available
+    response.headers.set('x-middleware-request-url', request.url);
     response.cookies.set('x-business-slug', subdomain, {
       path: '/',
       httpOnly: true,
@@ -196,7 +205,8 @@ export async function middleware(request: NextRequest) {
       },
     }
   );
-  // Also set a cookie as fallback for server components
+  response.headers.set('x-business-slug', subdomain);
+  response.headers.set('x-middleware-request-url', request.url);
   response.cookies.set('x-business-slug', subdomain, {
     path: '/',
     httpOnly: true,
