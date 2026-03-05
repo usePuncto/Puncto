@@ -1,35 +1,60 @@
 /**
  * WhatsApp Business API client
- * Supports Meta Cloud API (WhatsApp Business Platform)
+ * Uses Meta Cloud API (WhatsApp Business Platform)
+ *
+ * Per-business credentials (Embedded Signup): when businessId is provided,
+ * fetches phone_number_id and access_token from Firestore (business_whatsapp_credentials).
+ *
+ * Fallback: env vars WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_ACCESS_TOKEN (single-tenant / Puncto support).
  */
 
-interface WhatsAppOptions {
+import { getWhatsAppCredentials } from '@/lib/whatsapp/credentials';
+
+export interface WhatsAppOptions {
   to: string; // Phone number in E.164 format (e.g., +5511999999999)
   template?: string; // Template name
   templateParams?: string[]; // Template parameters
   text?: string; // Plain text message (if not using template)
   businessAccountId?: string;
+  /** When set, uses this business's WhatsApp (Embedded Signup). Otherwise uses env vars. */
+  businessId?: string;
 }
 
 /**
  * Send WhatsApp message via Meta Cloud API
+ * Uses per-business credentials when businessId is provided (Embedded Signup)
  */
 export async function sendWhatsApp(
   options: WhatsAppOptions
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
-  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
-  const businessAccountId = options.businessAccountId || process.env.WHATSAPP_BUSINESS_ACCOUNT_ID;
+  let phoneNumberId: string;
+  let accessToken: string;
 
-  if (!phoneNumberId || !accessToken) {
-    throw new Error('WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN must be configured');
+  if (options.businessId) {
+    const creds = await getWhatsAppCredentials(options.businessId);
+    if (!creds) {
+      return {
+        success: false,
+        error: 'WhatsApp not connected for this business. Connect in Settings > WhatsApp.',
+      };
+    }
+    phoneNumberId = creds.phoneNumberId;
+    accessToken = creds.accessToken;
+  } else {
+    phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
+    accessToken = process.env.WHATSAPP_ACCESS_TOKEN || '';
+    if (!phoneNumberId || !accessToken) {
+      return {
+        success: false,
+        error: 'WhatsApp not configured. Set env vars or connect business via Embedded Signup.',
+      };
+    }
   }
 
   try {
     let payload: any;
 
     if (options.template) {
-      // Send template message
       payload = {
         messaging_product: 'whatsapp',
         to: options.to,
@@ -51,7 +76,6 @@ export async function sendWhatsApp(
         },
       };
     } else if (options.text) {
-      // Send plain text message
       payload = {
         messaging_product: 'whatsapp',
         to: options.to,
@@ -62,10 +86,10 @@ export async function sendWhatsApp(
       throw new Error('Either template or text must be provided');
     }
 
-    const response = await fetch(`https://graph.facebook.com/v18.0/${phoneNumberId}/messages`, {
+    const response = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${accessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
@@ -89,16 +113,10 @@ export async function sendWhatsApp(
  * Format phone number to E.164 format
  */
 export function formatPhoneNumber(phone: string): string {
-  // Remove all non-digit characters
   const digits = phone.replace(/\D/g, '');
-
-  // If it starts with 0, remove it
   const withoutLeadingZero = digits.startsWith('0') ? digits.slice(1) : digits;
-
-  // If it doesn't start with country code, assume Brazil (+55)
   if (!withoutLeadingZero.startsWith('55')) {
     return `+55${withoutLeadingZero}`;
   }
-
   return `+${withoutLeadingZero}`;
 }

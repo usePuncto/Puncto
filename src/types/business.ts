@@ -98,7 +98,8 @@ export interface WorkingHours {
 }
 
 export interface WhatsAppConfig {
-  number: string;
+  number: string; // Business WhatsApp number
+  presetMessage?: string; // Default message for manual mode (pre-filled when opening wa.me)
   apiProvider?: 'twilio' | 'maytapi' | 'wati' | 'evolution';
   apiKey?: string;
   instanceName?: string;

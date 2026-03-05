@@ -41,7 +41,7 @@ const adminNavItems: { href: string; key: string; icon: string; feature: Feature
   { href: '/tenant/admin/purchases', key: 'purchases', icon: '🛒', feature: 'purchaseOrders' },
   { href: '/tenant/admin/time-clock', key: 'timeClock', icon: '⏰', feature: 'timeClock' },
   { href: '/tenant/admin/loyalty', key: 'loyalty', icon: '🎁', feature: 'loyaltyPrograms' },
-  { href: '/tenant/admin/campaigns', key: 'campaigns', icon: '📢', feature: 'campaigns' },
+  { href: '/tenant/admin/whatsapp', key: 'whatsapp', icon: '💬', feature: 'always' },
   { href: '/tenant/admin/franchise', key: 'franchise', icon: '🏢', feature: 'enterprise' },
   { href: '/tenant/admin/settings', key: 'settings', icon: '⚙️', feature: 'always' },
 ];

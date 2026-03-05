@@ -33,6 +33,7 @@
     "timeClock": "Ponto",
     "loyalty": "Fidelidade",
     "campaigns": "Campanhas",
+    "whatsapp": "WhatsApp",
     "franchise": "Franquia",
     "settings": "Configurações",
     "adminPanel": "Painel Administrativo",
@@ -84,5 +85,34 @@
       "linkInBioDescription": "Este é o endereço público da sua página Puncto.",
       "linkInBioSupportNote": "Para alterar a URL, entre em contato com o suporte."
     }
+  },
+  "whatsapp": {
+    "title": "WhatsApp",
+    "subtitle": "Configure como seu negócio se comunica via WhatsApp",
+    "modeManual": "WhatsApp manual",
+    "modeManualDesc": "Planos Grátis e Starter: Selecione um contato e clique no botão para abrir o WhatsApp com uma mensagem pronta. Você envia manualmente.",
+    "modeAutomated": "WhatsApp automático",
+    "modeAutomatedDesc": "Planos Growth e Pro: As mensagens são enviadas automaticamente pela API do WhatsApp Business. Configurado de forma segura no nosso backend.",
+    "configTitle": "Configuração",
+    "numberLabel": "Número do WhatsApp da empresa",
+    "numberHint": "O número exibido aos clientes (ex: +5511999999999).",
+    "presetMessageLabel": "Mensagem padrão",
+    "presetMessagePlaceholder": "Olá! Seu agendamento está confirmado para {date} às {time}. Até breve!",
+    "presetMessageHint": "Esta mensagem é pré-preenchida quando você clica em \"Enviar WhatsApp\" em um contato. Use {date} e {time} como placeholders.",
+    "save": "Salvar",
+    "saving": "Salvando...",
+    "howItWorksTitle": "Como funciona",
+    "howItWorksManual": "No modo Manual, quando você clica em \"Enviar WhatsApp\" em um cliente ou agendamento, o app abre o WhatsApp (celular ou web) com a mensagem pronta. Você revisa e envia manualmente.",
+    "step1": "Configure sua mensagem padrão acima.",
+    "step2": "Vá em Clientes ou Agendamentos.",
+    "step3": "Clique em \"Enviar WhatsApp\" ao lado de um contato.",
+    "step4": "O WhatsApp abre com a mensagem pré-preenchida. Envie manualmente.",
+    "howItWorksAutomated": "No modo Automático, o sistema envia lembretes e confirmações diretamente para o WhatsApp dos clientes pela API do WhatsApp Business da Meta. Toda configuração da API é feita de forma segura no nosso backend—nada sensível é exposto aos usuários.",
+    "connectTitle": "Conecte seu WhatsApp",
+    "connected": "WhatsApp conectado",
+    "connectDesc": "Conecte o número do WhatsApp do seu negócio para que as mensagens automáticas sejam enviadas do seu número para seus clientes.",
+    "connectButton": "Conectar WhatsApp",
+    "connecting": "Conectando...",
+    "connectNotConfigured": "O Embedded Signup não está configurado. Entre em contato com o suporte para ativar o WhatsApp por negócio."
   }
 }

@@ -33,6 +33,7 @@
     "timeClock": "Time Clock",
     "loyalty": "Loyalty",
     "campaigns": "Campaigns",
+    "whatsapp": "WhatsApp",
     "franchise": "Franchise",
     "settings": "Settings",
     "adminPanel": "Admin Panel",
@@ -84,5 +85,34 @@
       "linkInBioDescription": "This is the public address of your Puncto page.",
       "linkInBioSupportNote": "To change the URL, please contact support."
     }
+  },
+  "whatsapp": {
+    "title": "WhatsApp",
+    "subtitle": "Configure how your business communicates via WhatsApp",
+    "modeManual": "Manual WhatsApp",
+    "modeManualDesc": "Free & Starter plans: Select a contact and click a button to open WhatsApp with a preset message. You send it manually.",
+    "modeAutomated": "Automated WhatsApp",
+    "modeAutomatedDesc": "Growth & Pro plans: Messages are sent automatically via WhatsApp Business API. Configured securely on our backend.",
+    "configTitle": "Configuration",
+    "numberLabel": "Business WhatsApp number",
+    "numberHint": "The number shown to clients (e.g. +5511999999999).",
+    "presetMessageLabel": "Preset message",
+    "presetMessagePlaceholder": "Hello! Your appointment is confirmed for {date} at {time}. See you soon!",
+    "presetMessageHint": "This message is pre-filled when you click \"Send WhatsApp\" on a contact. Use {date} and {time} as placeholders.",
+    "save": "Save",
+    "saving": "Saving...",
+    "howItWorksTitle": "How it works",
+    "howItWorksManual": "In Manual mode, when you click \"Send WhatsApp\" on a customer or booking, the app opens WhatsApp (mobile or web) with the preset message ready. You review and send it yourself.",
+    "step1": "Configure your preset message above.",
+    "step2": "Go to Customers or Bookings.",
+    "step3": "Click \"Send WhatsApp\" next to a contact.",
+    "step4": "WhatsApp opens with the message pre-filled. Send it manually.",
+    "howItWorksAutomated": "In Automated mode, the system sends reminders and confirmations directly to your clients' WhatsApp via the Meta WhatsApp Business API. All API configuration is managed securely on our backend—nothing sensitive is exposed to users.",
+    "connectTitle": "Connect your WhatsApp",
+    "connected": "WhatsApp connected",
+    "connectDesc": "Connect your business WhatsApp number so automated messages are sent from your number to your clients.",
+    "connectButton": "Connect WhatsApp",
+    "connecting": "Connecting...",
+    "connectNotConfigured": "Embedded Signup is not configured. Contact support to enable per-business WhatsApp."
   }
 }
