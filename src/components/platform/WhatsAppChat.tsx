@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 
 export interface PlatformContact {
   id: string;
   phone: string;
   name: string;
+  lastMessagePreview?: string;
 }
 
 export interface ChatMessage {
@@ -18,26 +19,96 @@ export interface ChatMessage {
 
 export function PlatformWhatsAppChat() {
   const { firebaseUser } = useAuth();
+  const [conversations, setConversations] = useState<PlatformContact[]>([]);
   const [contacts, setContacts] = useState<PlatformContact[]>([]);
   const [newPhone, setNewPhone] = useState('');
   const [selected, setSelected] = useState<PlatformContact | null>(null);
   const [messages, setMessages] = useState<Record<string, ChatMessage[]>>({});
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [loadingConversations, setLoadingConversations] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const threadMessages = selected ? messages[selected.id] || [] : [];
+  const allContacts = [...conversations, ...contacts.filter((c) => !conversations.some((conv) => conv.phone === c.phone))];
+  const threadMessages = selected ? messages[selected.phone] || [] : [];
+
+  const fetchConversations = useCallback(async () => {
+    if (!firebaseUser) return;
+    setLoadingConversations(true);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch('/api/whatsapp/conversations', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Failed to fetch');
+      const data = await res.json();
+      setConversations(
+        (data.conversations || []).map((c: { phone: string; lastMessagePreview?: string }) => ({
+          id: c.phone,
+          phone: c.phone,
+          name: c.phone,
+          lastMessagePreview: c.lastMessagePreview,
+        }))
+      );
+    } catch {
+      setConversations([]);
+    } finally {
+      setLoadingConversations(false);
+    }
+  }, [firebaseUser]);
+
+  const fetchMessages = useCallback(
+    async (phone: string) => {
+      if (!firebaseUser) return;
+      setLoadingMessages(true);
+      try {
+        const token = await firebaseUser.getIdToken();
+        const res = await fetch(`/api/whatsapp/messages?phone=${encodeURIComponent(phone)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error('Failed to fetch messages');
+        const data = await res.json();
+        setMessages((prev) => ({
+          ...prev,
+          [phone]: (data.messages || []).map((m: { id: string; text: string; isOutgoing: boolean; timestamp: string }) => ({
+            ...m,
+            timestamp: new Date(m.timestamp),
+          })),
+        }));
+      } catch {
+        setMessages((prev) => ({ ...prev, [phone]: [] }));
+      } finally {
+        setLoadingMessages(false);
+      }
+    },
+    [firebaseUser]
+  );
+
+  useEffect(() => {
+    fetchConversations();
+  }, [fetchConversations]);
+
+  useEffect(() => {
+    if (selected) {
+      fetchMessages(selected.phone);
+    }
+  }, [selected?.phone, fetchMessages]);
 
   const addContact = useCallback(() => {
     const phone = newPhone.replace(/\D/g, '').trim();
     if (!phone || phone.length < 10) return;
     const id = `+${phone.startsWith('55') ? phone : '55' + phone}`;
-    if (contacts.some((c) => c.phone === id || c.id === id)) return;
+    if (allContacts.some((c) => c.phone === id)) return;
     const contact: PlatformContact = { id, phone: id, name: id };
     setContacts((prev) => [contact, ...prev]);
     setNewPhone('');
     setSelected(contact);
-  }, [newPhone, contacts]);
+  }, [newPhone, allContacts]);
+
+  const handleSelectContact = useCallback((contact: PlatformContact) => {
+    setSelected(contact);
+  }, []);
 
   const sendMessage = useCallback(async () => {
     if (!selected || !input.trim() || !firebaseUser) return;
@@ -56,7 +127,7 @@ export function PlatformWhatsAppChat() {
 
     setMessages((prev) => ({
       ...prev,
-      [selected.id]: [...(prev[selected.id] || []), optimisticMessage],
+      [selected.phone]: [...(prev[selected.phone] || []), optimisticMessage],
     }));
     setInput('');
 
@@ -79,21 +150,22 @@ export function PlatformWhatsAppChat() {
 
       setMessages((prev) => ({
         ...prev,
-        [selected.id]: (prev[selected.id] || []).map((m) =>
+        [selected.phone]: (prev[selected.phone] || []).map((m) =>
           m.id === tempId ? { ...m, id: data.messageId || tempId } : m
         ),
       }));
+      fetchConversations();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to send message');
       setMessages((prev) => ({
         ...prev,
-        [selected.id]: (prev[selected.id] || []).filter((m) => m.id !== tempId),
+        [selected.phone]: (prev[selected.phone] || []).filter((m) => m.id !== tempId),
       }));
       setInput(text);
     } finally {
       setSending(false);
     }
-  }, [selected, input, firebaseUser]);
+  }, [selected, input, firebaseUser, fetchConversations]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -108,7 +180,9 @@ export function PlatformWhatsAppChat() {
       <aside className="flex w-72 flex-shrink-0 flex-col border-r border-gray-200">
         <div className="border-b border-gray-200 px-4 py-3">
           <h3 className="text-sm font-semibold text-gray-900">Contacts</h3>
-          <p className="mt-0.5 text-xs text-gray-500">Add a phone number to start chatting</p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            Conversations appear when someone messages you
+          </p>
         </div>
         <div className="border-b border-gray-100 px-4 py-3">
           <div className="flex gap-2">
@@ -129,32 +203,50 @@ export function PlatformWhatsAppChat() {
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto">
-          {contacts.length === 0 ? (
-            <p className="px-4 py-6 text-sm text-gray-500">
-              No contacts yet. Add a phone number above.
-            </p>
-          ) : (
-            <ul className="divide-y divide-gray-100">
-              {contacts.map((c) => {
-                const isActive = selected?.id === c.id;
-                return (
-                  <li key={c.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelected(c)}
-                      className={`w-full px-4 py-3 text-left transition-colors hover:bg-gray-50 ${
-                        isActive ? 'border-l-2 border-green-600 bg-green-50' : ''
-                      }`}
-                    >
-                      <p className="truncate text-sm font-medium text-gray-900">{c.name}</p>
-                      <p className="truncate text-xs text-gray-500">{c.phone}</p>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <div className="flex justify-end px-2 py-1">
+            <button
+              type="button"
+              onClick={fetchConversations}
+              disabled={loadingConversations}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Refresh
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {loadingConversations ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-green-600" />
+              </div>
+            ) : allContacts.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-gray-500">
+                No conversations yet. Add a number or wait for someone to message you.
+              </p>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {allContacts.map((c) => {
+                  const isActive = selected?.phone === c.phone;
+                  return (
+                    <li key={c.phone}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectContact(c)}
+                        className={`w-full px-4 py-3 text-left transition-colors hover:bg-gray-50 ${
+                          isActive ? 'border-l-2 border-green-600 bg-green-50' : ''
+                        }`}
+                      >
+                        <p className="truncate text-sm font-medium text-gray-900">{c.name}</p>
+                        <p className="truncate text-xs text-gray-500">
+                          {c.lastMessagePreview || c.phone}
+                        </p>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
         </div>
       </aside>
 
@@ -162,14 +254,30 @@ export function PlatformWhatsAppChat() {
       <div className="flex min-w-0 flex-1 flex-col">
         {selected ? (
           <>
-            <div className="flex-shrink-0 border-b border-gray-200 bg-gray-50 px-4 py-3">
-              <p className="text-sm font-semibold text-gray-900">{selected.name}</p>
-              <p className="text-xs text-gray-500">{selected.phone}</p>
+            <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{selected.name}</p>
+                <p className="text-xs text-gray-500">{selected.phone}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => selected && fetchMessages(selected.phone)}
+                disabled={loadingMessages}
+                className="text-xs text-gray-500 hover:text-gray-700"
+              >
+                Refresh
+              </button>
             </div>
 
             <div className="flex-1 space-y-3 overflow-y-auto p-4">
-              {threadMessages.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-500">No messages yet. Type below to send.</p>
+              {loadingMessages ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-gray-300 border-t-green-600" />
+                </div>
+              ) : threadMessages.length === 0 ? (
+                <p className="py-8 text-center text-sm text-gray-500">
+                  No messages yet. Type below to send (recipient must have messaged you first).
+                </p>
               ) : (
                 threadMessages.map((m) => (
                   <div
@@ -189,7 +297,9 @@ export function PlatformWhatsAppChat() {
                           m.isOutgoing ? 'text-green-100' : 'text-gray-500'
                         }`}
                       >
-                        {m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {m.timestamp instanceof Date
+                          ? m.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                          : new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                   </div>
@@ -225,7 +335,7 @@ export function PlatformWhatsAppChat() {
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center bg-gray-50">
-            <p className="text-sm text-gray-500">Select a contact to start chatting</p>
+            <p className="text-sm text-gray-500">Select a contact to view the conversation</p>
           </div>
         )}
       </div>

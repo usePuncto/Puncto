@@ -5,6 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/firebaseAdmin';
 import { sendWhatsApp, formatPhoneNumber } from '@/lib/messaging/whatsapp';
+import { saveOutboundMessage } from '@/lib/whatsapp/messages';
 
 async function verifyPlatformAdmin(request: NextRequest): Promise<boolean> {
   try {
@@ -50,9 +51,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const messageId = result.messageId || `out-${Date.now()}`;
+    try {
+      await saveOutboundMessage({
+        toPhone: normalizedTo,
+        text: text.trim(),
+        messageId,
+        timestamp: new Date(),
+      });
+    } catch (err) {
+      console.error('[WhatsApp Send] Failed to save outbound message:', err);
+    }
+
     return NextResponse.json({
       success: true,
-      messageId: result.messageId,
+      messageId,
     });
   } catch (error) {
     console.error('[WhatsApp Send] Error:', error);

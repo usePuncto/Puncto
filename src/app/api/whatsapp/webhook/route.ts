@@ -4,6 +4,7 @@
  * Configure this URL in Meta App Dashboard: Webhooks > WhatsApp > Callback URL
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { saveInboundMessage } from '@/lib/whatsapp/messages';
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 
@@ -46,15 +47,12 @@ export async function POST(request: NextRequest) {
         if (change.field !== 'messages') continue;
 
         const value = change.value;
-        const metadata = value?.metadata || {};
-        const phoneNumberId = metadata.phone_number_id;
 
         for (const msg of value?.messages || []) {
           const senderPhone = msg.from;
           const msgId = msg.id;
-          const timestamp = msg.timestamp
-            ? new Date(parseInt(msg.timestamp, 10) * 1000).toISOString()
-            : null;
+          const timestampMs = msg.timestamp ? parseInt(msg.timestamp, 10) * 1000 : Date.now();
+          const timestamp = new Date(timestampMs);
           let messageText = '';
 
           if (msg.type === 'text' && msg.text?.body) {
@@ -70,16 +68,16 @@ export async function POST(request: NextRequest) {
             messageText = `[${msg.type}]`;
           }
 
-          const parsed = {
-            senderPhone,
-            messageId: msgId,
-            messageText,
-            timestamp,
-            phoneNumberId,
-          };
-
-          // eslint-disable-next-line no-console
-          console.log('[WhatsApp Webhook] Incoming message:', JSON.stringify(parsed, null, 2));
+          try {
+            await saveInboundMessage({
+              senderPhone,
+              text: messageText,
+              messageId: msgId,
+              timestamp,
+            });
+          } catch (err) {
+            console.error('[WhatsApp Webhook] Failed to save message:', err);
+          }
         }
 
         // status_updates (delivery, read, etc.) - log if needed
