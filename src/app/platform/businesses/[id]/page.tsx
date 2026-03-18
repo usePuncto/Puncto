@@ -151,7 +151,15 @@ export default function PlatformBusinessDetailPage() {
                     (business.subscription?.tier || '') === 'basic' ? 'bg-green-100 text-green-800' :
                     'bg-gray-100 text-gray-800'
                   }`}>
-                    {(business.subscription?.tier === 'enterprise' ? 'Enterprise' : business.subscription?.tier === 'pro' ? 'Pro' : business.subscription?.tier === 'basic' ? 'Básico' : 'Grátis') || 'Grátis'}
+                    {
+                      business.subscription?.tier === 'enterprise'
+                        ? 'Enterprise'
+                        : business.subscription?.tier === 'pro'
+                          ? 'Pro'
+                          : business.subscription?.tier === 'basic'
+                            ? 'Básico'
+                            : 'Grátis'
+                    }
                   </span>
                 </dd>
               </div>

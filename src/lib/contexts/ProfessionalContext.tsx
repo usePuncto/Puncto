@@ -58,12 +58,17 @@ export function ProfessionalProvider({ children }: { children: ReactNode }) {
 
         // 2. Otherwise look up by userId (owner linked to professional) or email
         const prosRef = collection(db, 'businesses', business.id, 'professionals');
-        const byUserId = query(prosRef, where('userId', '==', user.id));
-        const byEmail = query(prosRef, where('email', '==', (user as { email?: string }).email));
+        const uid = user?.id;
+        const userEmail = (user as { email?: string }).email;
+
+        if (!uid) return;
+
+        const byUserId = query(prosRef, where('userId', '==', uid));
+        const byEmail = userEmail ? query(prosRef, where('email', '==', userEmail)) : null;
 
         const [userIdSnap, emailSnap] = await Promise.all([
           getDocs(byUserId),
-          getDocs(byEmail),
+          byEmail ? getDocs(byEmail) : Promise.resolve({ docs: [] } as any),
         ]);
 
         const docSnap = userIdSnap.docs[0] || emailSnap.docs[0];

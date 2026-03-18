@@ -38,9 +38,10 @@ export default function AdminWhatsAppPage() {
   const isAutomated = planId === 'growth' || planId === 'pro' || planId === 'enterprise';
 
   const settings = business?.settings;
-  const whatsapp = settings?.whatsapp || {};
+  const whatsapp: Partial<WhatsAppConfig> = settings?.whatsapp ?? {};
 
-  const confirmationChannels = settings?.confirmationChannels ?? ['email'];
+  const confirmationChannels: ConfirmationChannel[] =
+    settings?.confirmationChannels ?? ['email'];
   const sendConfirmationsViaWhatsApp = confirmationChannels.includes('whatsapp');
 
   const [formData, setFormData] = useState<Partial<WhatsAppConfig>>({
@@ -99,9 +100,10 @@ export default function AdminWhatsAppPage() {
   };
 
   const handleToggleWhatsAppConfirmations = (checked: boolean) => {
+    const baseChannels: ConfirmationChannel[] = confirmationChannels ?? ['email'];
     const channels: ConfirmationChannel[] = checked
-      ? [...new Set([...(confirmationChannels || ['email']), 'whatsapp'])]
-      : (confirmationChannels || ['email']).filter((c) => c !== 'whatsapp');
+      ? (Array.from(new Set([...baseChannels, 'whatsapp'])) as ConfirmationChannel[])
+      : baseChannels.filter((c) => c !== 'whatsapp');
     saveMutation.mutate({
       number: formData.number || '',
       presetMessage: formData.presetMessage,

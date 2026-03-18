@@ -5,6 +5,7 @@ import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useServices, useCreateService, useUpdateService } from '@/lib/queries/services';
 import { ServiceForm } from '@/components/admin/ServiceForm';
 import { Service } from '@/types/business';
+import { MenuCategory } from '@/types/restaurant';
 import { MenuCategoryFilter } from '@/components/restaurant/MenuCategoryFilter';
 
 export default function AdminServicesPage() {
@@ -14,7 +15,7 @@ export default function AdminServicesPage() {
   const [showCategoryForm, setShowCategoryForm] = useState(false);
   const [categoryName, setCategoryName] = useState('');
   const [categoryError, setCategoryError] = useState<string | null>(null);
-  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
+  const [categories, setCategories] = useState<MenuCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [categoryLoading, setCategoryLoading] = useState(false);
 
@@ -24,7 +25,20 @@ export default function AdminServicesPage() {
     if (!business?.id) return;
     fetch(`/api/services/categories?businessId=${business.id}`)
       .then((r) => r.json())
-      .then((d) => setCategories(d.categories ?? []))
+      .then((d) => {
+        const rawCategories = d.categories ?? [];
+        setCategories(
+          rawCategories.map((c: any, idx: number) => ({
+            id: c.id,
+            businessId: c.businessId ?? business.id,
+            name: c.name ?? '',
+            displayOrder: typeof c.displayOrder === 'number' ? c.displayOrder : idx,
+            active: typeof c.active === 'boolean' ? c.active : true,
+            createdAt: c.createdAt ?? new Date(),
+            updatedAt: c.updatedAt ?? new Date(),
+          }))
+        );
+      })
       .catch(() => setCategories([]));
   };
 
@@ -32,7 +46,7 @@ export default function AdminServicesPage() {
     loadCategories();
   }, [business?.id]);
 
-  const handleDeleteCategory = async (category: { id: string; name: string }) => {
+  const handleDeleteCategory = async (category: MenuCategory) => {
     if (!business?.id) return;
     try {
       const res = await fetch(

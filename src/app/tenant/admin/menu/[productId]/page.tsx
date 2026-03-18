@@ -145,17 +145,24 @@ export default function ProductEditPage() {
     }
   };
 
-  const updateIngredient = (index: number, field: keyof ProductIngredient, value: string | number) => {
+  const updateIngredient = <T extends keyof ProductIngredient>(
+    index: number,
+    field: T,
+    value: ProductIngredient[T]
+  ) => {
     setIngredients((prev) => {
       const next = [...prev];
-      (next[index] as Record<string, unknown>)[field] = value;
+      next[index][field] = value;
+
       if (field === 'inventoryItemId') {
-        const item = inventoryItems.find((i) => i.id === value);
+        const inventoryItemId = value as ProductIngredient['inventoryItemId'];
+        const item = inventoryItems.find((i) => i.id === inventoryItemId);
         if (item) {
           next[index].inventoryItemName = item.name;
           next[index].unit = item.unit;
         }
       }
+
       return next;
     });
   };
