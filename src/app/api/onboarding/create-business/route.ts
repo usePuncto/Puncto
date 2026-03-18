@@ -39,13 +39,37 @@ export async function POST(request: NextRequest) {
       phone,
       industry,
       selectedPlan,
+      billingPeriod = 'monthly',
       stripePriceId,
     } = body;
 
-    // Validation
-    if (!displayName || !legalName || !taxId || !email || !phone || !industry || !selectedPlan || !stripePriceId) {
+    // Validation (stripePriceId can be resolved from selectedPlan for paid plans)
+    if (!displayName || !legalName || !taxId || !email || !phone || !industry || !selectedPlan) {
       return NextResponse.json(
         { error: 'Validation Error', message: 'Todos os campos são obrigatórios' },
+        { status: 400 }
+      );
+    }
+
+    // Resolve Stripe price ID from selectedPlan + billingPeriod (server-side)
+    // Monthly prices: STRIPE_PRICE_ID_STARTER, etc.
+    // Annual prices: STRIPE_PRICE_ID_STARTER_ANNUAL, etc. (add to .env when you create them in Stripe)
+    const isAnnual = billingPeriod === 'annual';
+    const priceIdMap: Record<string, string> = isAnnual
+      ? {
+          starter: process.env.STRIPE_PRICE_ID_STARTER_ANNUAL || process.env.STRIPE_PRICE_ID_STARTER || '',
+          growth: process.env.STRIPE_PRICE_ID_GROWTH_ANNUAL || process.env.STRIPE_PRICE_ID_GROWTH || '',
+          pro: process.env.STRIPE_PRICE_ID_PRO_ANNUAL || process.env.STRIPE_PRICE_ID_PRO || '',
+        }
+      : {
+          starter: process.env.STRIPE_PRICE_ID_STARTER || '',
+          growth: process.env.STRIPE_PRICE_ID_GROWTH || '',
+          pro: process.env.STRIPE_PRICE_ID_PRO || '',
+        };
+    const resolvedPriceId = stripePriceId || priceIdMap[selectedPlan];
+    if (!resolvedPriceId) {
+      return NextResponse.json(
+        { error: 'Validation Error', message: 'Plano inválido ou configuração de pagamento ausente' },
         { status: 400 }
       );
     }
@@ -133,7 +157,7 @@ export async function POST(request: NextRequest) {
         currentPeriodEnd: Timestamp.fromDate(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)),
         billingEmail: email,
         stripeCustomerId: stripeCustomer.id,
-        stripePriceId,
+        stripePriceId: resolvedPriceId,
       },
       features,
       settings: {
@@ -165,13 +189,33 @@ export async function POST(request: NextRequest) {
 
     await businessRef.set(businessData);
 
+    // Create owner as Professional so they appear in professional dashboard and agenda
+    const userRecord = await auth.getUser(userId);
+    const prosRef = businessRef.collection('professionals');
+    const ownerProfessionalData = {
+      businessId,
+      userId,
+      name: userRecord.displayName || displayName || userRecord.email?.split('@')[0] || 'Proprietário',
+      email: userRecord.email || email,
+      phone,
+      specialties: [],
+      locationIds: [],
+      active: true,
+      canBookOnline: true,
+      isOwner: true,
+      workingHours: businessData.settings.workingHours,
+      createdAt: now,
+      updatedAt: now,
+    };
+    await prosRef.add(ownerProfessionalData);
+
     // Create Stripe Checkout Session
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const checkoutSession = await createSubscriptionCheckout({
       customerId: stripeCustomer.id,
-      priceId: stripePriceId,
+      priceId: resolvedPriceId,
       successUrl: `${baseUrl}/onboarding/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${baseUrl}/onboarding/plan?canceled=true`,
+      cancelUrl: `${baseUrl}/industries?canceled=true`,
       metadata: {
         businessId,
         userId,
@@ -185,7 +229,6 @@ export async function POST(request: NextRequest) {
     });
 
     // Get existing custom claims (if any)
-    const userRecord = await auth.getUser(userId);
     const existingClaims = userRecord.customClaims || {};
 
     // Set custom claims for the user as business_user with owner role
@@ -212,6 +255,7 @@ export async function POST(request: NextRequest) {
       displayName: userRecord.displayName || displayName,
       type: 'business_user',
       businessId,
+      primaryBusinessId: businessId,
       role: 'owner',
       updatedAt: now,
     }, { merge: true });

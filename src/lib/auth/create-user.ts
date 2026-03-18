@@ -49,6 +49,7 @@ export async function createUser(params: CreateUserParams) {
     } else if (userType === 'business_user') {
       claims.businessRoles = customClaims.businessRoles || {};
       claims.primaryBusinessId = customClaims.primaryBusinessId;
+      if (customClaims.professionalId) claims.professionalId = customClaims.professionalId;
       // Remove platform and customer claims
       delete claims.platformAdmin;
       delete claims.platformRole;

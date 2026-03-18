@@ -68,7 +68,6 @@ function ContactContent() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-slate-900">Email</h3>
-                    <p className="text-slate-600">contato@puncto.com.br</p>
                     <p className="text-slate-600">suporte@puncto.com.br</p>
                   </div>
                 </div>

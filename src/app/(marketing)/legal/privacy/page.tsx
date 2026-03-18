@@ -117,7 +117,7 @@ export default function PrivacyPage() {
         <p>Dúvidas sobre sua privacidade?</p>
         <p>Entre em contato com nosso Encarregado de Dados (DPO):</p>
         <a href="mailto:privacidade@puncto.com.br" className="legal-contact-email">
-          privacidade@puncto.com.br
+          suporte@puncto.com.br
         </a>
       </div>
     </LegalPageLayout>

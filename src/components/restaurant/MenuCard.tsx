@@ -6,9 +6,10 @@ import Image from 'next/image';
 interface MenuCardProps {
   product: Product;
   onEdit: (product: Product) => void;
+  onDelete?: (product: Product) => void;
 }
 
-export function MenuCard({ product, onEdit }: MenuCardProps) {
+export function MenuCard({ product, onEdit, onDelete }: MenuCardProps) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -72,12 +73,22 @@ export function MenuCard({ product, onEdit }: MenuCardProps) {
           </p>
         )}
 
-        <button
-          onClick={() => onEdit(product)}
-          className="mt-4 w-full rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-        >
-          Editar
-        </button>
+        <div className="mt-4 flex gap-2">
+          <button
+            onClick={() => onEdit(product)}
+            className="flex-1 rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+          >
+            Editar
+          </button>
+          {onDelete && (
+            <button
+              onClick={() => onDelete(product)}
+              className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+            >
+              Excluir
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

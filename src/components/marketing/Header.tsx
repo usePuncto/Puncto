@@ -53,19 +53,17 @@ export default function Header() {
             ))}
           </div>
 
-          {/* Desktop CTA Buttons - Commented out until auth is ready
           <div className="hidden lg:flex items-center gap-4">
             <Link
-              href="/auth/login"
+              href="/auth/signup"
               className="text-slate-700 hover:text-primary-600 font-medium transition-colors"
             >
               Entrar
             </Link>
-            <Link href="/auth/signup" className="btn-primary btn-sm">
+            <Link href="/industries" className="btn-primary btn-sm">
               Começar Grátis
             </Link>
           </div>
-          */}
 
           {/* Mobile Menu Button */}
           <button
@@ -120,6 +118,7 @@ export default function Header() {
                   {item.name}
                 </Link>
               ))}
+
               {/* Mobile CTA Buttons - Commented out until auth is readie
               <div className="pt-4 border-t border-slate-100 space-y-2">
                 <Link
@@ -130,14 +129,14 @@ export default function Header() {
                   Entrar
                 </Link>
                 <Link
-                  href="/auth/signup"
+                  href="/industries"
                   className="block btn-primary text-center"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   Começar Grátis
                 </Link>
               </div>
-              */}
+
             </div>
           </motion.div>
         )}

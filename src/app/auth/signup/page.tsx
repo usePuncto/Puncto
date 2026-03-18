@@ -2,281 +2,134 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '@/lib/contexts/AuthContext';
-import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
+import Logo from '@/components/marketing/Logo';
 
 export default function SignupPage() {
-  const { signup, loading, user } = useAuth();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const returnUrl = searchParams.get('returnUrl') || '/';
-
-  const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
-  const [marketingConsent, setMarketingConsent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Redirect if already logged in
-  useEffect(() => {
-    if (user && !loading) {
-      router.push(returnUrl);
-    }
-  }, [user, loading, router, returnUrl]);
-
-  // Password strength indicator
-  const getPasswordStrength = (pwd: string) => {
-    if (!pwd) return { strength: 0, label: '', color: '' };
-    if (pwd.length < 6) return { strength: 1, label: 'Fraca', color: 'bg-red-500' };
-    if (pwd.length < 10) return { strength: 2, label: 'Média', color: 'bg-yellow-500' };
-    if (pwd.length >= 10 && /[A-Z]/.test(pwd) && /[0-9]/.test(pwd)) {
-      return { strength: 3, label: 'Forte', color: 'bg-green-500' };
-    }
-    return { strength: 2, label: 'Média', color: 'bg-yellow-500' };
-  };
-
-  const passwordStrength = getPasswordStrength(password);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    // Validation
-    if (password !== confirmPassword) {
-      setError('As senhas não coincidem');
-      return;
-    }
-
-    if (password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres');
-      return;
-    }
-
-    if (!termsAccepted || !privacyAccepted) {
-      setError('Você deve aceitar os termos de uso e política de privacidade');
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      await signup(email, password, displayName);
-      // User document will be created by Cloud Function
-      // Redirect to onboarding flow instead of home
-      router.push('/onboarding/business');
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
-        <div className="text-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900 mx-auto"></div>
-          <p className="mt-4 text-neutral-600">Carregando...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4 py-12">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-neutral-900">Puncto</h1>
-          <p className="mt-2 text-neutral-600">Crie sua conta</p>
-        </div>
+    <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-gradient-to-b from-slate-50 via-white to-slate-50">
+      {/* Background decoration */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-indigo-200/30 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 -left-32 w-72 h-72 bg-teal-200/20 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-1/4 w-80 h-80 bg-amber-200/20 rounded-full blur-3xl" />
+        {/* Subtle grid pattern */}
+        <div
+          className="absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px),
+                             linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px)`,
+            backgroundSize: '48px 48px',
+          }}
+        />
+      </div>
 
-        {/* Signup Form */}
-        <div className="rounded-2xl bg-white p-8 shadow-lg">
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Display Name */}
-            <div>
-              <label htmlFor="displayName" className="block text-sm font-medium text-neutral-700">
-                Nome completo
-              </label>
-              <input
-                id="displayName"
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                required
-                className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                placeholder="João Silva"
-                autoComplete="name"
-              />
-            </div>
+      <div className="relative w-full max-w-md px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center"
+        >
+          {/* Logo / Brand */}
+          <div className="mb-8 flex justify-center">
+            <Logo variant="light" />
+          </div>
 
-            {/* Email */}
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-neutral-700">
-                E-mail
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                placeholder="seu@email.com"
-                autoComplete="email"
-              />
-            </div>
+          <motion.p
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="text-lg text-slate-600 mb-10"
+          >
+            Acesse sua conta ou explore nossas soluções
+          </motion.p>
 
-            {/* Password */}
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-neutral-700">
-                Senha
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                placeholder="••••••••"
-                autoComplete="new-password"
-              />
-              {/* Password Strength Indicator */}
-              {password && (
-                <div className="mt-2">
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-neutral-200 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full ${passwordStrength.color} transition-all`}
-                        style={{ width: `${(passwordStrength.strength / 3) * 100}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-neutral-600">{passwordStrength.label}</span>
-                  </div>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Mínimo 6 caracteres. Recomendado: 10+ caracteres, letras maiúsculas e números
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Confirm Password */}
-            <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-neutral-700">
-                Confirmar senha
-              </label>
-              <input
-                id="confirmPassword"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="mt-1 w-full rounded-xl border border-neutral-300 px-4 py-3 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                placeholder="••••••••"
-                autoComplete="new-password"
-              />
-              {confirmPassword && password !== confirmPassword && (
-                <p className="mt-1 text-xs text-red-600">As senhas não coincidem</p>
-              )}
-            </div>
-
-            {/* LGPD Consent */}
-            <div className="space-y-3 border-t border-neutral-200 pt-4">
-              <div className="flex items-start gap-2">
-                <input
-                  id="terms"
-                  type="checkbox"
-                  checked={termsAccepted}
-                  onChange={(e) => setTermsAccepted(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
-                />
-                <label htmlFor="terms" className="text-xs text-neutral-700">
-                  Aceito os{' '}
-                  <a href="#" className="text-blue-600 hover:underline">
-                    Termos de Uso
-                  </a>{' '}
-                  <span className="text-red-500">*</span>
-                </label>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <input
-                  id="privacy"
-                  type="checkbox"
-                  checked={privacyAccepted}
-                  onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
-                />
-                <label htmlFor="privacy" className="text-xs text-neutral-700">
-                  Aceito a{' '}
-                  <a href="#" className="text-blue-600 hover:underline">
-                    Política de Privacidade
-                  </a>{' '}
-                  e autorizo o tratamento dos meus dados pessoais conforme LGPD{' '}
-                  <span className="text-red-500">*</span>
-                </label>
-              </div>
-
-              <div className="flex items-start gap-2">
-                <input
-                  id="marketing"
-                  type="checkbox"
-                  checked={marketingConsent}
-                  onChange={(e) => setMarketingConsent(e.target.checked)}
-                  className="mt-1 h-4 w-4 rounded border-neutral-300 text-neutral-900 focus:ring-neutral-900"
-                />
-                <label htmlFor="marketing" className="text-xs text-neutral-700">
-                  Aceito receber comunicações de marketing por e-mail e WhatsApp (opcional)
-                </label>
-              </div>
-            </div>
-
-            {/* Error Message */}
-            {error && (
-              <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
-                {error}
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting || !displayName || !email || !password || !confirmPassword || !termsAccepted || !privacyAccepted}
-              className="w-full rounded-xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? 'Criando conta...' : 'Criar conta'}
-            </button>
-          </form>
-
-          {/* Link to Login */}
-          <div className="mt-6 text-center text-sm text-neutral-600">
-            Já tem uma conta?{' '}
+          {/* Primary CTA - Login */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.15 }}
+          >
             <Link
               href="/auth/login"
-              className="text-blue-600 hover:underline font-medium"
+              className="group flex items-center justify-center gap-3 w-full rounded-2xl bg-slate-900 px-8 py-4 text-base font-semibold text-white shadow-lg shadow-slate-900/25 transition-all duration-200 hover:bg-slate-800 hover:shadow-xl hover:shadow-slate-900/30 hover:-translate-y-0.5"
             >
-              Entrar
+              <span>Entrar na minha conta</span>
+              <svg
+                className="w-5 h-5 transition-transform group-hover:translate-x-1"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M13 7l5 5m0 0l-5 5m5-5H6"
+                />
+              </svg>
             </Link>
-          </div>
-        </div>
+          </motion.div>
 
-        {/* Guest Option */}
-        <div className="mt-4 text-center">
-          <button
-            onClick={() => router.push(returnUrl)}
-            className="text-sm text-neutral-600 hover:text-neutral-900"
+          {/* Divider */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            className="flex items-center gap-4 my-8"
           >
-            Continuar como convidado
-          </button>
-        </div>
+            <div className="flex-1 h-px bg-slate-200" />
+            <span className="text-sm text-slate-400">ou</span>
+            <div className="flex-1 h-px bg-slate-200" />
+          </motion.div>
+
+          {/* Secondary - Explore Industries */}
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.25 }}
+          >
+            <p className="text-sm text-slate-500 mb-4">
+              Ainda não está registrado?
+            </p>
+            <Link
+              href="/industries"
+              className="inline-flex items-center gap-2 rounded-2xl border-2 border-slate-200 bg-white px-8 py-4 text-base font-medium text-slate-700 transition-all duration-200 hover:border-slate-300 hover:bg-slate-50 hover:shadow-md"
+            >
+              <svg
+                className="w-5 h-5 text-indigo-500"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                />
+              </svg>
+              Explore nossas indústrias
+            </Link>
+          </motion.div>
+
+          {/* Back to home */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.3 }}
+            className="mt-12"
+          >
+            <Link
+              href="/"
+              className="text-sm text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              ← Voltar ao início
+            </Link>
+          </motion.div>
+        </motion.div>
       </div>
     </div>
   );

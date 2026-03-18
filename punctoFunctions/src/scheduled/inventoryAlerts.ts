@@ -1,6 +1,7 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import { getFirestore } from 'firebase-admin/firestore';
+import { sendZeptoEmail } from '../lib/zeptomail';
 // InventoryItem type definition (inline for Firebase Functions)
 interface InventoryItem {
   id: string;
@@ -15,8 +16,16 @@ async function sendWhatsAppMessage(phone: string, message: string) {
   logger.info(`[WhatsApp] Would send to ${phone}: ${message}`);
 }
 
-async function sendEmail(email: string, subject: string, body: string) {
-  logger.info(`[Email] Would send to ${email}: ${subject}`);
+async function sendEmail(recipientEmail: string, subject: string, body: string) {
+  const result = await sendZeptoEmail({
+    to: recipientEmail,
+    subject,
+    html: body,
+    text: body.replace(/<br\s*\/?>/gi, '\n'),
+  });
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to send email');
+  }
 }
 
 /**

@@ -11,27 +11,23 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!branding) return;
 
-    // Apply CSS variables for colors
+    // Apply CSS variables for colors (public booking page uses these)
     const root = document.documentElement;
-    if (branding.primaryColor) {
-      root.style.setProperty('--brand-primary', branding.primaryColor);
-    }
-    if (branding.secondaryColor) {
-      root.style.setProperty('--brand-secondary', branding.secondaryColor);
-    }
+    root.style.setProperty('--brand-primary', branding.primaryColor || '#171717');
+    root.style.setProperty('--brand-secondary', branding.secondaryColor || '#525252');
 
-    // Inject custom CSS
+    // Inject custom CSS (white-label)
+    const styleId = 'puncto-custom-branding';
+    let styleElement = document.getElementById(styleId) as HTMLStyleElement | null;
     if (branding.customCSS) {
-      const styleId = 'puncto-custom-branding';
-      let styleElement = document.getElementById(styleId);
-      
       if (!styleElement) {
         styleElement = document.createElement('style');
         styleElement.id = styleId;
         document.head.appendChild(styleElement);
       }
-      
       styleElement.textContent = branding.customCSS;
+    } else if (styleElement) {
+      styleElement.textContent = '';
     }
 
     // Update favicon

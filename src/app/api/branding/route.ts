@@ -57,6 +57,21 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    // Reject base64 data URLs - images must be uploaded via /api/branding/upload first
+    const urlFields = ['logoUrl', 'coverUrl', 'faviconUrl'] as const;
+    for (const field of urlFields) {
+      const val = brandingUpdate[field];
+      if (typeof val === 'string' && val.startsWith('data:')) {
+        return NextResponse.json(
+          {
+            error:
+              `${field} cannot be a base64 data URL. Please upload images using the file picker; they will be stored in cloud storage.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
     const businessRef = db.collection('businesses').doc(businessId);
     const businessDoc = await businessRef.get();
 

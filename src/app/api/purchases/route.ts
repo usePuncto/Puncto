@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     const purchasesRef = db.collection('businesses').doc(businessId).collection('purchaseOrders');
     const now = new Date();
 
-    const poData: Omit<PurchaseOrder, 'id'> = {
+    const poData: Record<string, unknown> = {
       businessId,
       supplierId: purchaseOrder.supplierId,
       status: purchaseOrder.status || 'draft',
@@ -82,13 +82,13 @@ export async function POST(request: NextRequest) {
       subtotal: Math.round(subtotal * 100),
       tax: Math.round(tax * 100),
       total: Math.round(total * 100),
-      expectedDeliveryDate: purchaseOrder.expectedDeliveryDate
-        ? new Date(purchaseOrder.expectedDeliveryDate)
-        : undefined,
       createdAt: now,
       createdBy: purchaseOrder.createdBy || 'system',
       updatedAt: now,
     };
+    if (purchaseOrder.expectedDeliveryDate) {
+      poData.expectedDeliveryDate = new Date(purchaseOrder.expectedDeliveryDate);
+    }
 
     const docRef = await purchasesRef.add(poData);
 

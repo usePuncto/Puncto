@@ -1,6 +1,8 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
+import { sendZeptoEmail } from '../lib/zeptomail';
+import { bookingReminderEmail } from '../templates/email';
 
 const db = getFirestore();
 
@@ -57,10 +59,36 @@ export const sendBookingReminders = onSchedule(
 
         if (reminderType) {
           logger.info(`[Reminders] Sending ${reminderType} reminder for booking ${bookingDoc.id}`);
-          
-          // Send reminder (implement actual sending logic here)
-          // This would call the messaging functions
-          
+
+          const hoursUntil =
+            reminderType === '3h' ? 3 : reminderType === '24h' ? 24 : 48;
+          const customerName =
+            `${booking.customerData?.firstName || ''} ${booking.customerData?.lastName || ''}`.trim() ||
+            'Cliente';
+          const scheduledDate = scheduledTime;
+          const template = bookingReminderEmail({
+            customerName,
+            serviceName: booking.serviceName || 'Serviço',
+            date: scheduledDate.toLocaleDateString('pt-BR'),
+            time: scheduledDate.toLocaleTimeString('pt-BR', {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
+            hoursUntil,
+          });
+
+          if (booking.customerData?.email) {
+            const result = await sendZeptoEmail({
+              to: booking.customerData.email,
+              subject: template.subject,
+              html: template.html,
+              text: template.text,
+            });
+            if (!result.success) {
+              logger.warn(`[Reminders] Email failed for ${bookingDoc.id}: ${result.error}`);
+            }
+          }
+
           // Mark reminder as sent
           await bookingDoc.ref.update({
             [`reminders.${reminderType}`]: Timestamp.now(),

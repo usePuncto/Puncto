@@ -112,6 +112,98 @@ export const INDUSTRY_FEATURE_MAP: Record<BusinessType, FeatureId[]> = {
 /**
  * Feature names for UI display
  */
+/** All platform features - used to list every available feature regardless of industry or plan */
+export const ALL_FEATURE_IDS: FeatureId[] = [
+  'scheduling',
+  'payments',
+  'crm',
+  'analytics',
+  'restaurantMenu',
+  'tableOrdering',
+  'virtualTabs',
+  'thermalPrinting',
+  'inventoryManagement',
+  'purchaseOrders',
+  'costCalculation',
+  'timeClock',
+  'attendanceReports',
+  'campaigns',
+  'loyaltyPrograms',
+  'customerSegmentation',
+];
+
+/**
+ * Industry keys used for plan+industry feature mapping.
+ * Maps business.industry values to these keys.
+ */
+export const INDUSTRY_TO_KEY: Record<string, string> = {
+  services: 'servicos',
+  servicos: 'servicos',
+  salon: 'servicos',
+  clinic: 'servicos',
+  event: 'servicos',
+  general: 'servicos',
+  retail: 'comercio',
+  varejo: 'comercio',
+  comercio: 'comercio',
+  restaurant: 'comercio',
+  bakery: 'comercio',
+  corporate: 'empresas',
+  empresas: 'empresas',
+  saude: 'saude',
+  health: 'saude',
+  corporativo: 'corporativo',
+};
+
+/** Features included per (industry, plan) - based on planFeaturesByBusinessType */
+export const FEATURES_BY_PLAN_AND_INDUSTRY: Record<string, Record<string, FeatureId[]>> = {
+  servicos: {
+    gratis: ['scheduling', 'crm'],
+    starter: ['scheduling', 'payments', 'crm', 'analytics'],
+    growth: ['scheduling', 'payments', 'crm', 'analytics', 'campaigns', 'loyaltyPrograms', 'customerSegmentation'],
+    pro: ['scheduling', 'payments', 'crm', 'analytics', 'campaigns', 'loyaltyPrograms', 'customerSegmentation', 'inventoryManagement'],
+    enterprise: [...ALL_FEATURE_IDS],
+  },
+  comercio: {
+    gratis: ['crm'],
+    starter: ['crm', 'analytics', 'inventoryManagement'],
+    growth: ['crm', 'analytics', 'inventoryManagement', 'restaurantMenu', 'tableOrdering', 'virtualTabs', 'campaigns', 'loyaltyPrograms', 'payments'],
+    pro: ['crm', 'analytics', 'inventoryManagement', 'restaurantMenu', 'tableOrdering', 'virtualTabs', 'campaigns', 'loyaltyPrograms', 'payments', 'timeClock', 'purchaseOrders', 'costCalculation'],
+    enterprise: [...ALL_FEATURE_IDS],
+  },
+  empresas: {
+    gratis: ['analytics', 'crm'],
+    starter: ['analytics', 'crm', 'inventoryManagement', 'timeClock'],
+    growth: ['analytics', 'crm', 'inventoryManagement', 'timeClock', 'purchaseOrders', 'payments'],
+    pro: ['analytics', 'crm', 'inventoryManagement', 'timeClock', 'purchaseOrders', 'payments', 'costCalculation'],
+    enterprise: [...ALL_FEATURE_IDS],
+  },
+  saude: {
+    gratis: ['scheduling', 'crm'],
+    starter: ['scheduling', 'payments', 'crm', 'analytics'],
+    growth: ['scheduling', 'payments', 'crm', 'analytics', 'campaigns', 'customerSegmentation'],
+    pro: ['scheduling', 'payments', 'crm', 'analytics', 'campaigns', 'customerSegmentation', 'inventoryManagement'],
+    enterprise: [...ALL_FEATURE_IDS],
+  },
+  corporativo: {
+    gratis: ['analytics', 'crm'],
+    starter: ['analytics', 'crm', 'timeClock'],
+    growth: ['analytics', 'crm', 'timeClock', 'payments'],
+    pro: ['analytics', 'crm', 'timeClock', 'payments', 'costCalculation'],
+    enterprise: [...ALL_FEATURE_IDS],
+  },
+};
+
+/**
+ * Get features included in the user's plan for their industry.
+ */
+export function getIncludedFeaturesForPlanAndIndustry(planId: string, industry: string): FeatureId[] {
+  const industryKey = INDUSTRY_TO_KEY[industry] || 'servicos';
+  const byIndustry = FEATURES_BY_PLAN_AND_INDUSTRY[industryKey];
+  if (!byIndustry) return FEATURES_BY_PLAN_AND_INDUSTRY.servicos?.gratis || [];
+  return byIndustry[planId] || byIndustry.gratis || [];
+}
+
 export const FEATURE_LABELS: Record<FeatureId, string> = {
   scheduling: 'Agendamento',
   payments: 'Pagamentos',
@@ -173,30 +265,14 @@ export const FEATURE_FLAG_MAP: Record<string, FeatureId> = {
 
 /**
  * Check if a business has access to a feature
- * Combines subscription tier check + business type relevance + explicit flag
+ * All features are available regardless of subscription tier or industry.
+ * (Tier/industry checks bypassed per product requirement.)
  */
 export function hasFeatureAccess(
-  business: Business,
-  featureKey: keyof Business['features']
+  _business: Business,
+  _featureKey: keyof Business['features']
 ): boolean {
-  // 1. Check if feature is explicitly enabled in business.features
-  const featureFlag = business.features[featureKey];
-  if (featureFlag === false) {
-    return false; // Explicitly disabled
-  }
-
-  // 2. Map feature key to FeatureId if it exists
-  const featureId = FEATURE_FLAG_MAP[featureKey];
-  if (featureId) {
-    // 3. Check if feature is relevant for this business type
-    const isRelevant = isFeatureRelevantForBusinessType(business.industry, featureId);
-    if (!isRelevant) {
-      return false; // Not relevant for this business type
-    }
-  }
-
-  // 4. Feature flag value determines access (subscription tier already set this)
-  return featureFlag === true;
+  return true; // All features enabled - tier and industry do not restrict access
 }
 
 /**

@@ -72,6 +72,10 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   }
 
   // Create payment record
+  const methodTypes = (session.payment_method_types || []) as string[];
+  const paymentMethod: 'card' | 'pix' =
+    methodTypes.includes('pix') ? 'pix' : 'card';
+
   const paymentData = {
     businessId,
     bookingId: bookingId || null,
@@ -80,7 +84,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     amount: session.amount_total || 0,
     currency: session.currency || 'brl',
     status: 'succeeded',
-    paymentMethod: 'card', // Default, can be determined from payment method details
+    paymentMethod,
     stripePaymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : null,
     stripeCheckoutSessionId: session.id,
     metadata,
@@ -209,6 +213,7 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
   // Create refund record
   const refundData = {
     id: charge.refunds?.data[0]?.id || `ref_${Date.now()}`,
+    businessId,
     paymentId,
     amount: refundAmount,
     currency: charge.currency,

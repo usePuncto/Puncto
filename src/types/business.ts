@@ -87,6 +87,8 @@ export interface FeatureFlags {
   loyaltyPrograms?: boolean;
   campaigns?: boolean;
   birthdayReminders?: boolean;
+  /** Clinic: Electronic medical records (prontuário eletrônico) with Gov.br signature */
+  healthRecords?: boolean;
 }
 
 export interface WorkingHours {
@@ -98,7 +100,8 @@ export interface WorkingHours {
 }
 
 export interface WhatsAppConfig {
-  number: string;
+  number: string; // Business WhatsApp number
+  presetMessage?: string; // Default message for manual mode (pre-filled when opening wa.me)
   apiProvider?: 'twilio' | 'maytapi' | 'wati' | 'evolution';
   apiKey?: string;
   instanceName?: string;
@@ -114,6 +117,8 @@ export interface CancellationPolicy {
   noRefundHours?: number; // Hours before service for no refund
 }
 
+export type ConfirmationChannel = 'email' | 'whatsapp';
+
 export interface Settings {
   timezone: string;
   locale: 'pt-BR' | 'en-US' | 'es-ES';
@@ -122,6 +127,8 @@ export interface Settings {
   cancellationPolicy: CancellationPolicy;
   workingHours: WorkingHours;
   whatsapp?: WhatsAppConfig;
+  /** Channels for sending booking confirmations (email, whatsapp) */
+  confirmationChannels?: ConfirmationChannel[];
 }
 
 export interface CustomField {
@@ -193,6 +200,8 @@ export interface Professional {
   id: string;
   businessId: string;
   userId?: string;
+  /** True when this professional is the business owner; cannot be deleted, only edited */
+  isOwner?: boolean;
   name: string;
   email?: string;
   phone?: string;

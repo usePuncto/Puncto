@@ -68,22 +68,24 @@ export async function POST(request: NextRequest) {
     const inventoryRef = db.collection('businesses').doc(businessId).collection('inventory');
     const now = new Date();
 
-    const itemData: Omit<InventoryItem, 'id'> = {
+    const itemData: Record<string, unknown> = {
       businessId,
       name: item.name,
-      sku: item.sku,
       category: item.category,
       unit: item.unit,
       currentStock: item.currentStock || 0,
       minStock: item.minStock || 0,
-      maxStock: item.maxStock,
       cost: Math.round((item.cost || 0) * 100), // Convert to cents
-      supplierId: item.supplierId,
-      location: item.location,
-      expiryDate: item.expiryDate ? new Date(item.expiryDate) : undefined,
       createdAt: now,
       updatedAt: now,
     };
+
+    // Only add optional fields if they have values (Firestore rejects undefined)
+    if (item.sku?.trim()) itemData.sku = item.sku.trim();
+    if (item.maxStock != null) itemData.maxStock = item.maxStock;
+    if (item.supplierId?.trim()) itemData.supplierId = item.supplierId.trim();
+    if (item.location?.trim()) itemData.location = item.location.trim();
+    if (item.expiryDate) itemData.expiryDate = new Date(item.expiryDate);
 
     const docRef = await inventoryRef.add(itemData);
 

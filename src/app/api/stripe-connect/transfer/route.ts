@@ -13,6 +13,8 @@ export async function POST(request: NextRequest) {
       professionalId,
       amount,
       currency,
+      commissionId,
+      commissionPercent,
       transferGroup,
       metadata = {},
     } = body;
@@ -61,7 +63,37 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Create commission record
+    // If we were called from the commission trigger, update the existing doc.
+    if (commissionId) {
+      const commissionRef = db
+        .collection('businesses')
+        .doc(businessId)
+        .collection('commissions')
+        .doc(String(commissionId));
+
+      const commissionSnap = await commissionRef.get();
+      if (!commissionSnap.exists) {
+        return NextResponse.json(
+          { error: 'Commission not found' },
+          { status: 404 }
+        );
+      }
+
+      await commissionRef.update({
+        stripeTransferId: transfer.id,
+        stripeConnectAccountId: professionalData.stripeConnectAccountId,
+        status: 'processing',
+        updatedAt: Timestamp.now(),
+        // Keep the already-calculated `amount`/`percentage` from the trigger.
+      });
+
+      return NextResponse.json({
+        transferId: transfer.id,
+        commissionId: String(commissionId),
+      });
+    }
+
+    // Otherwise, create a new commission record.
     const commissionData = {
       paymentId: paymentId || null,
       bookingId: bookingId || null,
@@ -69,7 +101,7 @@ export async function POST(request: NextRequest) {
       professionalId,
       professionalName: professionalData.name || '',
       amount,
-      percentage: professionalData.commissionPercent || 0,
+      percentage: commissionPercent ?? professionalData.commissionPercent ?? 0,
       stripeTransferId: transfer.id,
       stripeConnectAccountId: professionalData.stripeConnectAccountId,
       status: 'processing',

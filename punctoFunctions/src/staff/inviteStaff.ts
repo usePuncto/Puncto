@@ -3,6 +3,7 @@ import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import * as logger from 'firebase-functions/logger';
 import { randomUUID } from 'crypto';
+import { sendZeptoEmail } from '../lib/zeptomail';
 
 // Initialize Firebase Admin (only if not already initialized)
 if (!getApps().length) {
@@ -97,9 +98,27 @@ export const inviteStaff = https.onCall<InviteStaffRequest>(async (request) => {
 
     logger.info(`Staff invite created: ${inviteRef.id}`);
 
-    // TODO: Send invite email
-    // For now, return the invite link that can be manually shared
-    const inviteLink = `https://puncto.com.br/auth/accept-invite?token=${inviteToken}`;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://puncto.com.br';
+    const inviteLink = `${appUrl}/auth/accept-invite?token=${inviteToken}`;
+
+    // Send invite email via ZeptoMail
+    const business = businessDoc.data();
+    const result = await sendZeptoEmail({
+      to: email,
+      subject: `Convite para acessar ${business?.displayName || 'Puncto'}`,
+      html: `
+        <p>Olá,</p>
+        <p>Você foi convidado para fazer parte da equipe de <strong>${business?.displayName || 'Puncto'}</strong> como ${role === 'owner' ? 'proprietário' : role === 'manager' ? 'gerente' : 'profissional'}.</p>
+        <p>Clique no link abaixo para aceitar o convite e configurar sua conta:</p>
+        <p><a href="${inviteLink}" style="color:#2563eb;">Aceitar convite</a></p>
+        <p>Ou copie e cole no navegador: ${inviteLink}</p>
+        <p>Este convite expira em 7 dias.</p>
+        <p>— Equipe Puncto</p>
+      `,
+    });
+    if (!result.success) {
+      logger.warn(`[inviteStaff] Email failed for ${email}: ${result.error}`);
+    }
 
     // Log the action
     await db.collection('auditLogs').add({

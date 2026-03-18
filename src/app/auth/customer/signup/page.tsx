@@ -241,7 +241,7 @@ export default function CustomerSignupPage() {
           <p className="text-sm text-neutral-600">
             Quer gerenciar um negócio?{' '}
             <Link
-              href="/auth/business/signup"
+              href="/industries"
               className="text-blue-600 hover:underline font-medium"
             >
               Cadastrar negócio

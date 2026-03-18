@@ -103,12 +103,12 @@ export default function PlatformBusinessesPage() {
   return (
     <div>
       <div className="mb-6 flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Businesses</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Negócios</h1>
         <Link
           href="/platform/businesses/new"
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
-          Create Business
+          Criar Negócio
         </Link>
       </div>
 
@@ -124,24 +124,24 @@ export default function PlatformBusinessesPage() {
               onChange={(e) => setFilters({ ...filters, status: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             >
-              <option value="all">All</option>
-              <option value="active">Active</option>
-              <option value="suspended">Suspended</option>
+              <option value="all">Todos</option>
+              <option value="active">Ativo</option>
+              <option value="suspended">Suspenso</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Tier
+              Plano
             </label>
             <select
               value={filters.tier}
               onChange={(e) => setFilters({ ...filters, tier: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             >
-              <option value="">All</option>
-              <option value="free">Free</option>
-              <option value="basic">Basic</option>
+              <option value="">Todos</option>
+              <option value="free">Grátis</option>
+              <option value="basic">Básico</option>
               <option value="pro">Pro</option>
               <option value="enterprise">Enterprise</option>
             </select>
@@ -149,32 +149,32 @@ export default function PlatformBusinessesPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Industry
+              Segmento
             </label>
             <select
               value={filters.industry}
               onChange={(e) => setFilters({ ...filters, industry: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             >
-              <option value="">All</option>
-              <option value="salon">Salon</option>
-              <option value="clinic">Clinic</option>
-              <option value="restaurant">Restaurant</option>
-              <option value="bakery">Bakery</option>
-              <option value="event">Event</option>
-              <option value="general">General</option>
+              <option value="">Todos</option>
+              <option value="salon">Salão</option>
+              <option value="clinic">Clínica</option>
+              <option value="restaurant">Restaurante</option>
+              <option value="bakery">Padaria</option>
+              <option value="event">Eventos</option>
+              <option value="general">Geral</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Search
+              Buscar
             </label>
             <input
               type="text"
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              placeholder="Name, email, slug..."
+              placeholder="Nome, e-mail, slug..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>
@@ -185,11 +185,11 @@ export default function PlatformBusinessesPage() {
       {loading ? (
         <div className="text-center py-12">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading businesses...</p>
+          <p className="mt-4 text-gray-600">Carregando negócios...</p>
         </div>
       ) : businesses.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-gray-600">No businesses found</p>
+          <p className="text-gray-600">Nenhum negócio encontrado</p>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -197,22 +197,22 @@ export default function PlatformBusinessesPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Business
+                  Negócio
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Industry
+                  Segmento
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tier
+                  Plano
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created
+                  Criado em
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  Ações
                 </th>
               </tr>
             </thead>
@@ -241,7 +241,7 @@ export default function PlatformBusinessesPage() {
                       business.subscription?.tier === 'basic' ? 'bg-green-100 text-green-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
-                      {business.subscription?.tier || 'free'}
+                      {business.subscription?.tier === 'enterprise' ? 'Enterprise' : business.subscription?.tier === 'pro' ? 'Pro' : business.subscription?.tier === 'basic' ? 'Básico' : 'Grátis'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -250,7 +250,7 @@ export default function PlatformBusinessesPage() {
                       business.subscription?.status === 'suspended' ? 'bg-red-100 text-red-800' :
                       'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {business.subscription?.status || 'unknown'}
+                      {business.subscription?.status === 'active' ? 'Ativo' : business.subscription?.status === 'suspended' ? 'Suspenso' : 'Desconhecido'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -262,21 +262,21 @@ export default function PlatformBusinessesPage() {
                         href={`/platform/businesses/${business.id}`}
                         className="text-blue-600 hover:text-blue-900"
                       >
-                        View
+                        Ver
                       </Link>
                       {business.subscription?.status === 'active' ? (
                         <button
                           onClick={() => handleSuspend(business.id, true)}
                           className="text-red-600 hover:text-red-900"
                         >
-                          Suspend
+                          Suspender
                         </button>
                       ) : (
                         <button
                           onClick={() => handleSuspend(business.id, false)}
                           className="text-green-600 hover:text-green-900"
                         >
-                          Activate
+                          Ativar
                         </button>
                       )}
                     </div>
@@ -290,9 +290,9 @@ export default function PlatformBusinessesPage() {
           {pagination.pages > 1 && (
             <div className="bg-gray-50 px-6 py-3 flex items-center justify-between border-t border-gray-200">
               <div className="text-sm text-gray-700">
-                Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
-                {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                {pagination.total} businesses
+                Exibindo {((pagination.page - 1) * pagination.limit) + 1} a{' '}
+                {Math.min(pagination.page * pagination.limit, pagination.total)} de{' '}
+                {pagination.total} negócios
               </div>
               <div className="flex space-x-2">
                 <button
@@ -300,14 +300,14 @@ export default function PlatformBusinessesPage() {
                   disabled={pagination.page === 1}
                   className="px-3 py-1 border rounded disabled:opacity-50"
                 >
-                  Previous
+                  Anterior
                 </button>
                 <button
                   onClick={() => setPagination({ ...pagination, page: pagination.page + 1 })}
                   disabled={pagination.page >= pagination.pages}
                   className="px-3 py-1 border rounded disabled:opacity-50"
                 >
-                  Next
+                  Próximo
                 </button>
               </div>
             </div>

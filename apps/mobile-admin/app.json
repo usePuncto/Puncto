@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Puncto Admin",
+    "slug": "puncto-admin",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./node_modules/expo/src/assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./node_modules/expo/src/assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./node_modules/expo/src/assets/icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {}
+  }
+}

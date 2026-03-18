@@ -86,11 +86,14 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
   const businessRef = db.collection('businesses').doc(businessId);
   const priceId = subscription.items.data[0]?.price.id;
 
-  // Map price ID to tier (this would come from config)
+  // Map price ID to tier (monthly and annual prices)
   const tierMap: Record<string, 'free' | 'basic' | 'pro' | 'enterprise'> = {
     [process.env.STRIPE_PRICE_ID_STARTER || '']: 'basic',
+    [process.env.STRIPE_PRICE_ID_STARTER_ANNUAL || '']: 'basic',
     [process.env.STRIPE_PRICE_ID_GROWTH || '']: 'pro',
+    [process.env.STRIPE_PRICE_ID_GROWTH_ANNUAL || '']: 'pro',
     [process.env.STRIPE_PRICE_ID_PRO || '']: 'enterprise',
+    [process.env.STRIPE_PRICE_ID_PRO_ANNUAL || '']: 'enterprise',
   };
 
   const tier = tierMap[priceId || ''] || 'free';

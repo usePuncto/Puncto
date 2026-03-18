@@ -1,5 +1,9 @@
 import { addDays, isSameDay, isBefore, isAfter, format } from 'date-fns';
+import { enUS } from 'date-fns/locale';
 import { WorkingHours } from '@/types/business';
+
+const getDayKey = (date: Date) =>
+  format(date, 'EEEE', { locale: enUS }).toLowerCase() as keyof WorkingHours;
 
 export interface TimeBlock {
   id: string;
@@ -41,7 +45,7 @@ export function getWorkingHoursForDate(
   blocks: TimeBlock[] = [],
   holidays: Holiday[] = []
 ): { open: string; close: string; closed: boolean } | null {
-  const dayOfWeek = format(date, 'EEEE').toLowerCase() as keyof WorkingHours;
+  const dayOfWeek = getDayKey(date);
   const daySchedule = workingHours[dayOfWeek];
 
   // Check if it's a holiday
@@ -97,7 +101,7 @@ export function getNextAvailableDate(
   let attempts = 0;
 
   while (attempts < maxDays) {
-    const dayOfWeek = format(currentDate, 'EEEE').toLowerCase() as keyof WorkingHours;
+    const dayOfWeek = getDayKey(currentDate);
     const daySchedule = workingHours[dayOfWeek];
 
     if (

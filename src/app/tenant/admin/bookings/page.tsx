@@ -12,7 +12,7 @@ export default function AdminBookingsPage() {
   const { business } = useBusiness();
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
   const [statusFilter, setStatusFilter] = useState<BookingStatus | 'all'>('all');
-  const [dateFilter, setDateFilter] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [dateFilter, setDateFilter] = useState<string>('');
 
   const filters: any = {};
   if (statusFilter !== 'all') {
@@ -69,12 +69,23 @@ export default function AdminBookingsPage() {
             <option value="no_show">Não compareceu</option>
           </select>
 
-          <input
-            type="date"
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => setDateFilter(e.target.value)}
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            />
+            {dateFilter && (
+              <button
+                type="button"
+                onClick={() => setDateFilter('')}
+                className="text-sm text-neutral-600 hover:text-neutral-900"
+              >
+                Todas
+              </button>
+            )}
+          </div>
 
           <div className="flex gap-2">
             <button
@@ -98,7 +109,11 @@ export default function AdminBookingsPage() {
       </div>
 
       {view === 'calendar' ? (
-        <BookingCalendar bookings={filteredBookings} onStatusChange={handleStatusChange} />
+        <BookingCalendar
+          bookings={filteredBookings}
+          workingHours={business?.settings?.workingHours}
+          onStatusChange={handleStatusChange}
+        />
       ) : (
         <div className="rounded-lg border border-neutral-200 bg-white">
           <div className="overflow-x-auto">

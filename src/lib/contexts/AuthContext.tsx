@@ -31,7 +31,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children, ignoreAuth }: { children: ReactNode; ignoreAuth?: boolean }) {
   const [user, setUser] = useState<User | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,6 +44,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setLoading(true);
       setError(null);
+
+      // CRITICAL: When ignoreAuth is true (platform_admin/business_user viewing public tenant),
+      // mask the session - do NOT call signOut(), just hide user from this context
+      if (ignoreAuth) {
+        setFirebaseUser(null);
+        setUser(null);
+        setIsPlatformAdmin(false);
+        setBusinessRoles({});
+        setLoading(false);
+        return;
+      }
 
       if (firebaseUser) {
         try {
@@ -103,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return unsubscribe;
-  }, []);
+  }, [ignoreAuth]);
 
   const login = async (email: string, password: string) => {
     setLoading(true);

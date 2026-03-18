@@ -40,54 +40,56 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Get total businesses
-    const businessesCount = await db.collection('businesses').where('deletedAt', '==', null).count().get();
-    const totalBusinesses = businessesCount.data().count;
-
-    // Get active businesses
-    const activeBusinessesCount = await db.collection('businesses')
-      .where('deletedAt', '==', null)
-      .where('subscription.status', '==', 'active')
-      .count()
-      .get();
-    const activeBusinesses = activeBusinessesCount.data().count;
-
-    // Get total users
-    const usersCount = await db.collection('users').count().get();
-    const totalUsers = usersCount.data().count;
-
-    // Get businesses by tier
-    const tierCounts: Record<string, number> = {
-      free: 0,
-      basic: 0,
-      pro: 0,
-      enterprise: 0,
-    };
-
     const businessesSnapshot = await db.collection('businesses')
       .where('deletedAt', '==', null)
       .get();
 
-    businessesSnapshot.docs.forEach((doc) => {
-      const tier = doc.data().subscription?.tier || 'free';
-      tierCounts[tier] = (tierCounts[tier] || 0) + 1;
-    });
+    const totalBusinesses = businessesSnapshot.size;
 
-    // Get businesses by industry
+    // Active = not suspended
+    let activeBusinesses = 0;
+    const tierCounts: Record<string, number> = { free: 0, basic: 0, pro: 0, enterprise: 0 };
     const industryCounts: Record<string, number> = {};
-    businessesSnapshot.docs.forEach((doc) => {
-      const industry = doc.data().industry || 'general';
-      industryCounts[industry] = (industryCounts[industry] || 0) + 1;
-    });
-
-    // Get recent signups (last 30 days)
+    let recentSignups = 0;
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const recentBusinessesSnapshot = await db.collection('businesses')
-      .where('deletedAt', '==', null)
-      .where('createdAt', '>=', thirtyDaysAgo)
-      .get();
-    const recentSignups = recentBusinessesSnapshot.size;
+
+    businessesSnapshot.docs.forEach((doc) => {
+      const data = doc.data();
+      const sub = data.subscription;
+      if (!sub || sub.status !== 'suspended') activeBusinesses++;
+
+      const tier = sub?.tier || 'free';
+      tierCounts[tier] = (tierCounts[tier] || 0) + 1;
+
+      const industry = data.industry || 'general';
+      industryCounts[industry] = (industryCounts[industry] || 0) + 1;
+
+      const created = data.createdAt?.toDate?.() || data.createdAt;
+      if (created && new Date(created) >= thirtyDaysAgo) recentSignups++;
+    });
+
+    const usersCount = await db.collection('users').count().get();
+    const totalUsers = usersCount.data().count;
+
+    const recentBusinesses = businessesSnapshot.docs
+      .sort((a, b) => {
+        const aDate = a.data().createdAt?.toDate?.() || a.data().createdAt;
+        const bDate = b.data().createdAt?.toDate?.() || b.data().createdAt;
+        return (bDate ? new Date(bDate).getTime() : 0) - (aDate ? new Date(aDate).getTime() : 0);
+      })
+      .slice(0, 8)
+      .map((doc) => {
+        const d = doc.data();
+        return {
+          id: doc.id,
+          displayName: d.displayName,
+          slug: d.slug,
+          industry: d.industry || 'general',
+          tier: d.subscription?.tier || 'free',
+          createdAt: d.createdAt?.toDate?.()?.toISOString?.() || d.createdAt,
+        };
+      });
 
     return NextResponse.json({
       stats: {
@@ -97,6 +99,7 @@ export async function GET(request: NextRequest) {
         recentSignups,
         tierDistribution: tierCounts,
         industryDistribution: industryCounts,
+        recentBusinesses,
       },
     });
   } catch (error: any) {

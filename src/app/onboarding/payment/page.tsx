@@ -96,10 +96,10 @@ export default function OnboardingPaymentPage() {
           <h2 className="text-2xl font-bold text-neutral-900 text-center mb-4">Erro ao Carregar Pagamento</h2>
           <p className="text-neutral-600 text-center mb-6">{error}</p>
           <button
-            onClick={() => router.push('/onboarding/plan')}
+            onClick={() => router.push('/industries')}
             className="w-full rounded-xl bg-neutral-900 px-4 py-3 text-sm font-medium text-white hover:bg-neutral-800"
           >
-            Voltar para Seleção de Plano
+            Voltar às Indústrias
           </button>
         </div>
       </div>

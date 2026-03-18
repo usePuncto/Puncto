@@ -199,7 +199,7 @@ export default function CustomerLoginPage() {
           <p className="text-sm text-neutral-600">
             Tem um negócio?{' '}
             <Link
-              href="/auth/business/login"
+              href="/auth/login"
               className="text-blue-600 hover:underline font-medium"
             >
               Entrar como empresa

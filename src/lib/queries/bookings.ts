@@ -23,8 +23,9 @@ export function useBookings(businessId: string, filters?: {
         q = query(q, where('status', '==', filters.status));
       }
 
+      // Don't add professionalId to Firestore query - filter client-side to avoid composite index requirement
       if (filters?.professionalId) {
-        q = query(q, where('professionalId', '==', filters.professionalId));
+        // Omit from Firestore query; we filter below
       }
 
       if (filters?.startDate) {
@@ -42,7 +43,7 @@ export function useBookings(businessId: string, filters?: {
       }
 
       const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => {
+      let results = snapshot.docs.map((doc) => {
         const data = doc.data() as Record<string, any>;
         return {
           id: doc.id,
@@ -53,6 +54,12 @@ export function useBookings(businessId: string, filters?: {
           updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
         } as Booking;
       });
+
+      if (filters?.professionalId) {
+        results = results.filter((b) => b.professionalId === filters.professionalId);
+      }
+
+      return results;
     },
     enabled: !!businessId,
   });

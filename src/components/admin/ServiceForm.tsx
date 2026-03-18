@@ -7,11 +7,12 @@ import { useBusiness } from '@/lib/contexts/BusinessContext';
 
 interface ServiceFormProps {
   service?: Service;
+  categories?: { id: string; name: string }[];
   onSubmit: (data: Partial<Service>) => void;
   onCancel: () => void;
 }
 
-export function ServiceForm({ service, onSubmit, onCancel }: ServiceFormProps) {
+export function ServiceForm({ service, categories = [], onSubmit, onCancel }: ServiceFormProps) {
   const { business } = useBusiness();
   const { data: professionals } = useProfessionals(business.id);
 
@@ -73,12 +74,28 @@ export function ServiceForm({ service, onSubmit, onCancel }: ServiceFormProps) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Categoria</label>
-              <input
-                type="text"
-                value={formData.category}
-                onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2"
-              />
+              {categories.length > 0 ? (
+                <select
+                  value={formData.category}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+                >
+                  <option value="">Nenhuma</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={formData.category}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, category: e.target.value }))}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2"
+                  placeholder="Ex: Corte, Coloração"
+                />
+              )}
             </div>
 
             <div>

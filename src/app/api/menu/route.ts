@@ -39,17 +39,24 @@ export async function GET(request: NextRequest) {
     const category = request.nextUrl.searchParams.get('category');
 
     const productsRef = db.collection('businesses').doc(businessId).collection('products');
-    let query: FirebaseFirestore.Query = productsRef.orderBy('displayOrder', 'asc').orderBy('name', 'asc');
-
-    if (category) {
-      query = query.where('category', '==', category);
-    }
-
-    const snapshot = await query.get();
-    const products = snapshot.docs.map((doc) => ({
+    // Single orderBy avoids composite index; secondary sort by name done in memory
+    const snapshot = await productsRef.orderBy('displayOrder', 'asc').get();
+    let products = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
+
+    if (category) {
+      products = products.filter((p) => (p as { category?: string }).category === category);
+    }
+    products.sort((a, b) => {
+      const da = a as { displayOrder?: number; name?: string };
+      const db = b as { displayOrder?: number; name?: string };
+      if ((da.displayOrder ?? 0) !== (db.displayOrder ?? 0)) {
+        return (da.displayOrder ?? 0) - (db.displayOrder ?? 0);
+      }
+      return (da.name ?? '').localeCompare(db.name ?? '');
+    });
 
     return NextResponse.json({ products });
   } catch (error) {
@@ -105,22 +112,29 @@ export async function POST(request: NextRequest) {
     const productsRef = db.collection('businesses').doc(businessId).collection('products');
     const now = new Date();
 
-    const productData: Omit<Product, 'id'> = {
+    // Firestore rejects undefined - only include defined values
+    const productData: Record<string, unknown> = {
       businessId,
       name: product.name,
       description: product.description || '',
       category: product.category,
       price: product.price,
-      imageUrl: product.imageUrl,
       allergens: product.allergens || [],
       available: product.available !== undefined ? product.available : true,
       variations: product.variations || [],
-      cost: product.cost,
-      preparationTime: product.preparationTime,
+      ingredients: (product.ingredients || []).map((ing: { inventoryItemId: string; inventoryItemName?: string; quantity: number; unit?: string }) => ({
+        inventoryItemId: ing.inventoryItemId,
+        ...(ing.inventoryItemName != null && { inventoryItemName: ing.inventoryItemName }),
+        quantity: ing.quantity,
+        ...(ing.unit != null && { unit: ing.unit }),
+      })),
       displayOrder: product.displayOrder || 0,
       createdAt: now,
       updatedAt: now,
     };
+    if (product.imageUrl) productData.imageUrl = product.imageUrl;
+    if (product.cost != null) productData.cost = product.cost;
+    if (product.preparationTime != null) productData.preparationTime = product.preparationTime;
 
     const docRef = await productsRef.add(productData);
 

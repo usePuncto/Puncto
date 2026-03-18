@@ -1,30 +1,120 @@
 /**
  * Email messaging client
- * Supports Resend and Mailgun providers
+ * Supports ZeptoMail (default), Resend, and Mailgun providers
  */
 
-interface EmailOptions {
+export interface EmailOptions {
   to: string | string[];
   subject: string;
   html?: string;
   text?: string;
   from?: string;
   replyTo?: string;
+  /** Optional recipient name(s) - for ZeptoMail format */
+  toNames?: string | string[];
+}
+
+const ZEPTOMAIL_API_URL = 'https://api.zeptomail.com/v1.1/email';
+
+/**
+ * Resolve which provider to use. Priority:
+ * 1. EMAIL_PROVIDER env (zeptomail, resend, mailgun)
+ * 2. If ZEPTOMAIL_API_KEY set → zeptomail
+ * 3. If RESEND_API_KEY set → resend
+ * 4. Fallback: zeptomail
+ */
+function getProvider(): 'zeptomail' | 'resend' | 'mailgun' {
+  const env = process.env.EMAIL_PROVIDER?.toLowerCase();
+  if (env === 'zeptomail' || env === 'resend' || env === 'mailgun') return env;
+  if (process.env.ZEPTOMAIL_API_KEY) return 'zeptomail';
+  if (process.env.RESEND_API_KEY) return 'resend';
+  if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) return 'mailgun';
+  return 'zeptomail';
 }
 
 /**
- * Send email via Resend or Mailgun
+ * Send email via ZeptoMail, Resend, or Mailgun
  */
 export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const provider = process.env.EMAIL_PROVIDER || 'resend';
+  const provider = getProvider();
 
-  if (provider === 'resend') {
+  if (provider === 'zeptomail') {
+    return sendViaZeptoMail(options);
+  } else if (provider === 'resend') {
     return sendViaResend(options);
   } else if (provider === 'mailgun') {
     return sendViaMailgun(options);
   }
 
   throw new Error(`Unknown email provider: ${provider}`);
+}
+
+/**
+ * Send email via ZeptoMail (Zoho)
+ * API: https://www.zoho.com/zeptomail/help/api/email-sending.html
+ */
+async function sendViaZeptoMail(options: EmailOptions) {
+  const apiKey = process.env.ZEPTOMAIL_API_KEY;
+  const fromConfig = process.env.ZEPTOMAIL_FROM_EMAIL || process.env.ZEPTOMAIL_FROM_ADDRESS || 'noreply@puncto.app';
+  const fromName = process.env.ZEPTOMAIL_FROM_NAME || 'Puncto';
+
+  if (!apiKey) {
+    throw new Error('ZEPTOMAIL_API_KEY is not configured');
+  }
+
+  const fromAddress = options.from || fromConfig;
+  const toList = Array.isArray(options.to) ? options.to : [options.to];
+  const toNamesList = options.toNames
+    ? (Array.isArray(options.toNames) ? options.toNames : [options.toNames])
+    : toList.map((e) => e.split('@')[0]);
+
+  const toPayload = toList.map((addr, i) => ({
+    email_address: { address: addr, name: toNamesList[i] || addr.split('@')[0] },
+  }));
+
+  const body: Record<string, unknown> = {
+    from: { address: fromAddress, name: fromName },
+    to: toPayload,
+    subject: options.subject,
+  };
+
+  if (options.html) {
+    body.htmlbody = options.html;
+  }
+  if (options.text) {
+    body.textbody = options.text;
+  }
+  if (!body.htmlbody && !body.textbody) {
+    body.textbody = options.subject; // fallback
+  }
+  if (options.replyTo) {
+    body.reply_to = [{ address: options.replyTo, name: '' }];
+  }
+
+  try {
+    const response = await fetch(ZEPTOMAIL_API_URL, {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: `Zoho-enczapikey ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = (await response.json()) as { request_id?: string; error?: { message?: string } };
+
+    if (!response.ok) {
+      const errMsg = (data?.error as { message?: string })?.message || 'Failed to send email';
+      return { success: false, error: errMsg };
+    }
+
+    return { success: true, messageId: (data as { request_id?: string }).request_id };
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[ZeptoMail] Error sending email:', error);
+    return { success: false, error: msg };
+  }
 }
 
 /**

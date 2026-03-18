@@ -158,7 +158,7 @@ export default function AccessibilityPage() {
           <p>Equipe de Acessibilidade</p>
           <p>Horário: Segunda a Sexta, 9h às 18h</p>
           <a href="mailto:acessibilidade@puncto.com.br" className="legal-contact-email">
-            acessibilidade@puncto.com.br
+            suporte@puncto.com.br
           </a>
         </div>
         <p>

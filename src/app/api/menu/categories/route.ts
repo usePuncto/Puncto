@@ -20,15 +20,15 @@ export async function GET(request: NextRequest) {
       .doc(businessId)
       .collection('menuCategories');
 
-    const snapshot = await categoriesRef
-      .where('active', '==', true)
-      .orderBy('displayOrder', 'asc')
-      .get();
-
-    const categories = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    // Fetch all categories, filter and sort in memory to avoid composite index requirement
+    const snapshot = await categoriesRef.get();
+    const categories = snapshot.docs
+      .map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }))
+      .filter((c) => (c as { active?: boolean }).active !== false)
+      .sort((a, b) => ((a as { displayOrder?: number }).displayOrder ?? 0) - ((b as { displayOrder?: number }).displayOrder ?? 0));
 
     return NextResponse.json({ categories });
   } catch (error) {

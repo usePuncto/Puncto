@@ -19,10 +19,12 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "notifications": "Notificações",
     "bookings": "Agendamentos",
     "services": "Serviços",
     "professionals": "Profissionais",
     "customers": "Clientes",
+    "patients": "Pacientes",
     "payments": "Pagamentos",
     "financial": "Financeiro",
     "menu": "Cardápio",
@@ -33,10 +35,11 @@
     "timeClock": "Ponto",
     "loyalty": "Fidelidade",
     "campaigns": "Campanhas",
+    "whatsapp": "WhatsApp",
     "franchise": "Franquia",
     "settings": "Configurações",
     "adminPanel": "Painel Administrativo",
-    "backToPublic": "Voltar ao site público"
+    "logout": "Sair"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -51,6 +54,34 @@
     "noShows": "Não compareceu",
     "pendingBookings": "Pendentes"
   },
+  "notifications": {
+    "title": "Notificações",
+    "subtitle": "Acompanhe os agendamentos do seu negócio",
+    "loading": "Carregando...",
+    "empty": "Nenhuma notificação no momento.",
+    "viewAll": "Ver todas",
+
+    "previewTitle": "Últimas notificações",
+    "previewSubtitle": "Atualizações recentes sobre seus agendamentos",
+
+    "withCustomer": "Cliente: {customerName}",
+
+    "tabs": {
+      "all": "Todas",
+      "unread": "Não lidas"
+    },
+
+    "actions": {
+      "markRead": "Marcar como lida",
+      "read": "Lida"
+    },
+
+    "booking": {
+      "created": "Novo agendamento: {serviceName} com {professionalName}",
+      "confirmed": "Agendamento confirmado: {serviceName} com {professionalName}",
+      "completed": "Agendamento concluído: {serviceName} com {professionalName}"
+    }
+  },
   "business": {
     "suspendedAccount": "Conta Suspensa",
     "suspendedMessage": "Esta conta está atualmente suspensa. Entre em contato com o suporte para mais informações."
@@ -60,5 +91,65 @@
     "portuguese": "Português",
     "english": "English",
     "spanish": "Español"
+  },
+  "settings": {
+    "branding": {
+      "title": "Branding e White-label",
+      "noWhiteLabelWarning": "Recursos white-label (CSS customizado, ocultar branding) exigem o plano Enterprise. A personalização básica ainda está disponível.",
+      "logoLabel": "Logo",
+      "logoHint": "Envie um arquivo de imagem (PNG, JPG ou SVG). Máx. 2MB.",
+      "uploading": "Enviando...",
+      "coverLabel": "Imagem de capa",
+      "coverHint": "Imagem grande exibida nas páginas públicas de agendamento.",
+      "primaryColorLabel": "Cor primária",
+      "secondaryColorLabel": "Cor secundária",
+      "faviconLabel": "Favicon",
+      "faviconHint": "Ícone exibido na aba do navegador.",
+      "customCssLabel": "CSS customizado",
+      "customCssPlaceholder": ".custom-class { color: red; }",
+      "customCssHint": "O CSS será injetado nas páginas públicas. Use com cuidado.",
+      "hideBrandingLabel": "Ocultar branding Puncto nas páginas públicas",
+      "submitSaving": "Salvando...",
+      "submitLabel": "Salvar alterações",
+      "linkInBioLabel": "Link na bio",
+      "linkInBioDescription": "Este é o endereço público da sua página Puncto.",
+      "linkInBioSupportNote": "Para alterar a URL, entre em contato com o suporte."
+    }
+  },
+  "whatsapp": {
+    "title": "WhatsApp",
+    "subtitle": "Configure como seu negócio se comunica via WhatsApp",
+    "modeManual": "WhatsApp manual",
+    "modeManualDesc": "Planos Grátis e Starter: Selecione um contato e clique no botão para abrir o WhatsApp com uma mensagem pronta. Você envia manualmente.",
+    "modeAutomated": "WhatsApp automático",
+    "modeAutomatedDesc": "Planos Growth e Pro: As mensagens são enviadas automaticamente pela API do WhatsApp Business. Configurado de forma segura no nosso backend.",
+    "configTitle": "Configuração",
+    "numberLabel": "Número do WhatsApp da empresa",
+    "numberHint": "O número exibido aos clientes (ex: +5511999999999).",
+    "presetMessageLabel": "Mensagem padrão",
+    "presetMessagePlaceholder": "Olá! Seu agendamento está confirmado para {date} às {time}. Até breve!",
+    "presetMessageHint": "Esta mensagem é pré-preenchida quando você clica em \"Enviar WhatsApp\" em um contato. Use {date} e {time} como placeholders.",
+    "save": "Salvar",
+    "saving": "Salvando...",
+    "howItWorksTitle": "Como funciona",
+    "howItWorksManual": "No modo Manual, quando você clica em \"Enviar WhatsApp\" em um cliente ou agendamento, o app abre o WhatsApp (celular ou web) com a mensagem pronta. Você revisa e envia manualmente.",
+    "step1": "Configure sua mensagem padrão acima.",
+    "step2": "Vá em Clientes ou Agendamentos.",
+    "step3": "Clique em \"Enviar WhatsApp\" ao lado de um contato.",
+    "step4": "O WhatsApp abre com a mensagem pré-preenchida. Envie manualmente.",
+    "howItWorksAutomated": "No modo Automático, o sistema envia lembretes e confirmações diretamente para o WhatsApp dos clientes pela API do WhatsApp Business da Meta. Toda configuração da API é feita de forma segura no nosso backend—nada sensível é exposto aos usuários.",
+    "connectTitle": "Conecte seu WhatsApp",
+    "connected": "WhatsApp conectado",
+    "connectDesc": "Conecte o número do WhatsApp do seu negócio para que as mensagens automáticas sejam enviadas do seu número para seus clientes.",
+    "connectFacebookReason": "O WhatsApp pertence à Meta (Facebook). Para conectar seu número de forma segura, a Meta exige um login único para verificar seu negócio. Não armazenamos dados do Facebook.",
+    "connectNoFacebook": "Não tem conta no Facebook?",
+    "connectNoFacebookSuffix": "podemos conectar seu número manualmente.",
+    "contactSupport": "Entre em contato com o suporte",
+    "connectButton": "Conectar WhatsApp",
+    "connecting": "Conectando...",
+    "connectNotConfigured": "O Embedded Signup não está configurado. Entre em contato com o suporte para ativar o WhatsApp por negócio.",
+    "bookingConfirmationsTitle": "Confirmações de agendamento",
+    "bookingConfirmationsDesc": "Ao criar um agendamento, envie confirmação automaticamente por:",
+    "sendViaWhatsApp": "Enviar por WhatsApp"
   }
 }

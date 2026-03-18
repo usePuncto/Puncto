@@ -88,7 +88,11 @@ export async function POST(request: NextRequest) {
         const message = replaceTemplateVariables(campaign.template, customer);
 
         if (campaign.type === 'whatsapp' && customer.phone) {
-          await sendWhatsApp({ to: formatPhoneNumber(customer.phone), text: message });
+          await sendWhatsApp({
+            businessId,
+            to: formatPhoneNumber(customer.phone),
+            text: message,
+          });
           delivered++;
         } else if (campaign.type === 'email' && customer.email) {
           await sendEmail({ to: customer.email, subject: campaign.name, html: message });

@@ -35,8 +35,10 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
   );
 
   const detailsForIndustry = featureDetailsByIndustry[industry.slug];
+  const billingParam = isAnnual ? 'annual' : 'monthly';
   const plansForIndustry: PricingPlan[] = pricingPlans.map((plan) => {
     const details = detailsForIndustry?.[plan.id];
+    const checkoutUrl = `/checkout?plan=${plan.id}&industry=${industry.slug}&billing=${billingParam}`;
     return {
       ...plan,
       description: details?.intro ?? plan.description,
@@ -44,7 +46,10 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
         'planFeatures' in industry && industry.planFeatures
           ? industry.planFeatures[plan.id as keyof typeof industry.planFeatures]
           : plan.features,
-      cta: { text: 'Começar agora', href: '/contact' },
+      cta: {
+        text: plan.id === 'gratis' ? 'Começar Grátis' : 'Começar agora',
+        href: checkoutUrl,
+      },
     };
   });
 
@@ -112,7 +117,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
               <p className="body-lg mb-8">{industry.longDescription}</p>
 
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                <Link href="/contact" className="btn-primary btn-lg">
+                <Link href={`/checkout?plan=gratis&industry=${industry.slug}&billing=${isAnnual ? 'annual' : 'monthly'}`} className="btn-primary btn-lg">
                   Começar Grátis
                   <svg
                     className="w-5 h-5"
@@ -519,7 +524,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
       <CTASection
         title={`Pronto para transformar seu ${industry.shortName.toLowerCase()}?`}
         description="Comece gratuitamente e veja os resultados em poucos dias."
-        primaryCTA={{ text: 'Começar Grátis', href: '/contact' }}
+        primaryCTA={{ text: 'Começar Grátis', href: `/checkout?plan=gratis&industry=${industry.slug}&billing=monthly` }}
         variant="gradient"
       />
     </>

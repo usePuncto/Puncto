@@ -141,7 +141,7 @@ export default function PressPage() {
                   Para entrevistas, informações ou acesso antecipado a novidades:
                 </p>
                 <p className="font-medium text-primary-900">
-                  imprensa@puncto.com.br
+                  suporte@puncto.com.br
                 </p>
                 <p className="text-primary-700 text-sm mt-2">
                   Respondemos em até 24 horas úteis
@@ -342,7 +342,7 @@ export default function PressPage() {
             dados exclusivos e acesso antecipado a novidades.
           </p>
           <a
-            href="mailto:imprensa@puncto.com.br"
+            href="mailto:suporte@puncto.com.br"
             className="btn bg-white text-primary-600 hover:bg-primary-50"
           >
             Entrar em Contato

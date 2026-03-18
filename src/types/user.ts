@@ -37,6 +37,7 @@ export interface CustomClaims {
     [businessId: string]: 'owner' | 'manager' | 'professional';
   };
   primaryBusinessId?: string; // The main business for this user
+  professionalId?: string; // When role is professional, links to Professional document
 
   // Customer metadata (only for customer userType)
   customerId?: string;

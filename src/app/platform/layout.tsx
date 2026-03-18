@@ -26,7 +26,7 @@ export default function PlatformLayout({
             <div className="flex justify-between h-16">
               <div className="flex items-center">
                 <h1 className="text-xl font-bold text-gray-900">
-                  Puncto Platform Admin
+                  Puncto – Painel da Plataforma
                 </h1>
               </div>
               <div className="flex items-center space-x-4">
@@ -48,7 +48,7 @@ export default function PlatformLayout({
                       : 'text-gray-700 hover:text-gray-900'
                   }`}
                 >
-                  Businesses
+                  Negócios
                 </Link>
                 <Link
                   href="/platform/users"
@@ -58,7 +58,7 @@ export default function PlatformLayout({
                       : 'text-gray-700 hover:text-gray-900'
                   }`}
                 >
-                  Users
+                  Usuários
                 </Link>
                 <Link
                   href="/platform/billing"
@@ -68,7 +68,17 @@ export default function PlatformLayout({
                       : 'text-gray-700 hover:text-gray-900'
                   }`}
                 >
-                  Billing
+                  Faturamento
+                </Link>
+                <Link
+                  href="/platform/whatsapp"
+                  className={`px-3 py-2 text-sm font-medium ${
+                    pathname?.startsWith('/platform/whatsapp')
+                      ? 'text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-700 hover:text-gray-900'
+                  }`}
+                >
+                  WhatsApp
                 </Link>
               </div>
             </div>

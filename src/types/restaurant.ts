@@ -5,6 +5,13 @@ export interface ProductVariation {
   options: Array<{ name: string; price: number }>;
 }
 
+export interface ProductIngredient {
+  inventoryItemId: string;
+  inventoryItemName?: string; // Denormalized for display
+  quantity: number;
+  unit?: string;
+}
+
 export interface Product {
   id: string;
   businessId: string;
@@ -16,6 +23,7 @@ export interface Product {
   allergens: string[]; // ["gluten", "dairy", "nuts"]
   available: boolean;
   variations?: ProductVariation[];
+  ingredients?: ProductIngredient[]; // Linked to inventory
   cost?: number; // For CSP calculation
   preparationTime?: number; // minutes
   displayOrder?: number;

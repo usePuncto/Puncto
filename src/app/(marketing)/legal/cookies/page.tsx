@@ -205,7 +205,7 @@ export default function CookiesPage() {
         <p>Dúvidas sobre os cookies?</p>
         <p>Entre em contato com nosso DPO:</p>
         <a href="mailto:privacidade@puncto.com.br" className="legal-contact-email">
-          privacidade@puncto.com.br
+          suporte@puncto.com.br
         </a>
       </div>
     </LegalPageLayout>

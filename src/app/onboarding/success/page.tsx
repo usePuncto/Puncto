@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 export default function OnboardingSuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user } = useAuth();
+  const { refreshToken } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
 
   useEffect(() => {
@@ -20,24 +20,47 @@ export default function OnboardingSuccessPage() {
       return;
     }
 
-    // The webhook will handle updating the business status
-    // We just need to show a success message and redirect
-    const timer = setTimeout(() => {
-      setStatus('success');
-    }, 2000);
+    let cancelled = false;
+    let redirectTimer: ReturnType<typeof setTimeout> | null = null;
 
-    return () => clearTimeout(timer);
-  }, [searchParams]);
+    async function fetchAndRedirect() {
+      try {
+        const res = await fetch(`/api/onboarding/get-checkout-session?sessionId=${sessionId}`);
+        const data = await res.json();
+        if (cancelled) return;
 
-  useEffect(() => {
-    if (status === 'success') {
-      const redirectTimer = setTimeout(() => {
-        router.push('/admin');
-      }, 3000);
+        setStatus('success');
 
-      return () => clearTimeout(redirectTimer);
+        const businessId = data.businessId;
+        const redirectUrl = businessId ? `/tenant/admin/dashboard` : '/';
+
+        redirectTimer = setTimeout(async () => {
+          await refreshToken();
+          // Set business slug cookie before redirect (middleware may not run for /tenant/*)
+          if (businessId) {
+            await fetch('/api/tenant/set-context', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ businessId }),
+              credentials: 'include',
+            });
+          }
+          if (!cancelled) window.location.href = redirectUrl;
+        }, 3000);
+      } catch {
+        if (cancelled) return;
+        setStatus('success');
+        setTimeout(() => { window.location.href = '/'; }, 3000);
+      }
     }
-  }, [status, router]);
+
+    fetchAndRedirect();
+
+    return () => {
+      cancelled = true;
+      if (redirectTimer) clearTimeout(redirectTimer);
+    };
+  }, [searchParams, refreshToken]);
 
   if (status === 'loading') {
     return (
@@ -77,10 +100,10 @@ export default function OnboardingSuccessPage() {
             Não foi possível confirmar seu pagamento. Por favor, tente novamente.
           </p>
           <button
-            onClick={() => router.push('/onboarding/plan')}
+            onClick={() => router.push('/industries')}
             className="mt-6 rounded-xl bg-neutral-900 px-6 py-3 text-sm font-medium text-white hover:bg-neutral-800"
           >
-            Tentar Novamente
+            Escolher plano novamente
           </button>
         </div>
       </div>
@@ -115,7 +138,29 @@ export default function OnboardingSuccessPage() {
           </div>
         </div>
         <button
-          onClick={() => router.push('/admin')}
+          onClick={async () => {
+            const sessionId = searchParams.get('session_id');
+            if (sessionId) {
+              try {
+                const r = await fetch(`/api/onboarding/get-checkout-session?sessionId=${sessionId}`);
+                const d = await r.json();
+                await refreshToken();
+                if (d.businessId) {
+                  await fetch('/api/tenant/set-context', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ businessId: d.businessId }),
+                    credentials: 'include',
+                  });
+                }
+                window.location.href = d.businessId ? `/tenant/admin/dashboard` : '/';
+              } catch {
+                window.location.href = '/';
+              }
+            } else {
+              window.location.href = '/';
+            }
+          }}
           className="mt-6 text-sm text-neutral-600 hover:text-neutral-900 underline"
         >
           Ir para o dashboard agora

@@ -1,8 +1,20 @@
 import { ReactNode } from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
-import { getCurrentBusiness } from '@/lib/tenant';
+import { getCurrentBusiness, serializeBusinessForClient } from '@/lib/tenant';
 import { BusinessProvider } from '@/lib/contexts/BusinessContext';
 import { BrandingWrapper } from '@/components/branding/BrandingWrapper';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const business = await getCurrentBusiness();
+  if (!business) return { title: 'Puncto' };
+  return {
+    title: `${business.displayName} | Agendamento`,
+    ...(business.branding?.faviconUrl && {
+      icons: { icon: business.branding.faviconUrl },
+    }),
+  };
+}
 
 export default async function TenantLayout({
   children,
@@ -14,6 +26,7 @@ export default async function TenantLayout({
 
   if (!business) {
     // Business not found - show 404
+    console.log('[TenantLayout] business not found, calling notFound() -> 404');
     notFound();
   }
 
@@ -48,9 +61,12 @@ export default async function TenantLayout({
     );
   }
 
+  // Serialize for Client Components (Firestore Timestamps are not plain objects)
+  const serialized = serializeBusinessForClient(business);
+
   return (
-    <BusinessProvider business={business}>
-      <BrandingWrapper branding={business.branding}>
+    <BusinessProvider business={serialized}>
+      <BrandingWrapper branding={serialized.branding}>
         {children}
       </BrandingWrapper>
     </BusinessProvider>

@@ -57,7 +57,7 @@ export default function PlatformBusinessDetailPage() {
     return (
       <div className="text-center py-12">
         <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
-        <p className="mt-4 text-gray-600">Loading business...</p>
+        <p className="mt-4 text-gray-600">Carregando negócio...</p>
       </div>
     );
   }
@@ -65,9 +65,9 @@ export default function PlatformBusinessDetailPage() {
   if (!business) {
     return (
       <div className="bg-white rounded-lg shadow p-12 text-center">
-        <p className="text-gray-600">Business not found</p>
+        <p className="text-gray-600">Negócio não encontrado</p>
         <Link href="/platform/businesses" className="text-blue-600 hover:underline mt-4 inline-block">
-          Back to Businesses
+          Voltar aos Negócios
         </Link>
       </div>
     );
@@ -81,7 +81,7 @@ export default function PlatformBusinessDetailPage() {
             href="/platform/businesses"
             className="text-blue-600 hover:text-blue-800 mb-2 inline-block"
           >
-            ← Back to Businesses
+            ← Voltar aos Negócios
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">{business.displayName}</h1>
         </div>
@@ -89,7 +89,7 @@ export default function PlatformBusinessDetailPage() {
           href={`/platform/businesses/${businessId}/edit`}
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
         >
-          Edit Business
+          Editar Negócio
         </Link>
       </div>
 
@@ -98,18 +98,18 @@ export default function PlatformBusinessDetailPage() {
         <div className="lg:col-span-2 space-y-6">
           {/* Basic Information */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Basic Information</h2>
+            <h2 className="text-xl font-semibold mb-4">Informações Básicas</h2>
             <dl className="grid grid-cols-1 gap-4">
               <div>
-                <dt className="text-sm font-medium text-gray-500">Display Name</dt>
+                <dt className="text-sm font-medium text-gray-500">Nome de exibição</dt>
                 <dd className="mt-1 text-sm text-gray-900">{business.displayName}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Legal Name</dt>
+                <dt className="text-sm font-medium text-gray-500">Razão social</dt>
                 <dd className="mt-1 text-sm text-gray-900">{business.legalName}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Slug</dt>
+                <dt className="text-sm font-medium text-gray-500">Identificador (slug)</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   <a
                     href={`https://${business.slug}.puncto.com.br`}
@@ -122,15 +122,15 @@ export default function PlatformBusinessDetailPage() {
                 </dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Email</dt>
+                <dt className="text-sm font-medium text-gray-500">E-mail</dt>
                 <dd className="mt-1 text-sm text-gray-900">{business.email}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Phone</dt>
+                <dt className="text-sm font-medium text-gray-500">Telefone</dt>
                 <dd className="mt-1 text-sm text-gray-900">{business.phone}</dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Industry</dt>
+                <dt className="text-sm font-medium text-gray-500">Segmento</dt>
                 <dd className="mt-1 text-sm text-gray-900">
                   {getBusinessTypeLabel(business.industry)}
                 </dd>
@@ -140,18 +140,26 @@ export default function PlatformBusinessDetailPage() {
 
           {/* Subscription */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Subscription</h2>
+            <h2 className="text-xl font-semibold mb-4">Assinatura</h2>
             <dl className="grid grid-cols-1 gap-4">
               <div>
-                <dt className="text-sm font-medium text-gray-500">Tier</dt>
+                <dt className="text-sm font-medium text-gray-500">Plano</dt>
                 <dd className="mt-1">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    business.subscription.tier === 'enterprise' ? 'bg-purple-100 text-purple-800' :
-                    business.subscription.tier === 'pro' ? 'bg-blue-100 text-blue-800' :
-                    business.subscription.tier === 'basic' ? 'bg-green-100 text-green-800' :
+                    (business.subscription?.tier || 'free') === 'enterprise' ? 'bg-purple-100 text-purple-800' :
+                    (business.subscription?.tier || '') === 'pro' ? 'bg-blue-100 text-blue-800' :
+                    (business.subscription?.tier || '') === 'basic' ? 'bg-green-100 text-green-800' :
                     'bg-gray-100 text-gray-800'
                   }`}>
-                    {business.subscription.tier}
+                    {
+                      business.subscription?.tier === 'enterprise'
+                        ? 'Enterprise'
+                        : business.subscription?.tier === 'pro'
+                          ? 'Pro'
+                          : business.subscription?.tier === 'basic'
+                            ? 'Básico'
+                            : 'Grátis'
+                    }
                   </span>
                 </dd>
               </div>
@@ -159,25 +167,25 @@ export default function PlatformBusinessDetailPage() {
                 <dt className="text-sm font-medium text-gray-500">Status</dt>
                 <dd className="mt-1">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    business.subscription.status === 'active' ? 'bg-green-100 text-green-800' :
+                    (business.subscription?.status || 'active') === 'active' ? 'bg-green-100 text-green-800' :
                     'bg-red-100 text-red-800'
                   }`}>
-                    {business.subscription.status}
+                    {(business.subscription?.status || 'active') === 'active' ? 'Ativo' : 'Suspenso'}
                   </span>
                 </dd>
               </div>
               <div>
-                <dt className="text-sm font-medium text-gray-500">Current Period</dt>
+                <dt className="text-sm font-medium text-gray-500">Período atual</dt>
                 <dd className="mt-1 text-sm text-gray-900">
-                  {formatDate(business.subscription.currentPeriodStart)} -{' '}
-                  {formatDate(business.subscription.currentPeriodEnd)}
+                  {formatDate(business.subscription?.currentPeriodStart)} -{' '}
+                  {formatDate(business.subscription?.currentPeriodEnd)}
                 </dd>
               </div>
-              {business.subscription.stripeCustomerId && (
+              {business.subscription?.stripeCustomerId && (
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Stripe Customer ID</dt>
+                  <dt className="text-sm font-medium text-gray-500">ID do cliente Stripe</dt>
                   <dd className="mt-1 text-sm text-gray-900 font-mono">
-                    {business.subscription.stripeCustomerId}
+                    {business.subscription?.stripeCustomerId}
                   </dd>
                 </div>
               )}
@@ -189,16 +197,16 @@ export default function PlatformBusinessDetailPage() {
         <div className="space-y-6">
           {/* Quick Stats */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Quick Stats</h2>
+            <h2 className="text-xl font-semibold mb-4">Resumo</h2>
             <dl className="space-y-3">
               <div>
-                <dt className="text-sm text-gray-500">Created</dt>
+                <dt className="text-sm text-gray-500">Criado em</dt>
                 <dd className="text-sm font-medium text-gray-900">
                   {formatDate(business.createdAt)}
                 </dd>
               </div>
               <div>
-                <dt className="text-sm text-gray-500">Last Updated</dt>
+                <dt className="text-sm text-gray-500">Última atualização</dt>
                 <dd className="text-sm font-medium text-gray-900">
                   {formatDate(business.updatedAt)}
                 </dd>
@@ -208,7 +216,7 @@ export default function PlatformBusinessDetailPage() {
 
           {/* Actions */}
           <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Actions</h2>
+            <h2 className="text-xl font-semibold mb-4">Ações</h2>
             <div className="space-y-2">
               <Link
                 href={`https://${business.slug}.puncto.com.br`}
@@ -216,15 +224,15 @@ export default function PlatformBusinessDetailPage() {
                 rel="noopener noreferrer"
                 className="block w-full px-4 py-2 text-center bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
               >
-                View Public Site
+                Ver site público
               </Link>
               <Link
-                href={`https://${business.slug}.puncto.com.br/admin`}
+                href={`https://${business.slug}.gestao.puncto.com.br`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="block w-full px-4 py-2 text-center bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
               >
-                View Admin Dashboard
+                Ver painel administrativo
               </Link>
             </div>
           </div>

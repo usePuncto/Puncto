@@ -5,9 +5,10 @@ export const dynamic = 'force-dynamic';
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { auth } from '@/lib/firebase';
 
 export default function PlatformAdminLoginPage() {
-  const { login, loading, user } = useAuth();
+  const { login, loading, user, isPlatformAdmin } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('returnUrl') || '/platform/dashboard';
@@ -19,16 +20,14 @@ export default function PlatformAdminLoginPage() {
 
   // Redirect if already logged in as platform admin
   useEffect(() => {
-    if (user && !loading) {
-      // Check if user is platform admin
-      const customClaims = (user as any).customClaims;
-      if (customClaims?.platformAdmin === true) {
-        router.push(returnUrl);
-      } else {
-        setError('Acesso negado. Esta área é restrita a administradores da plataforma.');
-      }
+    if (user && !loading && isPlatformAdmin) {
+      const url = new URL(returnUrl, window.location.origin);
+      url.searchParams.set('subdomain', 'primazia');
+      router.push(url.pathname + url.search);
+    } else if (user && !loading && !isPlatformAdmin) {
+      setError('Acesso negado. Esta área é restrita a administradores da plataforma.');
     }
-  }, [user, loading, router, returnUrl]);
+  }, [user, loading, isPlatformAdmin, router, returnUrl]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,21 +35,44 @@ export default function PlatformAdminLoginPage() {
     setIsSubmitting(true);
 
     try {
-      const loggedInUser = await login(email, password);
+      await login(email, password);
 
-      // Verify user is platform admin
-      const customClaims = (loggedInUser as any).customClaims;
-      if (customClaims?.platformAdmin !== true) {
+      // login() doesn't return the user; get claims from current auth state
+      const firebaseUser = auth.currentUser;
+      if (!firebaseUser) {
+        setError('Erro ao verificar permissões. Tente novamente.');
+        return;
+      }
+      // Force refresh so custom claims (platformAdmin) are up to date
+      const tokenResult = await firebaseUser.getIdTokenResult(true);
+      const platformAdmin = tokenResult.claims?.platformAdmin === true;
+
+      if (!platformAdmin) {
         setError('Acesso negado. Esta conta não possui permissões de administrador da plataforma.');
-        // Sign out the user
-        await fetch('/api/auth/logout', { method: 'POST' });
+        await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
         return;
       }
 
-      // Redirect to platform dashboard
-      router.push(returnUrl);
-    } catch (err: any) {
-      setError(err.message || 'Erro ao fazer login');
+      // Set session cookie so middleware recognizes auth on the next page load
+      const idToken = await firebaseUser.getIdToken(true);
+      const sessionRes = await fetch('/api/auth/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken }),
+        credentials: 'include',
+      });
+      if (!sessionRes.ok) {
+        setError('Erro ao configurar sessão. Tente novamente.');
+        return;
+      }
+
+      // Redirect using full navigation
+      const url = new URL(returnUrl, window.location.origin);
+      url.searchParams.set('subdomain', 'primazia');
+      window.location.assign(url.pathname + url.search);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao fazer login';
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }

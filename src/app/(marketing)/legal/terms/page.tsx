@@ -123,7 +123,7 @@ export default function TermsPage() {
         <p><strong>Dúvidas Jurídicas ou de Suporte?</strong></p>
         <p>Entre em contato:</p>
         <a href="mailto:legal@puncto.com.br" className="legal-contact-email">
-          legal@puncto.com.br
+          suporte@puncto.com.br
         </a>
       </div>
     </LegalPageLayout>

@@ -3,6 +3,16 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { getBusinessTypeLabel } from '@/lib/features/businessTypeFeatures';
+
+interface RecentBusiness {
+  id: string;
+  displayName: string;
+  slug: string;
+  industry: string;
+  tier: string;
+  createdAt?: string;
+}
 
 interface PlatformStats {
   totalBusinesses: number;
@@ -11,6 +21,7 @@ interface PlatformStats {
   recentSignups: number;
   tierDistribution: Record<string, number>;
   industryDistribution: Record<string, number>;
+  recentBusinesses?: RecentBusiness[];
 }
 
 export default function PlatformDashboardPage() {
@@ -47,11 +58,18 @@ export default function PlatformDashboardPage() {
     }
   };
 
+  const tierLabels: Record<string, string> = {
+    free: 'Grátis',
+    basic: 'Básico',
+    pro: 'Pro',
+    enterprise: 'Enterprise',
+  };
+
   if (loading) {
     return (
       <div className="text-center py-12">
         <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
-        <p className="mt-4 text-gray-600">Loading dashboard...</p>
+        <p className="mt-4 text-gray-600">Carregando painel...</p>
       </div>
     );
   }
@@ -59,7 +77,7 @@ export default function PlatformDashboardPage() {
   return (
     <div>
       <h1 className="text-3xl font-bold text-gray-900 mb-8">
-        Platform Dashboard
+        Painel da Plataforma
       </h1>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-8">
@@ -74,13 +92,13 @@ export default function PlatformDashboardPage() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">
-                    Total Businesses
+                    Total de Negócios
                   </dt>
                   <dd className="text-lg font-semibold text-gray-900">
                     {stats?.totalBusinesses || 0}
                   </dd>
                   <dd className="text-xs text-gray-500 mt-1">
-                    {stats?.activeBusinesses || 0} active
+                    {stats?.activeBusinesses || 0} ativos
                   </dd>
                 </dl>
               </div>
@@ -99,7 +117,7 @@ export default function PlatformDashboardPage() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">
-                    Total Users
+                    Total de Usuários
                   </dt>
                   <dd className="text-lg font-semibold text-gray-900">
                     {stats?.totalUsers || 0}
@@ -121,12 +139,12 @@ export default function PlatformDashboardPage() {
               <div className="ml-5 w-0 flex-1">
                 <dl>
                   <dt className="text-sm font-medium text-gray-500 truncate">
-                    Recent Signups
+                    Cadastros Recentes
                   </dt>
                   <dd className="text-lg font-semibold text-gray-900">
                     {stats?.recentSignups || 0}
                   </dd>
-                  <dd className="text-xs text-gray-500 mt-1">Last 30 days</dd>
+                  <dd className="text-xs text-gray-500 mt-1">Últimos 30 dias</dd>
                 </dl>
               </div>
             </div>
@@ -158,15 +176,14 @@ export default function PlatformDashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Tier Distribution */}
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Subscription Tiers
+            Planos de Assinatura
           </h2>
           <div className="space-y-3">
             {stats?.tierDistribution && Object.entries(stats.tierDistribution).map(([tier, count]) => (
               <div key={tier} className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700 capitalize">{tier}</span>
+                <span className="text-sm font-medium text-gray-700">{tierLabels[tier] || tier}</span>
                 <div className="flex items-center space-x-2">
                   <div className="w-32 bg-gray-200 rounded-full h-2">
                     <div
@@ -188,15 +205,14 @@ export default function PlatformDashboardPage() {
           </div>
         </div>
 
-        {/* Industry Distribution */}
         <div className="bg-white shadow rounded-lg p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">
-            Industries
+            Segmentos (Indústrias)
           </h2>
           <div className="space-y-3">
             {stats?.industryDistribution && Object.entries(stats.industryDistribution).map(([industry, count]) => (
               <div key={industry} className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-700 capitalize">{industry}</span>
+                <span className="text-sm font-medium text-gray-700">{getBusinessTypeLabel(industry)}</span>
                 <span className="text-sm font-semibold text-gray-900">{count}</span>
               </div>
             ))}
@@ -204,28 +220,78 @@ export default function PlatformDashboardPage() {
         </div>
       </div>
 
+      {stats?.recentBusinesses && stats.recentBusinesses.length > 0 && (
+        <div className="bg-white shadow rounded-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Negócios Recentes
+          </h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Negócio</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Segmento</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plano</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Criado em</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ação</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {stats.recentBusinesses.map((b) => (
+                  <tr key={b.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="font-medium text-gray-900">{b.displayName}</div>
+                      <div className="text-sm text-gray-500">{b.slug}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{getBusinessTypeLabel(b.industry)}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        b.tier === 'enterprise' ? 'bg-purple-100 text-purple-800' :
+                        b.tier === 'pro' ? 'bg-blue-100 text-blue-800' :
+                        b.tier === 'basic' ? 'bg-green-100 text-green-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {tierLabels[b.tier] || b.tier}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {b.createdAt ? new Date(b.createdAt).toLocaleDateString('pt-BR') : '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <Link href={`/platform/businesses/${b.id}`} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        Ver
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white shadow rounded-lg p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Quick Actions
+          Ações Rápidas
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link
             href="/platform/businesses"
-            className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center"
+            className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-center font-medium"
           >
-            View All Businesses
+            Ver Todos os Negócios
           </Link>
           <Link
             href="/platform/users"
-            className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-center"
+            className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-center font-medium"
           >
-            View All Users
+            Ver Todos os Usuários
           </Link>
           <Link
             href="/platform/billing"
-            className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-center"
+            className="px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 text-center font-medium"
           >
-            Billing Overview
+            Visão de Faturamento
           </Link>
         </div>
       </div>

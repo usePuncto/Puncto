@@ -25,11 +25,12 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Return the checkout URL
+    // Return the checkout URL and metadata
     return NextResponse.json({
       url: session.url,
       status: session.status,
       paymentStatus: session.payment_status,
+      businessId: session.metadata?.businessId,
     });
   } catch (error: any) {
     console.error('Error retrieving checkout session:', error);

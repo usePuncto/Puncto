@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
 
     // TODO: Send email notification to sales team
     // await sendEmail({
-    //   to: 'vendas@puncto.com.br',
+    //   to: 'suporte@puncto.com.br',
     //   subject: `Novo contato: ${data.name}`,
     //   body: `...`
     // });

@@ -19,10 +19,12 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "notifications": "Notifications",
     "bookings": "Bookings",
     "services": "Services",
     "professionals": "Professionals",
     "customers": "Customers",
+    "patients": "Patients",
     "payments": "Payments",
     "financial": "Financial",
     "menu": "Menu",
@@ -33,10 +35,11 @@
     "timeClock": "Time Clock",
     "loyalty": "Loyalty",
     "campaigns": "Campaigns",
+    "whatsapp": "WhatsApp",
     "franchise": "Franchise",
     "settings": "Settings",
     "adminPanel": "Admin Panel",
-    "backToPublic": "Back to public site"
+    "logout": "Log out"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -51,6 +54,34 @@
     "noShows": "No Shows",
     "pendingBookings": "Pending"
   },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Track your business scheduling updates",
+    "loading": "Loading...",
+    "empty": "No notifications right now.",
+    "viewAll": "View all",
+
+    "previewTitle": "Latest notifications",
+    "previewSubtitle": "Recent updates about your bookings",
+
+    "withCustomer": "Customer: {customerName}",
+
+    "tabs": {
+      "all": "All",
+      "unread": "Unread"
+    },
+
+    "actions": {
+      "markRead": "Mark as read",
+      "read": "Read"
+    },
+
+    "booking": {
+      "created": "New booking: {serviceName} with {professionalName}",
+      "confirmed": "Booking confirmed: {serviceName} with {professionalName}",
+      "completed": "Booking completed: {serviceName} with {professionalName}"
+    }
+  },
   "business": {
     "suspendedAccount": "Suspended Account",
     "suspendedMessage": "This account is currently suspended. Please contact support for more information."
@@ -60,5 +91,65 @@
     "portuguese": "Português",
     "english": "English",
     "spanish": "Español"
+  },
+  "settings": {
+    "branding": {
+      "title": "Branding & White-label",
+      "noWhiteLabelWarning": "White-label features (custom CSS, hide branding) require the Enterprise plan. Basic branding customization is still available.",
+      "logoLabel": "Logo",
+      "logoHint": "Upload an image file (PNG, JPG or SVG). Max 2MB.",
+      "uploading": "Uploading...",
+      "coverLabel": "Cover image",
+      "coverHint": "Large image shown on your public booking pages.",
+      "primaryColorLabel": "Primary color",
+      "secondaryColorLabel": "Secondary color",
+      "faviconLabel": "Favicon",
+      "faviconHint": "Icon shown in the browser tab.",
+      "customCssLabel": "Custom CSS",
+      "customCssPlaceholder": ".custom-class { color: red; }",
+      "customCssHint": "Custom CSS will be injected into public pages. Use with care.",
+      "hideBrandingLabel": "Hide Puncto branding on public pages",
+      "submitSaving": "Saving...",
+      "submitLabel": "Save changes",
+      "linkInBioLabel": "Link in bio",
+      "linkInBioDescription": "This is the public address of your Puncto page.",
+      "linkInBioSupportNote": "To change the URL, please contact support."
+    }
+  },
+  "whatsapp": {
+    "title": "WhatsApp",
+    "subtitle": "Configure how your business communicates via WhatsApp",
+    "modeManual": "Manual WhatsApp",
+    "modeManualDesc": "Free & Starter plans: Select a contact and click a button to open WhatsApp with a preset message. You send it manually.",
+    "modeAutomated": "Automated WhatsApp",
+    "modeAutomatedDesc": "Growth & Pro plans: Messages are sent automatically via WhatsApp Business API. Configured securely on our backend.",
+    "configTitle": "Configuration",
+    "numberLabel": "Business WhatsApp number",
+    "numberHint": "The number shown to clients (e.g. +5511999999999).",
+    "presetMessageLabel": "Preset message",
+    "presetMessagePlaceholder": "Hello! Your appointment is confirmed for {date} at {time}. See you soon!",
+    "presetMessageHint": "This message is pre-filled when you click \"Send WhatsApp\" on a contact. Use {date} and {time} as placeholders.",
+    "save": "Save",
+    "saving": "Saving...",
+    "howItWorksTitle": "How it works",
+    "howItWorksManual": "In Manual mode, when you click \"Send WhatsApp\" on a customer or booking, the app opens WhatsApp (mobile or web) with the preset message ready. You review and send it yourself.",
+    "step1": "Configure your preset message above.",
+    "step2": "Go to Customers or Bookings.",
+    "step3": "Click \"Send WhatsApp\" next to a contact.",
+    "step4": "WhatsApp opens with the message pre-filled. Send it manually.",
+    "howItWorksAutomated": "In Automated mode, the system sends reminders and confirmations directly to your clients' WhatsApp via the Meta WhatsApp Business API. All API configuration is managed securely on our backend—nothing sensitive is exposed to users.",
+    "connectTitle": "Connect your WhatsApp",
+    "connected": "WhatsApp connected",
+    "connectDesc": "Connect your business WhatsApp number so automated messages are sent from your number to your clients.",
+    "connectFacebookReason": "WhatsApp is owned by Meta (Facebook). To connect your number securely, Meta requires a one-time login to verify your business. We don't store any Facebook data.",
+    "connectNoFacebook": "Don't have a Facebook account?",
+    "connectNoFacebookSuffix": "we can connect your number manually.",
+    "contactSupport": "Contact support",
+    "connectButton": "Connect WhatsApp",
+    "connecting": "Connecting...",
+    "connectNotConfigured": "Embedded Signup is not configured. Contact support to enable per-business WhatsApp.",
+    "bookingConfirmationsTitle": "Booking confirmations",
+    "bookingConfirmationsDesc": "When a booking is created, send confirmation automatically via:",
+    "sendViaWhatsApp": "Send via WhatsApp"
   }
 }

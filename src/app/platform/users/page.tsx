@@ -74,7 +74,7 @@ export default function PlatformUsersPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Users</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Usuários</h1>
       </div>
 
       {/* Filters */}
@@ -82,42 +82,42 @@ export default function PlatformUsersPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Search
+              Buscar
             </label>
             <input
               type="text"
               value={filters.search}
               onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              placeholder="Email, name..."
+              placeholder="E-mail, nome..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Role
+              Função
             </label>
             <select
               value={filters.role}
               onChange={(e) => setFilters({ ...filters, role: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             >
-              <option value="">All</option>
-              <option value="owner">Owner</option>
-              <option value="manager">Manager</option>
-              <option value="professional">Professional</option>
+              <option value="">Todos</option>
+              <option value="owner">Proprietário</option>
+              <option value="manager">Gerente</option>
+              <option value="professional">Profissional</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Business ID (optional)
+              ID do Negócio (opcional)
             </label>
             <input
               type="text"
               value={filters.businessId}
               onChange={(e) => setFilters({ ...filters, businessId: e.target.value })}
-              placeholder="Filter by business..."
+              placeholder="Filtrar por negócio..."
               className="w-full px-3 py-2 border border-gray-300 rounded-lg"
             />
           </div>
@@ -128,11 +128,11 @@ export default function PlatformUsersPage() {
       {loading ? (
         <div className="text-center py-12">
           <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-blue-600"></div>
-          <p className="mt-4 text-gray-600">Loading users...</p>
+          <p className="mt-4 text-gray-600">Carregando usuários...</p>
         </div>
       ) : users.length === 0 ? (
         <div className="bg-white rounded-lg shadow p-12 text-center">
-          <p className="text-gray-600">No users found</p>
+          <p className="text-gray-600">Nenhum usuário encontrado</p>
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
@@ -140,16 +140,16 @@ export default function PlatformUsersPage() {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User
+                  Usuário
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
+                  Função
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Businesses
+                  Negócios
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created
+                  Criado em
                 </th>
               </tr>
             </thead>
@@ -159,12 +159,12 @@ export default function PlatformUsersPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
-                        {user.displayName || user.name || 'No name'}
+                        {user.displayName || user.name || 'Sem nome'}
                       </div>
                       <div className="text-sm text-gray-500">{user.email}</div>
                       {user.platformAdmin && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 mt-1">
-                          Platform Admin
+                          Admin da Plataforma
                         </span>
                       )}
                     </div>
@@ -181,12 +181,12 @@ export default function PlatformUsersPage() {
                               'bg-gray-100 text-gray-800'
                             }`}
                           >
-                            {role}
+                            {role === 'owner' ? 'Proprietário' : role === 'manager' ? 'Gerente' : role === 'professional' ? 'Profissional' : role}
                           </span>
                         ))}
                       </div>
                     ) : (
-                      <span className="text-sm text-gray-500">No business role</span>
+                      <span className="text-sm text-gray-500">Sem função em negócio</span>
                     )}
                   </td>
                   <td className="px-6 py-4">
@@ -201,17 +201,17 @@ export default function PlatformUsersPage() {
                               >
                                 {business.id.slice(0, 8)}...
                               </Link>
-                              <span className="text-xs text-gray-500">({business.role})</span>
+                              <span className="text-xs text-gray-500">({business.role === 'owner' ? 'Proprietário' : business.role === 'manager' ? 'Gerente' : business.role === 'professional' ? 'Profissional' : business.role})</span>
                             </div>
                           ))}
                           {user.businesses.length > 3 && (
                             <span className="text-xs text-gray-500">
-                              +{user.businesses.length - 3} more
+                              +{user.businesses.length - 3} mais
                             </span>
                           )}
                         </div>
                       ) : (
-                        <span className="text-gray-500">No businesses</span>
+                        <span className="text-gray-500">Nenhum negócio</span>
                       )}
                     </div>
                   </td>
@@ -229,9 +229,9 @@ export default function PlatformUsersPage() {
           {pagination.pages > 1 && (
             <div className="bg-gray-50 px-6 py-3 flex items-center justify-between border-t border-gray-200">
               <div className="text-sm text-gray-700">
-                Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
-                {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
-                {pagination.total} users
+                Exibindo {((pagination.page - 1) * pagination.limit) + 1} a{' '}
+                {Math.min(pagination.page * pagination.limit, pagination.total)} de{' '}
+                {pagination.total} usuários
               </div>
               <div className="flex space-x-2">
                 <button
@@ -239,14 +239,14 @@ export default function PlatformUsersPage() {
                   disabled={pagination.page === 1}
                   className="px-3 py-1 border rounded disabled:opacity-50"
                 >
-                  Previous
+                  Anterior
                 </button>
                 <button
                   onClick={() => setPagination({ ...pagination, page: pagination.page + 1 })}
                   disabled={pagination.page >= pagination.pages}
                   className="px-3 py-1 border rounded disabled:opacity-50"
                 >
-                  Next
+                  Próximo
                 </button>
               </div>
             </div>

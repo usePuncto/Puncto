@@ -75,10 +75,13 @@ export async function PUT(
       );
     }
 
-    await productRef.update({
-      ...updates,
-      updatedAt: new Date(),
-    });
+    // Firestore rejects undefined - strip undefined values
+    const cleanUpdates: Record<string, unknown> = { updatedAt: new Date() };
+    for (const [k, v] of Object.entries(updates)) {
+      if (v !== undefined) cleanUpdates[k] = v;
+    }
+
+    await productRef.update(cleanUpdates);
 
     const updatedDoc = await productRef.get();
     return NextResponse.json({

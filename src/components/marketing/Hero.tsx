@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 
 export default function Hero() {
@@ -129,14 +130,13 @@ export default function Hero() {
                 </div>
               </div>
               
-              <div className="bg-gradient-to-br from-slate-100 to-slate-200 rounded-b-2xl aspect-[16/9] flex items-center justify-center shadow-2xl border border-slate-200">
-                <div className="text-slate-400 text-center p-8">
-                  <svg className="w-16 h-16 mx-auto mb-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  <p className="text-lg font-medium">Painel Administrativo Puncto</p>
-                  <p className="text-sm">Gestão completa do seu negócio em um só lugar</p>
-                </div>
+              <div className="relative bg-gradient-to-br from-slate-100 to-slate-200 rounded-b-2xl aspect-[16/9] flex items-center justify-center shadow-2xl border border-slate-200 overflow-hidden">
+                <Image
+                  src="/dashboardImage.png"
+                  alt="Painel Administrativo Puncto - Gestão completa do seu negócio em um só lugar"
+                  fill
+                  className="object-cover object-top"
+                />
               </div>
               
               {/* Card flutuante 1 */}
@@ -150,6 +150,21 @@ export default function Hero() {
                   <div>
                     <p className="text-sm font-medium text-slate-900">Relatório Gerado</p>
                     <p className="text-xs text-slate-500">Automação concluída</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card flutuante 2 */}
+              <div className="absolute -right-8 bottom-1/4 bg-white rounded-xl shadow-soft-lg p-4 hidden lg:block animate-float" style={{ animationDelay: '1s' }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
+                    <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-slate-900">Venda Registrada</p>
+                    <p className="text-xs text-slate-500">+R$ 2.450,00</p>
                   </div>
                 </div>
               </div>

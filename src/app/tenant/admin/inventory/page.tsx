@@ -4,11 +4,27 @@ import { useState, useEffect } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { InventoryItem } from '@/types/inventory';
 
+const CATEGORIES = ['ingredients', 'supplies', 'equipment', 'outros'];
+const UNITS = ['kg', 'g', 'L', 'ml', 'unidade', 'caixa', 'pacote'];
+
 export default function AdminInventoryPage() {
   const { business } = useBusiness();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'lowStock'>('all');
+  const [showItemForm, setShowItemForm] = useState(false);
+  const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
+  const [itemForm, setItemForm] = useState({
+    name: '',
+    sku: '',
+    category: 'ingredients',
+    unit: 'unidade',
+    currentStock: '0',
+    minStock: '0',
+    cost: '',
+  });
+  const [itemError, setItemError] = useState<string | null>(null);
+  const [itemLoading, setItemLoading] = useState(false);
 
   useEffect(() => {
     loadItems();
@@ -27,6 +43,87 @@ export default function AdminInventoryPage() {
       console.error('Failed to load inventory:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setShowItemForm(false);
+    setEditingItem(null);
+    setItemForm({ name: '', sku: '', category: 'ingredients', unit: 'unidade', currentStock: '0', minStock: '0', cost: '' });
+  };
+
+  const openEditForm = (item: InventoryItem) => {
+    setEditingItem(item);
+    setItemForm({
+      name: item.name,
+      sku: item.sku || '',
+      category: item.category,
+      unit: item.unit,
+      currentStock: String(item.currentStock),
+      minStock: String(item.minStock),
+      cost: String((item.cost / 100).toFixed(2)),
+    });
+    setShowItemForm(true);
+    setItemError(null);
+  };
+
+  const handleSubmitItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setItemError(null);
+    const cost = parseFloat(itemForm.cost);
+    if (isNaN(cost) || cost < 0) {
+      setItemError('Custo inválido');
+      return;
+    }
+    if (!itemForm.name.trim()) {
+      setItemError('Nome é obrigatório');
+      return;
+    }
+    setItemLoading(true);
+    try {
+      if (editingItem) {
+        const res = await fetch(`/api/inventory/${editingItem.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            businessId: business.id,
+            updates: {
+              name: itemForm.name.trim(),
+              sku: itemForm.sku.trim() || '',
+              category: itemForm.category,
+              unit: itemForm.unit,
+              currentStock: parseInt(itemForm.currentStock) || 0,
+              minStock: parseInt(itemForm.minStock) || 0,
+              cost: cost,
+            },
+          }),
+        });
+        if (!res.ok) throw new Error('Erro ao atualizar');
+      } else {
+        const res = await fetch('/api/inventory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            businessId: business.id,
+            item: {
+              name: itemForm.name.trim(),
+              sku: itemForm.sku.trim() || undefined,
+              category: itemForm.category,
+              unit: itemForm.unit,
+              currentStock: parseInt(itemForm.currentStock) || 0,
+              minStock: parseInt(itemForm.minStock) || 0,
+              cost: cost,
+            },
+          }),
+        });
+        if (!res.ok) throw new Error('Erro ao criar');
+      }
+      resetForm();
+      loadItems();
+    } catch {
+      setItemError(editingItem ? 'Erro ao atualizar item' : 'Erro ao cadastrar item');
+    } finally {
+      setItemLoading(false);
     }
   };
 
@@ -75,12 +172,121 @@ export default function AdminInventoryPage() {
             Estoque Baixo
           </button>
           <button
+            onClick={() => setShowItemForm(true)}
             className="rounded-lg bg-neutral-900 px-4 py-2 text-sm text-white hover:bg-neutral-800"
           >
             + Novo Item
           </button>
         </div>
       </div>
+
+      {showItemForm && (
+        <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-6">
+          <h2 className="text-lg font-semibold text-neutral-900 mb-4">
+            {editingItem ? 'Editar item no estoque' : 'Novo item no estoque'}
+          </h2>
+          <form onSubmit={handleSubmitItem} className="space-y-4 max-w-lg">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Nome *</label>
+                <input
+                  type="text"
+                  value={itemForm.name}
+                  onChange={(e) => setItemForm({ ...itemForm, name: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">SKU</label>
+                <input
+                  type="text"
+                  value={itemForm.sku}
+                  onChange={(e) => setItemForm({ ...itemForm, sku: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Categoria</label>
+                <select
+                  value={itemForm.category}
+                  onChange={(e) => setItemForm({ ...itemForm, category: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                >
+                  {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Unidade</label>
+                <select
+                  value={itemForm.unit}
+                  onChange={(e) => setItemForm({ ...itemForm, unit: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                >
+                  {UNITS.map((u) => (
+                    <option key={u} value={u}>{u}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Estoque atual</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={itemForm.currentStock}
+                  onChange={(e) => setItemForm({ ...itemForm, currentStock: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Estoque mínimo</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={itemForm.minStock}
+                  onChange={(e) => setItemForm({ ...itemForm, minStock: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Custo (R$) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={itemForm.cost}
+                  onChange={(e) => setItemForm({ ...itemForm, cost: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  required
+                />
+              </div>
+            </div>
+            {itemError && <p className="text-sm text-red-600">{itemError}</p>}
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={itemLoading}
+                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+              >
+                {itemLoading ? 'Salvando...' : editingItem ? 'Salvar' : 'Cadastrar'}
+              </button>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden">
         <table className="w-full">
@@ -123,7 +329,11 @@ export default function AdminInventoryPage() {
                   </td>
                   <td className="px-4 py-3 text-sm font-medium">{formatPrice(item.cost)}</td>
                   <td className="px-4 py-3">
-                    <button className="text-sm text-blue-600 hover:text-blue-800">
+                    <button
+                      type="button"
+                      onClick={() => openEditForm(item)}
+                      className="text-sm text-blue-600 hover:text-blue-800"
+                    >
                       Editar
                     </button>
                   </td>

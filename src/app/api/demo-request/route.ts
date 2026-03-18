@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
     // TODO: Send notification to sales team
     // await sendEmail({
-    //   to: 'demos@puncto.com.br',
+    //   to: 'suporte@puncto.com.br',
     //   subject: `Nova solicitação de demo: ${data.name} - ${data.company}`,
     //   body: `...`
     // });

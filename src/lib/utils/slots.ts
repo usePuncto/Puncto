@@ -1,5 +1,13 @@
 import { addMinutes, setHours, setMinutes, isBefore, isAfter, format } from 'date-fns';
+import { enUS } from 'date-fns/locale';
+import { fromZonedTime } from 'date-fns-tz/fromZonedTime';
+import { formatInTimeZone } from 'date-fns-tz/formatInTimeZone';
 import { WorkingHours } from '@/types/business';
+
+// Working hours keys are in English (monday, tuesday, etc.) - use enUS locale for consistency
+// Use business timezone so day-of-week is correct regardless of server timezone
+const getDayKey = (date: Date, timeZone: string = 'UTC') =>
+  formatInTimeZone(date, timeZone, 'EEEE', { locale: enUS }).toLowerCase() as keyof WorkingHours;
 
 export interface TimeSlot {
   start: Date;
@@ -13,6 +21,8 @@ export interface AvailabilityFilters {
   locationId?: string;
   existingBookings?: Array<{ start: Date; end: Date }>;
   blocks?: Array<{ start: Date; end: Date; reason?: string }>;
+  /** IANA timezone (e.g. America/Sao_Paulo) - slot times are interpreted in this zone */
+  timeZone?: string;
 }
 
 /**
@@ -25,7 +35,8 @@ export function calculateAvailableSlots(
   bufferMinutes: number = 0,
   filters?: AvailabilityFilters
 ): TimeSlot[] {
-  const dayOfWeek = format(date, 'EEEE').toLowerCase() as keyof WorkingHours;
+  const tz = filters?.timeZone || 'UTC';
+  const dayOfWeek = getDayKey(date, tz);
   const daySchedule = workingHours[dayOfWeek];
 
   if (!daySchedule || daySchedule.closed) {
@@ -33,11 +44,17 @@ export function calculateAvailableSlots(
   }
 
   const slots: TimeSlot[] = [];
-  const [openHour, openMinute] = daySchedule.open.split(':').map(Number);
-  const [closeHour, closeMinute] = daySchedule.close.split(':').map(Number);
+  const [openHour, openMinute] = (daySchedule.open || '09:00').split(':').map(Number);
+  const [closeHour, closeMinute] = (daySchedule.close || '18:00').split(':').map(Number);
 
-  const dayStart = setMinutes(setHours(date, openHour), openMinute);
-  const dayEnd = setMinutes(setHours(date, closeHour), closeMinute);
+  // Extract date components in business timezone (server local timezone can differ)
+  const dateStr = formatInTimeZone(date, tz, 'yyyy-MM-dd');
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const year = y;
+  const month = m - 1;
+  const day = d;
+  const dayStart = fromZonedTime(new Date(year, month, day, openHour, openMinute, 0), tz);
+  const dayEnd = fromZonedTime(new Date(year, month, day, closeHour, closeMinute, 0), tz);
 
   // Get blocked times
   const blockedTimes: Array<{ start: Date; end: Date }> = [
@@ -96,7 +113,7 @@ export function isSlotAvailable(
   existingBookings: Array<{ start: Date; end: Date }> = [],
   blocks: Array<{ start: Date; end: Date }> = []
 ): boolean {
-  const dayOfWeek = format(startTime, 'EEEE').toLowerCase() as keyof WorkingHours;
+  const dayOfWeek = getDayKey(startTime);
   const daySchedule = workingHours[dayOfWeek];
 
   if (!daySchedule || daySchedule.closed) {
