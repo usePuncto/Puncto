@@ -6,9 +6,12 @@ import { useServices } from '@/lib/queries/services';
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import Link from 'next/link';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { NotificationsPreview } from '@/components/notifications/NotificationsPreview';
 
 export default function AdminDashboardPage() {
   const { business } = useBusiness();
+  const { user } = useAuth();
   const t = useTranslations('dashboard');
   const { data: customers = [], isLoading: customersLoading } = useCustomers(business?.id ?? '');
   const { data: services = [], isLoading: servicesLoading } = useServices(business?.id ?? '');
@@ -75,6 +78,17 @@ export default function AdminDashboardPage() {
           Use o menu à esquerda para acessar agendamentos, pagamentos, cardápio e outras áreas do seu negócio.
         </p>
       </div>
+
+      {business?.id && user?.id && (
+        <div className="mt-6">
+          <NotificationsPreview
+            businessId={business.id}
+            recipientUserId={user.id}
+            href="/tenant/admin/notifications"
+            limit={5}
+          />
+        </div>
+      )}
     </div>
   );
 }

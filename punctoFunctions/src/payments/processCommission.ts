@@ -27,50 +27,95 @@ export const processCommission = onDocumentCreated(
       return;
     }
 
-    // Check if payment is linked to a booking
-    if (!payment.bookingId) {
-      logger.info(`[processCommission] Payment ${paymentId} not linked to booking, skipping commission`);
-      return;
-    }
-
     try {
-      // Get booking to find professional
-      const bookingRef = db
-        .collection("businesses")
-        .doc(businessId)
-        .collection("bookings")
-        .doc(payment.bookingId);
+      const currency = (payment.currency || "brl").toLowerCase();
 
-      const bookingDoc = await bookingRef.get();
-      if (!bookingDoc.exists) {
-        logger.error(`[processCommission] Booking ${payment.bookingId} not found`);
-        return;
+      // Determine destination professional + commission percent.
+      // - If payment is for a booking, use booking.professionalId.
+      // - Otherwise, treat it as an "owner payout" and use the business owner professional.
+      let professionalId: string | null = null;
+      let bookingId: string | null = payment.bookingId || null;
+      let professional: any | null = null;
+      let commissionPercent: number = 0;
+
+      if (bookingId) {
+        // Get booking to find professional
+        const bookingRef = db
+          .collection("businesses")
+          .doc(businessId)
+          .collection("bookings")
+          .doc(bookingId);
+
+        const bookingDoc = await bookingRef.get();
+        if (!bookingDoc.exists) {
+          logger.error(`[processCommission] Booking ${bookingId} not found`);
+          return;
+        }
+
+        const booking = bookingDoc.data();
+        if (!booking?.professionalId) {
+          logger.info(`[processCommission] Booking ${bookingId} has no professional, skipping commission`);
+          return;
+        }
+
+        professionalId = booking.professionalId;
+
+        // Get professional to check commission rate
+        const professionalRef = db
+          .collection("businesses")
+          .doc(businessId)
+          .collection("professionals")
+          .doc(professionalId);
+
+        const professionalDoc = await professionalRef.get();
+        if (!professionalDoc.exists) {
+          logger.error(`[processCommission] Professional ${professionalId} not found`);
+          return;
+        }
+
+        professional = professionalDoc.data();
+        commissionPercent = professional?.commissionPercent || 0;
+      } else {
+        // Payment not linked to booking (e.g. Payment Links).
+        // Fallback: try to use the business owner professional.
+        const businessDoc = await db.collection("businesses").doc(businessId).get();
+        const businessData = businessDoc.data() as any | undefined;
+
+        const createdByUserId = businessData?.createdBy;
+
+        const prosRef = db.collection("businesses").doc(businessId).collection("professionals");
+
+        // 1) Prefer explicit owner
+        const ownerSnap = await prosRef.where("isOwner", "==", true).limit(1).get();
+        // 2) Otherwise, try by business createdBy userId
+        const createdBySnap =
+          ownerSnap.empty && createdByUserId
+            ? await prosRef.where("userId", "==", createdByUserId).limit(1).get()
+            : null;
+
+        const snap = !ownerSnap.empty
+          ? ownerSnap
+          : createdBySnap && !createdBySnap.empty
+            ? createdBySnap
+            : null;
+
+        if (!snap || snap.empty) {
+          logger.info(`[processCommission] Payment ${paymentId} has no booking and no owner professional found`);
+          return;
+        }
+
+        professionalId = snap.docs[0].id;
+        professional = snap.docs[0].data();
+        commissionPercent = professional?.commissionPercent ?? 100;
       }
 
-      const booking = bookingDoc.data();
-      if (!booking?.professionalId) {
-        logger.info(`[processCommission] Booking ${payment.bookingId} has no professional, skipping commission`);
+      if (!professionalId || !professional) {
+        logger.info(`[processCommission] Payment ${paymentId} missing destination professional`);
         return;
       }
-
-      // Get professional to check commission rate
-      const professionalRef = db
-        .collection("businesses")
-        .doc(businessId)
-        .collection("professionals")
-        .doc(booking.professionalId);
-
-      const professionalDoc = await professionalRef.get();
-      if (!professionalDoc.exists) {
-        logger.error(`[processCommission] Professional ${booking.professionalId} not found`);
-        return;
-      }
-
-      const professional = professionalDoc.data();
-      const commissionPercent = professional?.commissionPercent || 0;
 
       if (commissionPercent <= 0) {
-        logger.info(`[processCommission] Professional ${booking.professionalId} has no commission rate`);
+        logger.info(`[processCommission] Professional ${professionalId} has no commission rate`);
         return;
       }
 
@@ -78,42 +123,15 @@ export const processCommission = onDocumentCreated(
       const commissionAmount = Math.round((payment.amount * commissionPercent) / 100);
 
       // Check if professional has Stripe Connect account
-      if (!professional.stripeConnectAccountId) {
-        logger.info(`[processCommission] Professional ${booking.professionalId} has no Stripe Connect account, commission will be processed manually`);
-        // Create commission record but mark as pending
-        const commissionData = {
-          paymentId,
-          bookingId: payment.bookingId,
-          businessId,
-          professionalId: booking.professionalId,
-          professionalName: professional.name || "",
-          amount: commissionAmount,
-          percentage: commissionPercent,
-          status: "pending",
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now(),
-        };
-
-        const commissionsRef = db
-          .collection("businesses")
-          .doc(businessId)
-          .collection("commissions");
-
-        await commissionsRef.add(commissionData);
-        return;
-      }
-
-      // Create transfer via API (this would be called from the API route, not directly from function)
-      // For now, create commission record that can be processed by API
-      const commissionData = {
+      const commissionData: any = {
         paymentId,
-        bookingId: payment.bookingId,
+        bookingId,
         businessId,
-        professionalId: booking.professionalId,
+        professionalId,
         professionalName: professional.name || "",
         amount: commissionAmount,
         percentage: commissionPercent,
-        stripeConnectAccountId: professional.stripeConnectAccountId,
+        stripeConnectAccountId: professional.stripeConnectAccountId || null,
         status: "pending",
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -124,9 +142,51 @@ export const processCommission = onDocumentCreated(
         .doc(businessId)
         .collection("commissions");
 
-      await commissionsRef.add(commissionData);
+      const commissionDoc = await commissionsRef.add(commissionData);
+      const commissionId = commissionDoc.id;
 
-      logger.info(`[processCommission] Created commission record for professional ${booking.professionalId}, amount: ${commissionAmount}`);
+      if (!professional.stripeConnectAccountId) {
+        logger.info(
+          `[processCommission] Professional ${professionalId} has no Stripe Connect account; commission ${commissionId} will remain pending`
+        );
+        return;
+      }
+
+      // Trigger Connect transfer via Next API (Stripe SDK is only available in the Next backend).
+      try {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+        const transferGroup = bookingId ? `booking_${bookingId}` : `payment_${paymentId}`;
+
+        const res = await fetch(`${baseUrl}/api/stripe-connect/transfer`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            commissionId,
+            businessId,
+            paymentId,
+            bookingId: bookingId || null,
+            professionalId,
+            amount: commissionAmount,
+            currency,
+            transferGroup,
+            commissionPercent,
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          logger.error(
+            `[processCommission] Transfer API failed for commission ${commissionId}: ${data.error || res.status}`
+          );
+          return;
+        }
+
+        logger.info(
+          `[processCommission] Transfer created for commission ${commissionId} (amount: ${commissionAmount})`
+        );
+      } catch (err: any) {
+        logger.error(`[processCommission] Transfer API error for commission ${commissionId}:`, err);
+      }
     } catch (error) {
       logger.error(`[processCommission] Error processing commission: ${error}`);
     }

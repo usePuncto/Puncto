@@ -19,6 +19,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "notifications": "Notifications",
     "bookings": "Bookings",
     "services": "Services",
     "professionals": "Professionals",
@@ -52,6 +53,34 @@
     "cancelledBookings": "Cancelled",
     "noShows": "No Shows",
     "pendingBookings": "Pending"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "subtitle": "Track your business scheduling updates",
+    "loading": "Loading...",
+    "empty": "No notifications right now.",
+    "viewAll": "View all",
+
+    "previewTitle": "Latest notifications",
+    "previewSubtitle": "Recent updates about your bookings",
+
+    "withCustomer": "Customer: {customerName}",
+
+    "tabs": {
+      "all": "All",
+      "unread": "Unread"
+    },
+
+    "actions": {
+      "markRead": "Mark as read",
+      "read": "Read"
+    },
+
+    "booking": {
+      "created": "New booking: {serviceName} with {professionalName}",
+      "confirmed": "Booking confirmed: {serviceName} with {professionalName}",
+      "completed": "Booking completed: {serviceName} with {professionalName}"
+    }
   },
   "business": {
     "suspendedAccount": "Suspended Account",

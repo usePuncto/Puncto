@@ -287,6 +287,27 @@ service cloud.firestore {
         allow read: if isAuthenticated() && resource.data.customerId == request.auth.uid;
         allow write: if false; // Only via Cloud Function
       }
+
+      // In-app notifications for bookings
+      match /notifications/{notificationId} {
+        // Recipient can read their own notifications
+        allow read: if isBusinessStaff(businessId) && resource.data.recipientUserId == request.auth.uid;
+
+        // Client cannot create notifications (written by server-side triggers)
+        allow create: if false;
+
+        // Recipient can mark notifications as read
+        allow update: if isBusinessStaff(businessId) &&
+                         request.auth.uid == resource.data.recipientUserId &&
+                         request.resource.data.recipientUserId == resource.data.recipientUserId &&
+                         request.resource.data.businessId == resource.data.businessId &&
+                         request.resource.data.bookingId == resource.data.bookingId &&
+                         request.resource.data.eventType == resource.data.eventType &&
+                         resource.data.isRead == false &&
+                         request.resource.data.isRead == true;
+
+        allow delete: if false;
+      }
     }
 
     match /users/{userId} {

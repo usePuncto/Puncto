@@ -19,6 +19,7 @@
   },
   "nav": {
     "dashboard": "Dashboard",
+    "notifications": "Notificações",
     "bookings": "Agendamentos",
     "services": "Serviços",
     "professionals": "Profissionais",
@@ -52,6 +53,34 @@
     "cancelledBookings": "Cancelados",
     "noShows": "Não compareceu",
     "pendingBookings": "Pendentes"
+  },
+  "notifications": {
+    "title": "Notificações",
+    "subtitle": "Acompanhe os agendamentos do seu negócio",
+    "loading": "Carregando...",
+    "empty": "Nenhuma notificação no momento.",
+    "viewAll": "Ver todas",
+
+    "previewTitle": "Últimas notificações",
+    "previewSubtitle": "Atualizações recentes sobre seus agendamentos",
+
+    "withCustomer": "Cliente: {customerName}",
+
+    "tabs": {
+      "all": "Todas",
+      "unread": "Não lidas"
+    },
+
+    "actions": {
+      "markRead": "Marcar como lida",
+      "read": "Lida"
+    },
+
+    "booking": {
+      "created": "Novo agendamento: {serviceName} com {professionalName}",
+      "confirmed": "Agendamento confirmado: {serviceName} com {professionalName}",
+      "completed": "Agendamento concluído: {serviceName} com {professionalName}"
+    }
   },
   "business": {
     "suspendedAccount": "Conta Suspensa",

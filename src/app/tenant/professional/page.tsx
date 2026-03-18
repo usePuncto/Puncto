@@ -3,15 +3,18 @@
 import { useState } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useProfessional } from '@/lib/contexts/ProfessionalContext';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { useBookings } from '@/lib/queries/bookings';
 import { useProfessionals } from '@/lib/queries/professionals';
 import { BookingCalendar } from '@/components/admin/BookingCalendar';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { NotificationsPreview } from '@/components/notifications/NotificationsPreview';
 
 export default function ProfessionalDashboardPage() {
   const { business } = useBusiness();
   const { professional, isOwnerProfessional } = useProfessional();
+  const { user } = useAuth();
   const { data: allProfessionals } = useProfessionals(business?.id ?? '', { active: true });
   const [selectedProId, setSelectedProId] = useState<string | null>(null);
 
@@ -67,6 +70,17 @@ export default function ProfessionalDashboardPage() {
         workingHours={viewingProfessional?.workingHours ?? business?.settings?.workingHours}
         onStatusChange={async () => {}}
       />
+
+      {business?.id && user?.id && (
+        <div className="mt-6">
+          <NotificationsPreview
+            businessId={business.id}
+            recipientUserId={user.id}
+            href="/tenant/professional/notifications"
+            limit={5}
+          />
+        </div>
+      )}
     </div>
   );
 }

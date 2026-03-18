@@ -21,23 +21,35 @@ export async function GET(request: NextRequest) {
     const start = startDate ? Timestamp.fromDate(new Date(startDate)) : null;
     const end = endDate ? Timestamp.fromDate(new Date(endDate)) : null;
 
-    // Get revenue from payments
+    const startMs = start ? start.toMillis() : null;
+    const endMs = end ? end.toMillis() : null;
+
+    const toMillis = (value: any): number | null => {
+      if (!value) return null;
+      if (typeof value?.toMillis === 'function') return value.toMillis();
+      if (value instanceof Date) return value.getTime();
+      return null;
+    };
+
+    const inRange = (millis: number | null) => {
+      if (millis === null) return false;
+      if (startMs !== null && millis < startMs) return false;
+      if (endMs !== null && millis > endMs) return false;
+      return true;
+    };
+
     const paymentsRef = db
       .collection('businesses')
       .doc(businessId)
       .collection('payments');
 
-    let paymentsQuery = paymentsRef.where('status', '==', 'succeeded');
-    if (start && end) {
-      paymentsQuery = paymentsQuery
-        .where('succeededAt', '>=', start)
-        .where('succeededAt', '<=', end) as any;
-    }
-
-    const paymentsSnapshot = await paymentsQuery.get();
+    // Revenue: succeeded payments (Pix/Card) filtered by succeededAt in memory.
+    const paymentsSnapshot = await paymentsRef.where('status', '==', 'succeeded').get();
     let revenue = 0;
     paymentsSnapshot.forEach((doc) => {
-      const data = doc.data();
+      const data = doc.data() as any;
+      const succeededAtMs = toMillis(data.succeededAt);
+      if (!inRange(succeededAtMs)) return;
       revenue += data.amount || 0;
     });
 
@@ -46,57 +58,67 @@ export async function GET(request: NextRequest) {
       .doc(businessId)
       .collection('ledgerEntries');
 
-    // Add manual revenue from ledger entries
-    let manualRevenueQuery = ledgerRef
-      .where('account', '==', 'revenue')
-      .where('type', '==', 'credit');
-    if (start && end) {
-      manualRevenueQuery = manualRevenueQuery
-        .where('date', '>=', start)
-        .where('date', '<=', end) as any;
-    }
-    const manualRevenueSnapshot = await manualRevenueQuery.get();
+    // Manual revenue: ledgerEntries/account=revenue, type=credit
+    const manualRevenueSnapshot = await ledgerRef.where('account', '==', 'revenue').get();
     manualRevenueSnapshot.forEach((doc) => {
-      const data = doc.data();
+      const data = doc.data() as any;
+      if (data.type !== 'credit') return;
+      const dateMs = toMillis(data.date);
+      if (!inRange(dateMs)) return;
       revenue += data.amount || 0;
     });
 
-    // Get expenses from ledger entries
-
-    let expensesQuery = ledgerRef
-      .where('account', 'in', ['expenses', 'commission_expense', 'refunds'])
-      .where('type', '==', 'debit');
-
-    if (start && end) {
-      expensesQuery = expensesQuery
-        .where('date', '>=', start)
-        .where('date', '<=', end) as any;
-    }
-
-    const expensesSnapshot = await expensesQuery.get();
+    // Manual expenses: ledgerEntries/account=expenses, type=debit
     let expenses = 0;
+    const expensesSnapshot = await ledgerRef.where('account', '==', 'expenses').get();
     expensesSnapshot.forEach((doc) => {
-      const data = doc.data();
+      const data = doc.data() as any;
+      if (data.type !== 'debit') return;
+      const dateMs = toMillis(data.date);
+      if (!inRange(dateMs)) return;
       expenses += data.amount || 0;
     });
 
-    // Get refunds separately
-    let refundsQuery = ledgerRef
-      .where('account', '==', 'refunds')
-      .where('type', '==', 'debit');
-
-    if (start && end) {
-      refundsQuery = refundsQuery
-        .where('date', '>=', start)
-        .where('date', '<=', end) as any;
-    }
-
-    const refundsSnapshot = await refundsQuery.get();
+    // Stripe refunds: collectionGroup('refunds') filtered in memory.
     let refunds = 0;
+    const refundsSnapshot = await db
+      .collectionGroup('refunds')
+      .where('businessId', '==', businessId)
+      .get();
     refundsSnapshot.forEach((doc) => {
-      const data = doc.data();
+      const data = doc.data() as any;
+      if (data.status !== 'succeeded') return;
+      const createdAtMs = toMillis(data.createdAt);
+      if (!inRange(createdAtMs)) return;
       refunds += data.amount || 0;
     });
+
+    // Manual refunds (if any)
+    const manualRefundsSnapshot = await ledgerRef.where('account', '==', 'refunds').get();
+    manualRefundsSnapshot.forEach((doc) => {
+      const data = doc.data() as any;
+      if (data.type !== 'debit') return;
+      const dateMs = toMillis(data.date);
+      if (!inRange(dateMs)) return;
+      refunds += data.amount || 0;
+    });
+
+    // Stripe Connect commissions: commissions collection filtered by createdAt in memory.
+    let commissionExpenses = 0;
+    const commissionsSnapshot = await db
+      .collection('businesses')
+      .doc(businessId)
+      .collection('commissions')
+      .where('status', 'in', ['processing', 'paid'])
+      .get();
+    commissionsSnapshot.forEach((doc) => {
+      const data = doc.data() as any;
+      const createdAtMs = toMillis(data.createdAt);
+      if (!inRange(createdAtMs)) return;
+      commissionExpenses += data.amount || 0;
+    });
+
+    expenses += commissionExpenses;
 
     // Calculate profit
     const grossProfit = revenue - refunds;

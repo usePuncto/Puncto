@@ -11,6 +11,7 @@ import { useTranslations } from 'next-intl';
 import { getIncludedFeaturesForPlanAndIndustry } from '@/lib/features/businessTypeFeatures';
 import type { FeatureId } from '@/lib/features/businessTypeFeatures';
 import { getBusinessRole } from '@/lib/permissions';
+import { NotificationsBell } from '@/components/notifications/NotificationsBell';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -29,6 +30,7 @@ const TIER_TO_PLAN: Record<string, string> = {
 /** Nav items with required feature (null = always visible) */
 const adminNavItems: { href: string; key: string; icon: string; feature: FeatureId | 'always' | 'enterprise' }[] = [
   { href: '/tenant/admin/dashboard', key: 'dashboard', icon: '📊', feature: 'always' },
+  { href: '/tenant/admin/notifications', key: 'notifications', icon: '🔔', feature: 'always' },
   { href: '/tenant/admin/bookings', key: 'bookings', icon: '📅', feature: 'scheduling' },
   { href: '/tenant/admin/services', key: 'services', icon: '🏥', feature: 'scheduling' },
   { href: '/tenant/admin/professionals', key: 'professionals', icon: '👥', feature: 'scheduling' },
@@ -81,8 +83,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* Sidebar (hidden when printing) */}
         <aside className="fixed left-0 top-0 flex h-full w-64 flex-col border-r border-neutral-200 bg-white print:hidden">
           <div className="flex-shrink-0 p-4 border-b border-neutral-200">
-            <h1 className="text-xl font-semibold">{business?.displayName || 'Admin'}</h1>
-            <p className="text-sm text-neutral-600 mt-1">{t('adminPanel')}</p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h1 className="text-xl font-semibold">{business?.displayName || 'Admin'}</h1>
+                <p className="text-sm text-neutral-600 mt-1">{t('adminPanel')}</p>
+              </div>
+
+              {business?.id && user?.id && (
+                <NotificationsBell
+                  businessId={business.id}
+                  recipientUserId={user.id}
+                  href="/tenant/admin/notifications"
+                />
+              )}
+            </div>
           </div>
 
           <nav className="min-h-0 flex-1 overflow-y-auto p-4 space-y-1">

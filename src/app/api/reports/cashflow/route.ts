@@ -22,78 +22,133 @@ export async function GET(request: NextRequest) {
     const start = startDate ? Timestamp.fromDate(new Date(startDate)) : null;
     const end = endDate ? Timestamp.fromDate(new Date(endDate)) : null;
 
-    // Get cash inflows (debits to cash account)
+    const startMs = start ? start.toMillis() : null;
+    const endMs = end ? end.toMillis() : null;
+
+    const toMillis = (value: any): number | null => {
+      if (!value) return null;
+      if (typeof value?.toMillis === 'function') return value.toMillis();
+      if (value instanceof Date) return value.getTime();
+      return null;
+    };
+
+    const inRange = (millis: number | null) => {
+      if (millis === null) return false;
+      if (startMs !== null && millis < startMs) return false;
+      if (endMs !== null && millis > endMs) return false;
+      return true;
+    };
+
+    const periodKeyForDate = (date: Date) => (
+      period === 'daily'
+        ? date.toISOString().split('T')[0]
+        : period === 'weekly'
+          ? `${date.getFullYear()}-W${getWeekNumber(date)}`
+          : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+    );
+
+    // Manual cash from ledgerEntries (filter by type/date in memory)
     const ledgerRef = db
       .collection('businesses')
       .doc(businessId)
       .collection('ledgerEntries');
 
-    let inflowsQuery = ledgerRef
-      .where('account', '==', 'cash')
-      .where('type', '==', 'debit');
-
-    if (start && end) {
-      inflowsQuery = inflowsQuery
-        .where('date', '>=', start)
-        .where('date', '<=', end) as any;
-    }
-
-    const inflowsSnapshot = await inflowsQuery.get();
     const inflows: Record<string, number> = {};
-    inflowsSnapshot.forEach((doc) => {
-      const data = doc.data();
-      const date = data.date?.toDate();
-      if (!date) return;
-
-      const key = period === 'daily'
-        ? date.toISOString().split('T')[0]
-        : period === 'weekly'
-        ? `${date.getFullYear()}-W${getWeekNumber(date)}`
-        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-
-      inflows[key] = (inflows[key] || 0) + (data.amount || 0);
-    });
-
-    // Get cash outflows (credits to cash account)
-    let outflowsQuery = ledgerRef
-      .where('account', '==', 'cash')
-      .where('type', '==', 'credit');
-
-    if (start && end) {
-      outflowsQuery = outflowsQuery
-        .where('date', '>=', start)
-        .where('date', '<=', end) as any;
-    }
-
-    const outflowsSnapshot = await outflowsQuery.get();
     const outflows: Record<string, number> = {};
-    outflowsSnapshot.forEach((doc) => {
-      const data = doc.data();
-      const date = data.date?.toDate();
+
+    const cashLedgerSnapshot = await ledgerRef
+      .where('account', '==', 'cash')
+      .get();
+
+    cashLedgerSnapshot.forEach((doc) => {
+      const data = doc.data() as any;
+      const dateMs = toMillis(data.date);
+      if (!inRange(dateMs)) return;
+      const date = dateMs !== null ? new Date(dateMs) : null;
       if (!date) return;
 
-      const key = period === 'daily'
-        ? date.toISOString().split('T')[0]
-        : period === 'weekly'
-        ? `${date.getFullYear()}-W${getWeekNumber(date)}`
-        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-
-      outflows[key] = (outflows[key] || 0) + (data.amount || 0);
+      const key = periodKeyForDate(date);
+      if (data.type === 'debit') {
+        inflows[key] = (inflows[key] || 0) + (data.amount || 0);
+      } else if (data.type === 'credit') {
+        outflows[key] = (outflows[key] || 0) + (data.amount || 0);
+      }
     });
 
-    // Combine into periods
-    const allPeriods = new Set([...Object.keys(inflows), ...Object.keys(outflows)]);
+    // Stripe-derived movements: do simple queries and filter by date in memory.
+    const derivedInflows: Record<string, number> = {};
+    const derivedOutflows: Record<string, number> = {};
+
+    // Payments succeeded => cash inflow
+    const paymentsSnapshot = await db
+      .collection('businesses')
+      .doc(businessId)
+      .collection('payments')
+      .where('status', '==', 'succeeded')
+      .get();
+    paymentsSnapshot.forEach((doc) => {
+      const data = doc.data() as any;
+      const succeededAtMs = toMillis(data.succeededAt);
+      if (!inRange(succeededAtMs)) return;
+      const date = succeededAtMs !== null ? new Date(succeededAtMs) : null;
+      if (!date) return;
+      const key = periodKeyForDate(date);
+      derivedInflows[key] = (derivedInflows[key] || 0) + (data.amount || 0);
+    });
+
+    // Commissions processing/paid => cash outflow
+    const commissionsSnapshot = await db
+      .collection('businesses')
+      .doc(businessId)
+      .collection('commissions')
+      .where('status', 'in', ['processing', 'paid'])
+      .get();
+    commissionsSnapshot.forEach((doc) => {
+      const data = doc.data() as any;
+      const createdAtMs = toMillis(data.createdAt);
+      if (!inRange(createdAtMs)) return;
+      const date = createdAtMs !== null ? new Date(createdAtMs) : null;
+      if (!date) return;
+      const key = periodKeyForDate(date);
+      derivedOutflows[key] = (derivedOutflows[key] || 0) + (data.amount || 0);
+    });
+
+    // Refunds succeeded => cash outflow
+    const refundsSnapshot = await db
+      .collectionGroup('refunds')
+      .where('businessId', '==', businessId)
+      .get();
+    refundsSnapshot.forEach((doc) => {
+      const data = doc.data() as any;
+      if (data.status !== 'succeeded') return;
+      const createdAtMs = toMillis(data.createdAt);
+      if (!inRange(createdAtMs)) return;
+      const date = createdAtMs !== null ? new Date(createdAtMs) : null;
+      if (!date) return;
+      const key = periodKeyForDate(date);
+      derivedOutflows[key] = (derivedOutflows[key] || 0) + (data.amount || 0);
+    });
+
+    const allPeriods = new Set([
+      ...Object.keys(inflows),
+      ...Object.keys(outflows),
+      ...Object.keys(derivedInflows),
+      ...Object.keys(derivedOutflows),
+    ]);
+
     const cashflow = Array.from(allPeriods)
       .sort()
-      .map((period) => ({
-        period,
-        inflow: inflows[period] || 0,
-        outflow: outflows[period] || 0,
-        netFlow: (inflows[period] || 0) - (outflows[period] || 0),
+      .map((periodKey) => ({
+        period: periodKey,
+        inflow: (inflows[periodKey] || 0) + (derivedInflows[periodKey] || 0),
+        outflow: (outflows[periodKey] || 0) + (derivedOutflows[periodKey] || 0),
+        netFlow:
+          ((inflows[periodKey] || 0) + (derivedInflows[periodKey] || 0))
+          - ((outflows[periodKey] || 0) + (derivedOutflows[periodKey] || 0)),
       }));
 
-    const totalInflow = Object.values(inflows).reduce((sum, val) => sum + val, 0);
-    const totalOutflow = Object.values(outflows).reduce((sum, val) => sum + val, 0);
+    const totalInflow = cashflow.reduce((sum, row) => sum + (row.inflow || 0), 0);
+    const totalOutflow = cashflow.reduce((sum, row) => sum + (row.outflow || 0), 0);
 
     return NextResponse.json({
       period: {

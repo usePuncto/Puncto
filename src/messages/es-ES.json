@@ -19,6 +19,7 @@
   },
   "nav": {
     "dashboard": "Panel",
+    "notifications": "Notificaciones",
     "bookings": "Reservas",
     "services": "Servicios",
     "professionals": "Profesionales",
@@ -52,6 +53,34 @@
     "cancelledBookings": "Cancelados",
     "noShows": "No se presentaron",
     "pendingBookings": "Pendientes"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "subtitle": "Sigue las actualizaciones de tu programación",
+    "loading": "Cargando...",
+    "empty": "No hay notificaciones en este momento.",
+    "viewAll": "Ver todas",
+
+    "previewTitle": "Últimas notificaciones",
+    "previewSubtitle": "Actualizaciones recientes sobre tus reservas",
+
+    "withCustomer": "Cliente: {customerName}",
+
+    "tabs": {
+      "all": "Todas",
+      "unread": "No leídas"
+    },
+
+    "actions": {
+      "markRead": "Marcar como leída",
+      "read": "Leída"
+    },
+
+    "booking": {
+      "created": "Nueva reserva: {serviceName} con {professionalName}",
+      "confirmed": "Reserva confirmada: {serviceName} con {professionalName}",
+      "completed": "Reserva completada: {serviceName} con {professionalName}"
+    }
   },
   "business": {
     "suspendedAccount": "Cuenta Suspendida",

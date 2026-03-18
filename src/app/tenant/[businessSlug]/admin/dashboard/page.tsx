@@ -7,9 +7,12 @@ import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { AnalyticsDashboard } from '@/components/admin/AnalyticsDashboard';
 import { useTranslations } from 'next-intl';
+import { useAuth } from '@/lib/contexts/AuthContext';
+import { NotificationsPreview } from '@/components/notifications/NotificationsPreview';
 
 export default function AdminDashboardPage() {
   const { business } = useBusiness();
+  const { user } = useAuth();
   const t = useTranslations('dashboard');
   const today = new Date();
   const thirtyDaysAgo = subDays(today, 30);
@@ -71,6 +74,17 @@ export default function AdminDashboardPage() {
         <h1 className="text-3xl font-bold text-neutral-900">{t('title')}</h1>
         <p className="text-neutral-600 mt-2">{t('overview')}</p>
       </div>
+
+      {business?.id && user?.id && (
+        <div className="mb-6">
+          <NotificationsPreview
+            businessId={business.id}
+            recipientUserId={user.id}
+            href="/tenant/admin/notifications"
+            limit={5}
+          />
+        </div>
+      )}
 
       <AnalyticsDashboard stats={stats} bookings={bookings || []} />
     </div>

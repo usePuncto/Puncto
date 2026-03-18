@@ -5,6 +5,10 @@ import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 import QRCode from 'qrcode';
 
+function stripUndefined<T extends Record<string, any>>(obj: T) {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: CreatePaymentLinkParams & { generateQR?: boolean } = await request.json();
@@ -61,7 +65,28 @@ export async function POST(request: NextRequest) {
       paymentLinkParams.expires_at = Math.floor(expiresAt.getTime() / 1000);
     }
 
-    const paymentLink = await stripe.paymentLinks.create(paymentLinkParams);
+    // Pix precisa estar habilitado na conta Stripe.
+    // Em desenvolvimento/teste pode não estar, então fazemos fallback automático.
+    if (currency.toLowerCase() === 'brl') {
+      paymentLinkParams.payment_method_types = ['card', 'pix'];
+    } else {
+      paymentLinkParams.payment_method_types = ['card'];
+    }
+
+    let paymentLink: any;
+    try {
+      paymentLink = await stripe.paymentLinks.create(paymentLinkParams);
+    } catch (err: any) {
+      const message = typeof err?.message === 'string' ? err.message : '';
+      // Fallback: retry without pix if Stripe says pix is invalid/unavailable.
+      if (message.toLowerCase().includes('pix') && message.toLowerCase().includes('invalid')) {
+        console.warn('[create-payment-link] Pix not enabled/available; retrying with card only.');
+        paymentLinkParams.payment_method_types = ['card'];
+        paymentLink = await stripe.paymentLinks.create(paymentLinkParams);
+      } else {
+        throw err;
+      }
+    }
 
     // Generate QR code if requested
     let qrCodeUrl: string | undefined;
@@ -70,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save payment link to Firestore
-    const paymentLinkData = {
+    const paymentLinkData = stripUndefined({
       businessId,
       name,
       description: description || undefined,
@@ -84,7 +109,7 @@ export async function POST(request: NextRequest) {
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
       expiresAt: expiresAt ? Timestamp.fromDate(expiresAt) : undefined,
-    };
+    });
 
     const paymentLinksRef = db
       .collection('businesses')

@@ -146,3 +146,75 @@ Lembrete: Você tem um agendamento ${timeText}:
 Por favor, confirme sua presença ou entre em contato conosco para reagendar.`,
   };
 }
+
+/**
+ * Booking created email for professionals (staff)
+ */
+export function bookingCreatedProfessionalEmail(data: {
+  professionalName: string;
+  customerName: string;
+  serviceName: string;
+  date: string;
+  time: string;
+  businessName: string;
+  businessPhone?: string;
+  businessAddress?: string;
+}): EmailTemplate {
+  return {
+    subject: `Novo agendamento - ${data.serviceName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #000; color: white; padding: 20px; text-align: center; }
+            .content { padding: 20px; background: #f9f9f9; }
+            .booking-details { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; }
+            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>${data.businessName}</h1>
+            </div>
+            <div class="content">
+              <h2>Olá, ${data.professionalName}!</h2>
+              <p>Um novo agendamento foi criado com você.</p>
+
+              <div class="booking-details">
+                <h3>Detalhes do Agendamento</h3>
+                <p><strong>Serviço:</strong> ${data.serviceName}</p>
+                <p><strong>Cliente:</strong> ${data.customerName}</p>
+                <p><strong>Data:</strong> ${data.date}</p>
+                <p><strong>Horário:</strong> ${data.time}</p>
+                ${data.businessAddress ? `<p><strong>Endereço:</strong> ${data.businessAddress}</p>` : ''}
+                ${data.businessPhone ? `<p><strong>Telefone:</strong> ${data.businessPhone}</p>` : ''}
+              </div>
+
+              <p>Obrigado!</p>
+            </div>
+            <div class="footer">
+              <p>Esta é uma mensagem automática. Por favor, não responda este e-mail.</p>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+    text: `Olá, ${data.professionalName}!
+
+Um novo agendamento foi criado com você:
+
+Serviço: ${data.serviceName}
+Cliente: ${data.customerName}
+Data: ${data.date}
+Horário: ${data.time}
+${data.businessAddress ? `Endereço: ${data.businessAddress}` : ''}
+${data.businessPhone ? `Telefone: ${data.businessPhone}` : ''}
+
+Obrigado!`,
+  };
+}

@@ -8,6 +8,7 @@ import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { ProfessionalProvider, useProfessional } from '@/lib/contexts/ProfessionalContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { getBusinessRole } from '@/lib/permissions';
+import { NotificationsBell } from '@/components/notifications/NotificationsBell';
 
 function ProfessionalLayoutInner({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -31,6 +32,7 @@ function ProfessionalLayoutInner({ children }: { children: ReactNode }) {
 
   const navItems = [
     { href: '/tenant/professional', label: 'Agenda', icon: '📅' },
+    { href: '/tenant/professional/notifications', label: 'Notificações', icon: '🔔' },
     { href: '/tenant/professional/clients', label: 'Clientes', icon: '👤' },
     { href: '/tenant/professional/services', label: 'Serviços', icon: '✂️' },
     { href: '/tenant/professional/working-hours', label: 'Meus horários', icon: '🕐' },
@@ -48,8 +50,19 @@ function ProfessionalLayoutInner({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-neutral-50">
       <aside className="fixed left-0 top-0 flex h-full w-56 flex-col border-r border-neutral-200 bg-white">
         <div className="flex-shrink-0 p-4 border-b border-neutral-200">
-          <h1 className="text-lg font-semibold">{business?.displayName}</h1>
-          <p className="text-sm text-neutral-600">Área do profissional</p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-lg font-semibold">{business?.displayName}</h1>
+              <p className="text-sm text-neutral-600">Área do profissional</p>
+            </div>
+            {business?.id && user?.id && (
+              <NotificationsBell
+                businessId={business.id}
+                recipientUserId={user.id}
+                href="/tenant/professional/notifications"
+              />
+            )}
+          </div>
           {professional && (
             <p className="mt-1 text-sm font-medium text-neutral-800">{professional.name}</p>
           )}
