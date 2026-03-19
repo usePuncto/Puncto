@@ -15,6 +15,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import type { AnamnesisForm as AnamnesisFormType, AnamnesisFormField } from '@/types/anamnesis';
+import { printEmr } from '@/lib/utils/emrPrint';
 
 function normalizePhone(phone: string | undefined): string {
   if (!phone) return '';
@@ -341,6 +342,21 @@ function ProntuarioTab({
                             </div>
                           )}
                         </dl>
+                        <div className="mt-3 pt-3 border-t border-neutral-200">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              printEmr({
+                                patientName,
+                                payload: p,
+                                signedAt: emr.signedAt,
+                              })
+                            }
+                            className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
+                          >
+                            Imprimir / Salvar em PDF
+                          </button>
+                        </div>
                       </div>
                     )}
                   </li>

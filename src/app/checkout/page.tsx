@@ -11,6 +11,21 @@ import Logo from '@/components/marketing/Logo';
 const VALID_PLANS = ['gratis', 'starter', 'growth', 'pro'];
 const VALID_INDUSTRIES = ['servicos', 'varejo', 'empresas', 'saude', 'corporativo'];
 
+const PASSWORD_REQUIREMENTS = [
+  { id: 'length', label: 'Mínimo 8 caracteres', test: (p: string) => p.length >= 8 },
+  { id: 'uppercase', label: 'Letra maiúscula', test: (p: string) => /[A-Z]/.test(p) },
+  { id: 'lowercase', label: 'Letra minúscula', test: (p: string) => /[a-z]/.test(p) },
+  { id: 'number', label: 'Número', test: (p: string) => /[0-9]/.test(p) },
+  { id: 'special', label: 'Caractere especial (!@#$%^&*...)', test: (p: string) => /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(p) },
+] as const;
+
+function validatePassword(password: string): string | null {
+  for (const { label, test } of PASSWORD_REQUIREMENTS) {
+    if (!test(password)) return label;
+  }
+  return null;
+}
+
 export default function CheckoutPage() {
   const { user, loading, signup } = useAuth();
   const router = useRouter();
@@ -62,8 +77,9 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (password.length < 6) {
-      setError('A senha deve ter pelo menos 6 caracteres');
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(`A senha deve ter: ${passwordError}`);
       return;
     }
 
@@ -177,7 +193,16 @@ export default function CheckoutPage() {
                 placeholder="••••••••"
                 autoComplete="new-password"
               />
-              <p className="mt-1 text-xs text-slate-500">Mínimo 6 caracteres</p>
+              <ul className="mt-2 space-y-1 text-xs text-slate-500">
+                {PASSWORD_REQUIREMENTS.map(({ id, label, test }) => (
+                  <li
+                    key={id}
+                    className={test(password) ? 'text-green-600' : ''}
+                  >
+                    {test(password) ? '✓ ' : '○ '}{label}
+                  </li>
+                ))}
+              </ul>
             </div>
 
             <div>

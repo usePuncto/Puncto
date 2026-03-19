@@ -117,7 +117,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
               <p className="body-lg mb-8">{industry.longDescription}</p>
 
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                <Link href={`/checkout?plan=gratis&industry=${industry.slug}&billing=${isAnnual ? 'annual' : 'monthly'}`} className="btn-primary btn-lg">
+                <a href="#precos" className="btn-primary btn-lg">
                   Começar Grátis
                   <svg
                     className="w-5 h-5"
@@ -132,7 +132,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
                       d="M13 7l5 5m0 0l-5 5m5-5H6"
                     />
                   </svg>
-                </Link>
+                </a>
                 <Link href="/demo" className="btn-secondary btn-lg">
                   Ver Demonstração
                 </Link>
@@ -280,10 +280,11 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
           {/* Plan cards - same style as index page */}
           {'planFeatures' in industry && industry.planFeatures && (
             <motion.div
+              id="precos"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="mb-12"
+              className="mb-12 scroll-mt-24"
             >
               <h3 className="heading-md text-slate-900 mb-6 text-center">
                 O que está incluído em cada plano
@@ -524,7 +525,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
       <CTASection
         title={`Pronto para transformar seu ${industry.shortName.toLowerCase()}?`}
         description="Comece gratuitamente e veja os resultados em poucos dias."
-        primaryCTA={{ text: 'Começar Grátis', href: `/checkout?plan=gratis&industry=${industry.slug}&billing=monthly` }}
+        primaryCTA={{ text: 'Começar Grátis', href: '#precos' }}
         variant="gradient"
       />
     </>

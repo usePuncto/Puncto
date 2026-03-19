@@ -213,6 +213,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Onboarding is pre-tenant flow - never rewrite to /tenant/onboarding (that route does not exist)
+  if (url.pathname.startsWith('/onboarding')) {
+    return NextResponse.next();
+  }
+
   if (url.pathname.startsWith('/tenant')) {
     const response = NextResponse.next({ request: { headers: requestHeaders } });
     response.headers.set('x-business-slug', subdomain);

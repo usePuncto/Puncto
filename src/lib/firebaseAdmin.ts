@@ -31,7 +31,25 @@ if (!getApps().length) {
   else {
     const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
     const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    // The private key often comes from env vars with:
+    // - escaped newlines (`\n`)
+    // - wrapped quotes (`"-----BEGIN ..."`), depending on how it was set
+    // Both will break PEM decoding if not normalized.
+    let privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY;
+    if (!privateKey) {
+      throw new Error('Missing FIREBASE_ADMIN_PRIVATE_KEY in your environment.');
+    }
+
+    privateKey = privateKey.trim();
+
+    // Remove wrapping quotes if present (common when pasting into env var UI)
+    if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
+      privateKey = privateKey.slice(1, -1).trim();
+    }
+
+    // Support both escaped `\n` and real newlines / Windows `\r\n`
+    privateKey = privateKey.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n');
+    privateKey = privateKey.replace(/\r\n/g, '\n');
 
     if (!projectId || !clientEmail || !privateKey) {
       throw new Error(

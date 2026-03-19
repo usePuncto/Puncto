@@ -3,6 +3,8 @@ import { verifyWebhookSignature } from '@/lib/stripe/webhooks';
 import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
+import { sendEmail } from '@/lib/messaging/email';
+import { getWelcomeEmailContent } from '@/lib/templates/welcomeEmail';
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,6 +76,32 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   });
 
   console.log(`[subscription-webhook] Business ${businessId} activated after successful payment`);
+
+  // Send welcome email to the user
+  const email =
+    (session.customer_details?.email as string | undefined) || (session.customer_email as string | undefined);
+  if (email) {
+    try {
+      const businessSnap = await businessRef.get();
+      const business = businessSnap.data();
+      const recipientName =
+        (session.customer_details?.name as string | undefined) || business?.displayName || email.split('@')[0];
+      const businessName = business?.displayName;
+
+      const { subject, html, text } = getWelcomeEmailContent({ recipientName, businessName });
+
+      const result = await sendEmail({ to: email, subject, html, text });
+      if (result.success) {
+        console.log(`[subscription-webhook] Welcome email sent to ${email}`);
+      } else {
+        console.error('[subscription-webhook] Failed to send welcome email:', result.error);
+      }
+    } catch (err) {
+      console.error('[subscription-webhook] Error sending welcome email:', err);
+    }
+  } else {
+    console.warn('[subscription-webhook] No customer email found, skipping welcome email');
+  }
 }
 
 async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {

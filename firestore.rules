@@ -314,6 +314,9 @@ service cloud.firestore {
       // Users can read their own document
       allow read: if isAuthenticated() && request.auth.uid == userId;
 
+      // Users can create their own document on signup (AuthContext creates it)
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+
       // Users can update their own document, but CANNOT change userType
       allow update: if isAuthenticated() &&
                       request.auth.uid == userId &&
@@ -327,8 +330,6 @@ service cloud.firestore {
       allow update: if isPlatformAdmin() &&
                       request.resource.data.id == userId; // Prevent ID change
 
-      // User creation is handled by API routes/Cloud Functions only
-      allow create: if false;
       allow delete: if false;
     }
 
