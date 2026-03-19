@@ -315,7 +315,18 @@ service cloud.firestore {
       allow read: if isAuthenticated() && request.auth.uid == userId;
 
       // Users can create their own document on signup (AuthContext creates it)
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // CRITICAL: Prevent privilege escalation - type can only be 'customer' or absent.
+      // platformAdmin, businessRoles, primaryBusinessId, platformRole are server-only.
+      allow create: if isAuthenticated() &&
+                      request.auth.uid == userId &&
+                      (!('type' in request.resource.data) || request.resource.data.type == 'customer') &&
+                      (!('platformAdmin' in request.resource.data) || request.resource.data.platformAdmin == false) &&
+                      (!('businessRoles' in request.resource.data)) &&
+                      (!('primaryBusinessId' in request.resource.data)) &&
+                      (!('platformRole' in request.resource.data)) &&
+                      (!('customClaims' in request.resource.data) ||
+                       !('userType' in request.resource.data.customClaims) ||
+                       request.resource.data.customClaims.userType == 'customer');
 
       // Users can update their own document, but CANNOT change userType
       allow update: if isAuthenticated() &&

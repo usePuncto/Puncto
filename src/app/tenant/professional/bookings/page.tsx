@@ -23,17 +23,17 @@ export default function ProfessionalBookingsPage() {
 
   const filteredBookings =
     bookings?.filter((booking) => {
-      if (dateFilter) {
-        const bookingDate =
-          booking.scheduledDateTime instanceof Date
-            ? booking.scheduledDateTime
-            : new Date(booking.scheduledDateTime as any);
-        return format(bookingDate, 'yyyy-MM-dd') === dateFilter;
-      }
-      if (statusFilter !== 'all') {
-        return booking.status === statusFilter;
-      }
-      return true;
+      const matchesDate = !dateFilter
+        ? true
+        : format(
+            booking.scheduledDateTime instanceof Date
+              ? booking.scheduledDateTime
+              : new Date(booking.scheduledDateTime as any),
+            'yyyy-MM-dd'
+          ) === dateFilter;
+      const matchesStatus =
+        statusFilter === 'all' ? true : booking.status === statusFilter;
+      return matchesDate && matchesStatus;
     }) ?? [];
 
   const handleStatusChange = async (bookingId: string, newStatus: BookingStatus) => {

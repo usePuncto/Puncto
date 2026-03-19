@@ -15,7 +15,7 @@ export default function ProfessionalBookingsPage() {
   const params = useParams();
   const professionalId = params?.professionalId as string;
   const { business } = useBusiness();
-  const { data: professionals } = useProfessionals(business?.id ?? '');
+  const { data: professionals, isLoading: professionalsLoading } = useProfessionals(business?.id ?? '');
   const professional = professionals?.find((p) => p.id === professionalId);
 
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
@@ -28,17 +28,17 @@ export default function ProfessionalBookingsPage() {
   const updateBooking = useUpdateBooking(business?.id ?? '');
 
   const filteredBookings = (bookings?.filter((booking) => {
-    if (dateFilter) {
-      const bookingDate =
-        booking.scheduledDateTime instanceof Date
-          ? booking.scheduledDateTime
-          : new Date(booking.scheduledDateTime as any);
-      return format(bookingDate, 'yyyy-MM-dd') === dateFilter;
-    }
-    if (statusFilter !== 'all') {
-      return booking.status === statusFilter;
-    }
-    return true;
+    const matchesDate = !dateFilter
+      ? true
+      : format(
+          booking.scheduledDateTime instanceof Date
+            ? booking.scheduledDateTime
+            : new Date(booking.scheduledDateTime as any),
+          'yyyy-MM-dd'
+        ) === dateFilter;
+    const matchesStatus =
+      statusFilter === 'all' ? true : booking.status === statusFilter;
+    return matchesDate && matchesStatus;
   }) || []);
 
   const handleStatusChange = async (bookingId: string, newStatus: BookingStatus) => {
@@ -48,7 +48,7 @@ export default function ProfessionalBookingsPage() {
     });
   };
 
-  if (isLoading || !professional) {
+  if (professionalsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900" />
@@ -63,6 +63,14 @@ export default function ProfessionalBookingsPage() {
         <Link href="/tenant/admin/professionals" className="text-neutral-900 underline">
           Voltar aos profissionais
         </Link>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900" />
       </div>
     );
   }

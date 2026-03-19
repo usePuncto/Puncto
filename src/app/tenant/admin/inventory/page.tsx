@@ -17,7 +17,7 @@ export default function AdminInventoryPage() {
   const [itemForm, setItemForm] = useState({
     name: '',
     sku: '',
-    category: 'ingredients',
+    category: 'Ingredientes',
     unit: 'unidade',
     currentStock: '0',
     minStock: '0',
@@ -49,15 +49,16 @@ export default function AdminInventoryPage() {
   const resetForm = () => {
     setShowItemForm(false);
     setEditingItem(null);
-    setItemForm({ name: '', sku: '', category: 'ingredients', unit: 'unidade', currentStock: '0', minStock: '0', cost: '' });
+    setItemForm({ name: '', sku: '', category: 'Ingredientes', unit: 'unidade', currentStock: '0', minStock: '0', cost: '' });
   };
 
   const openEditForm = (item: InventoryItem) => {
     setEditingItem(item);
+    const validCategory = CATEGORIES.includes(item.category) ? item.category : 'Ingredientes';
     setItemForm({
       name: item.name,
       sku: item.sku || '',
-      category: item.category,
+      category: validCategory,
       unit: item.unit,
       currentStock: String(item.currentStock),
       minStock: String(item.minStock),
