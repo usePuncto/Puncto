@@ -8,6 +8,50 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Logo from '@/components/marketing/Logo';
 
+function BetaNoticeModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
+      <div
+        className="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+        role="dialog"
+        aria-labelledby="beta-notice-title"
+        aria-modal="true"
+      >
+        <h2 id="beta-notice-title" className="text-lg font-semibold text-slate-900">
+          Plataforma em fase de teste
+        </h2>
+        <p className="mt-3 text-sm text-slate-600">
+          Estamos em fase de testes da plataforma. Para contratar ou tirar dúvidas, entre em contato com nosso suporte:
+        </p>
+        <div className="mt-4 space-y-2">
+          <a
+            href="https://wa.me/5541985279331"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-lg bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 hover:bg-slate-100 transition-colors"
+          >
+            📞 (41) 98527-9331
+          </a>
+          <a
+            href="mailto:suporte@puncto.com.br"
+            className="block rounded-lg bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 hover:bg-slate-100 transition-colors"
+          >
+            ✉️ suporte@puncto.com.br
+          </a>
+        </div>
+        <button
+          onClick={onClose}
+          className="mt-6 w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800 transition-colors"
+        >
+          Entendi, continuar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 const VALID_PLANS = ['gratis', 'starter', 'growth', 'pro'];
 const VALID_INDUSTRIES = ['servicos', 'varejo', 'empresas', 'saude', 'corporativo'];
 
@@ -47,6 +91,7 @@ export default function CheckoutPage() {
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showBetaModal, setShowBetaModal] = useState(true);
 
   // Redirect logged-in users to onboarding
   useEffect(() => {
@@ -133,6 +178,7 @@ export default function CheckoutPage() {
   // Show registration form for new users
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-50 via-white to-slate-50 px-4 py-12">
+      <BetaNoticeModal isOpen={showBetaModal} onClose={() => setShowBetaModal(false)} />
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Logo variant="light" />
@@ -269,18 +315,10 @@ export default function CheckoutPage() {
 
             <button
               type="submit"
-              disabled={
-                isSubmitting ||
-                !displayName ||
-                !email ||
-                !password ||
-                !confirmPassword ||
-                !termsAccepted ||
-                !privacyAccepted
-              }
-              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled
+              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white opacity-50 cursor-not-allowed"
             >
-              {isSubmitting ? 'Criando conta...' : 'Criar conta e continuar'}
+              Criar conta e continuar
             </button>
           </form>
 
