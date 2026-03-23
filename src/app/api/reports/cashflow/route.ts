@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     }
 
     const start = startDate ? Timestamp.fromDate(new Date(startDate)) : null;
-    const end = endDate ? Timestamp.fromDate(new Date(endDate)) : null;
+    const end = endDate ? Timestamp.fromDate(new Date(endDate + 'T23:59:59.999')) : null;
 
     const startMs = start ? start.toMillis() : null;
     const endMs = end ? end.toMillis() : null;

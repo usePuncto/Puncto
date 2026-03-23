@@ -184,6 +184,26 @@ export default function LoginPage() {
 
     try {
       await login(email, password);
+
+      // Set session cookie immediately (like platform login) so middleware sees auth on redirect.
+      // Must happen in handleSubmit, before useEffect redirect, to avoid race/loop.
+      const firebaseUser = auth.currentUser;
+      if (firebaseUser) {
+        try {
+          const idToken = await firebaseUser.getIdToken(true);
+          const sessionRes = await fetch('/api/auth/session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ idToken }),
+            credentials: 'include',
+          });
+          if (!sessionRes.ok) {
+            console.warn('[Login] Failed to set session cookie:', await sessionRes.text());
+          }
+        } catch (err) {
+          console.warn('[Login] Session cookie setup failed:', err);
+        }
+      }
     } catch (err: any) {
       setError(err.message || 'Erro ao fazer login');
     } finally {
