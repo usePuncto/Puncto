@@ -139,13 +139,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(`https://${subdomain}.gestao.puncto.com.br/`, 302);
   }
 
-  // Business Admin (.gestao) - domain-based protection
+  // Business Admin (.gestao) - same as main domain: allow through, let ProtectedRoute handle auth (no cookie required)
   if (isGestaoApp) {
-    if (!hasAuthCookie) {
-      return NextResponse.redirect(
-        new URL(`/auth/login?subdomain=${subdomain}&returnUrl=${encodeURIComponent(url.pathname + url.search)}&app=gestao`, request.url)
-      );
-    }
     if (hasAuthCookie && customClaims) {
       const hasAccess = hasBusinessAccess(customClaims, subdomain);
       if (!hasAccess) {

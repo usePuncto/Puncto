@@ -46,7 +46,14 @@ export function ProtectedRoute({
     // No user - redirect to login
     if (!user) {
       const currentPath = window.location.pathname + window.location.search;
-      router.push(`${redirectTo}?returnUrl=${encodeURIComponent(currentPath)}`);
+      const isGestao = typeof window !== 'undefined' && window.location.hostname.includes('.gestao.');
+      const subdomain = isGestao ? window.location.hostname.split('.')[0] : null;
+      const params = new URLSearchParams({ returnUrl: currentPath });
+      if (subdomain) {
+        params.set('subdomain', subdomain);
+        params.set('app', 'gestao');
+      }
+      router.push(`${redirectTo}?${params.toString()}`);
       return;
     }
 
