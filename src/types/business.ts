@@ -190,6 +190,12 @@ export interface Business {
     featured?: boolean;
     verified?: boolean;
   };
+  /** Stripe Connect Express account for this business (receiving payments) */
+  stripeConnectAccountId?: string;
+  stripeConnectDetailsSubmitted?: boolean;
+  stripeConnectChargesEnabled?: boolean;
+  stripeConnectPayoutsEnabled?: boolean;
+  stripeConnectOnboardingComplete?: boolean;
 }
 
 export interface Location {
@@ -227,7 +233,6 @@ export interface Professional {
   bufferTimeBefore?: number;
   bufferTimeAfter?: number;
   commissionPercent?: number;
-  stripeConnectAccountId?: string; // Stripe Connect account for commission splits
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
 }

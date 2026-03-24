@@ -196,7 +196,14 @@ export async function middleware(request: NextRequest) {
   }
 
   requestHeaders.set('x-locale', 'pt-BR');
+  // Mask client auth only on public tenant pages (booking/vitrine). Admin/professional apps
+  // must receive real Firebase user — otherwise ProtectedRoute redirects to login with returnUrl.
+  const isTenantStaffAppPath =
+    url.pathname.startsWith('/tenant/admin') ||
+    url.pathname.startsWith('/tenant/professional') ||
+    /^\/tenant\/[^/]+\/admin(\/|$)/.test(url.pathname);
   const shouldIgnoreAuthOnClient =
+    !isTenantStaffAppPath &&
     hasAuthCookie &&
     customClaims &&
     (customClaims.userType === 'platform_admin' || customClaims.userType === 'business_user');

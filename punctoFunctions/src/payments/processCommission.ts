@@ -122,7 +122,7 @@ export const processCommission = onDocumentCreated(
       // Calculate commission amount
       const commissionAmount = Math.round((payment.amount * commissionPercent) / 100);
 
-      // Check if professional has Stripe Connect account
+      // Comissão só para registro interno; não há repasse automático via Stripe Connect.
       const commissionData: any = {
         paymentId,
         bookingId,
@@ -131,7 +131,7 @@ export const processCommission = onDocumentCreated(
         professionalName: professional.name || "",
         amount: commissionAmount,
         percentage: commissionPercent,
-        stripeConnectAccountId: professional.stripeConnectAccountId || null,
+        stripeConnectAccountId: null,
         status: "pending",
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
@@ -145,48 +145,9 @@ export const processCommission = onDocumentCreated(
       const commissionDoc = await commissionsRef.add(commissionData);
       const commissionId = commissionDoc.id;
 
-      if (!professional.stripeConnectAccountId) {
-        logger.info(
-          `[processCommission] Professional ${professionalId} has no Stripe Connect account; commission ${commissionId} will remain pending`
-        );
-        return;
-      }
-
-      // Trigger Connect transfer via Next API (Stripe SDK is only available in the Next backend).
-      try {
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-        const transferGroup = bookingId ? `booking_${bookingId}` : `payment_${paymentId}`;
-
-        const res = await fetch(`${baseUrl}/api/stripe-connect/transfer`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            commissionId,
-            businessId,
-            paymentId,
-            bookingId: bookingId || null,
-            professionalId,
-            amount: commissionAmount,
-            currency,
-            transferGroup,
-            commissionPercent,
-          }),
-        });
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
-          logger.error(
-            `[processCommission] Transfer API failed for commission ${commissionId}: ${data.error || res.status}`
-          );
-          return;
-        }
-
-        logger.info(
-          `[processCommission] Transfer created for commission ${commissionId} (amount: ${commissionAmount})`
-        );
-      } catch (err: any) {
-        logger.error(`[processCommission] Transfer API error for commission ${commissionId}:`, err);
-      }
+      logger.info(
+        `[processCommission] Commission ${commissionId} recorded (${commissionAmount} ${currency}); Stripe transfer disabled`
+      );
     } catch (error) {
       logger.error(`[processCommission] Error processing commission: ${error}`);
     }

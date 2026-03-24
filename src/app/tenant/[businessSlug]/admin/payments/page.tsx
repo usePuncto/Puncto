@@ -1,39 +1,26 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
-import { useAuth } from '@/lib/contexts/AuthContext';
 import { usePayments } from '@/lib/queries/payments';
-import { useProfessionals } from '@/lib/queries/professionals';
 import { usePaymentLinks } from '@/lib/queries/paymentLinks';
 import { PaymentLinkForm } from '@/components/admin/PaymentLinkForm';
 
 export default function PaymentsPage() {
-  const { user } = useAuth();
   const { business } = useBusiness();
   const { data: payments, isLoading } = usePayments(business.id);
   const { data: paymentLinks, isLoading: paymentLinksLoading } = usePaymentLinks(business.id);
-  const { data: professionals, isLoading: professionalsLoading } = useProfessionals(business.id, {
-    active: true,
-  });
   const [showPaymentLinkForm, setShowPaymentLinkForm] = useState(false);
   const [connectingStripe, setConnectingStripe] = useState(false);
   const [managingStripe, setManagingStripe] = useState(false);
 
-  const ownerProfessional = useMemo(() => {
-    if (!professionals || professionals.length === 0) return null;
-    return (
-      professionals.find((pro: any) => pro?.isOwner) ||
-      professionals.find((pro: any) => pro?.userId === business?.createdBy) ||
-      professionals.find((pro: any) => pro?.userId === user?.id) ||
-      professionals[0] ||
-      null
-    );
-  }, [professionals, business?.createdBy, user?.id]);
+  const hasStripeAccount = Boolean(business.stripeConnectAccountId);
+  const isStripeOnboardingComplete = Boolean(business.stripeConnectOnboardingComplete);
 
   const handleConnectStripe = async () => {
-    if (!ownerProfessional?.id || !ownerProfessional?.email) {
-      alert('Defina um e-mail para o profissional (Proprietário) antes de conectar o Stripe.');
+    const email = typeof business.email === 'string' ? business.email.trim() : '';
+    if (!email) {
+      alert('Defina o e-mail do negócio nas configurações antes de conectar o Stripe.');
       return;
     }
 
@@ -44,8 +31,7 @@ export default function PaymentsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           businessId: business.id,
-          professionalId: ownerProfessional.id,
-          email: ownerProfessional.email,
+          email,
           country: 'BR',
         }),
       });
@@ -68,9 +54,9 @@ export default function PaymentsPage() {
   };
 
   const handleManageStripe = async () => {
-    if (!business?.id || !ownerProfessional?.id) return;
-    if (!ownerProfessional?.stripeConnectAccountId) {
-      alert('Sua conta do Stripe Connect ainda não está conectada.');
+    if (!business?.id) return;
+    if (!business.stripeConnectAccountId) {
+      alert('A conta Stripe Connect do negócio ainda não foi criada.');
       return;
     }
 
@@ -81,12 +67,15 @@ export default function PaymentsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           businessId: business.id,
-          professionalId: ownerProfessional.id,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 409 && data?.onboardingUrl) {
+          window.location.href = data.onboardingUrl;
+          return;
+        }
         throw new Error(data.error || 'Falha ao abrir dashboard do Stripe');
       }
 
@@ -164,13 +153,15 @@ export default function PaymentsPage() {
           <div>
             <h2 className="text-lg font-semibold text-neutral-900">Stripe Connect</h2>
             <p className="text-sm text-neutral-600 mt-1">
-              {ownerProfessional?.stripeConnectAccountId
-                ? 'Sua conta está conectada para receber pagamentos e realizar splits. Você pode gerenciar no Stripe ou por aqui.'
-                : 'Conecte seu Stripe para habilitar repasses automáticos de comissões.'}
+              {hasStripeAccount && isStripeOnboardingComplete
+                ? 'A conta Stripe está vinculada a este negócio para receber pagamentos. Comissões entre profissionais não são repassadas automaticamente pelo Stripe.'
+                : hasStripeAccount
+                  ? 'A conta Stripe do negócio foi criada, mas o onboarding ainda não foi concluído.'
+                : 'Conecte o Stripe ao negócio para receber pagamentos online. Use o e-mail cadastrado nas configurações do negócio.'}
             </p>
           </div>
 
-          {professionalsLoading ? null : ownerProfessional?.stripeConnectAccountId ? (
+          {hasStripeAccount && isStripeOnboardingComplete ? (
             <div className="flex items-center gap-3">
               <span className="inline-flex rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-800">
                 Conectado
@@ -181,6 +172,19 @@ export default function PaymentsPage() {
                 className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
               >
                 {managingStripe ? 'Abrindo...' : 'Gerenciar no Stripe'}
+              </button>
+            </div>
+          ) : hasStripeAccount ? (
+            <div className="flex items-center gap-3">
+              <span className="inline-flex rounded-full bg-yellow-100 px-3 py-1 text-xs font-medium text-yellow-800">
+                Onboarding pendente
+              </span>
+              <button
+                onClick={handleConnectStripe}
+                disabled={connectingStripe}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {connectingStripe ? 'Abrindo...' : 'Continuar onboarding'}
               </button>
             </div>
           ) : (

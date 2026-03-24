@@ -1,47 +1,70 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
+import { createAccountLink } from '@/lib/stripe/connect';
 import { db } from '@/lib/firebaseAdmin';
+import { Timestamp } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, professionalId } = body as {
-      businessId?: string;
-      professionalId?: string;
-    };
+    const { businessId } = body as { businessId?: string };
 
-    if (!businessId || !professionalId) {
-      return NextResponse.json(
-        { error: 'Missing required fields: businessId, professionalId' },
-        { status: 400 }
-      );
+    if (!businessId) {
+      return NextResponse.json({ error: 'Missing required field: businessId' }, { status: 400 });
     }
 
-    const professionalRef = db
-      .collection('businesses')
-      .doc(businessId)
-      .collection('professionals')
-      .doc(professionalId);
-
-    const professionalSnap = await professionalRef.get();
-    if (!professionalSnap.exists) {
-      return NextResponse.json({ error: 'Professional not found' }, { status: 404 });
+    const businessRef = db.collection('businesses').doc(businessId);
+    const businessSnap = await businessRef.get();
+    if (!businessSnap.exists) {
+      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
     }
 
-    const professionalData = professionalSnap.data() as any;
-    const stripeConnectAccountId = professionalData?.stripeConnectAccountId;
+    const businessData = businessSnap.data() as Record<string, unknown>;
+    const stripeConnectAccountId = businessData.stripeConnectAccountId as string | undefined;
     if (!stripeConnectAccountId) {
       return NextResponse.json(
-        { error: 'Professional does not have a Stripe Connect account' },
+        { error: 'Este negócio ainda não possui conta Stripe Connect vinculada.' },
         { status: 400 }
       );
     }
 
-    // Hosted Express Dashboard for this connected account.
+    const account = await stripe.accounts.retrieve(stripeConnectAccountId);
+    const detailsSubmitted = Boolean((account as { details_submitted?: boolean }).details_submitted);
+    const chargesEnabled = Boolean((account as { charges_enabled?: boolean }).charges_enabled);
+    const payoutsEnabled = Boolean((account as { payouts_enabled?: boolean }).payouts_enabled);
+    const onboardingComplete = detailsSubmitted && chargesEnabled;
+
+    await businessRef.update({
+      stripeConnectDetailsSubmitted: detailsSubmitted,
+      stripeConnectChargesEnabled: chargesEnabled,
+      stripeConnectPayoutsEnabled: payoutsEnabled,
+      stripeConnectOnboardingComplete: onboardingComplete,
+      updatedAt: Timestamp.now(),
+    });
+
+    if (!onboardingComplete) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const accountLink = await createAccountLink(
+        stripeConnectAccountId,
+        `${baseUrl}/tenant/admin/payments?onboarding=complete`,
+        `${baseUrl}/tenant/admin/payments?onboarding=refresh`
+      );
+
+      return NextResponse.json(
+        {
+          error: 'Stripe onboarding ainda não foi concluído.',
+          onboardingRequired: true,
+          onboardingUrl: accountLink.url,
+          accountId: stripeConnectAccountId,
+        },
+        { status: 409 }
+      );
+    }
+
     const loginLink = await stripe.accounts.createLoginLink(stripeConnectAccountId);
 
     return NextResponse.json({
-      url: (loginLink as any).url,
+      url: (loginLink as { url?: string }).url,
       accountId: stripeConnectAccountId,
     });
   } catch (error) {
@@ -53,4 +76,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

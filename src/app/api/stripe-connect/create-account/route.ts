@@ -1,50 +1,113 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createConnectAccount, createAccountLink } from '@/lib/stripe/connect';
+import { createConnectAccount, createAccountLink, getAccount } from '@/lib/stripe/connect';
 import { db } from '@/lib/firebaseAdmin';
-import { Timestamp } from 'firebase-admin/firestore';
+import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, professionalId, email, country = 'BR' } = body;
+    const { businessId, email, country = 'BR' } = body as {
+      businessId?: string;
+      email?: string;
+      country?: string;
+    };
 
-    if (!businessId || !professionalId || !email) {
+    if (!businessId) {
+      return NextResponse.json({ error: 'Missing required field: businessId' }, { status: 400 });
+    }
+
+    const businessRef = db.collection('businesses').doc(businessId);
+    const businessSnap = await businessRef.get();
+    if (!businessSnap.exists) {
+      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
+    }
+
+    const businessData = businessSnap.data() as Record<string, unknown>;
+    const connectEmail =
+      (typeof email === 'string' && email.trim()) ||
+      (typeof businessData.email === 'string' && businessData.email.trim()) ||
+      '';
+    if (!connectEmail) {
       return NextResponse.json(
-        { error: 'Missing required fields: businessId, professionalId, email' },
+        {
+          error:
+            'Defina o e-mail do negócio nas configurações antes de conectar o Stripe.',
+        },
         { status: 400 }
       );
     }
 
-    // Create Stripe Connect account
-    const account = await createConnectAccount({
-      email,
-      country,
-      type: 'express',
-    });
+    let existingAccountId = businessData.stripeConnectAccountId as string | undefined;
+    if (!existingAccountId) {
+      const ownerSnap = await businessRef
+        .collection('professionals')
+        .where('isOwner', '==', true)
+        .limit(1)
+        .get();
+      const legacyId = ownerSnap.empty
+        ? undefined
+        : (ownerSnap.docs[0].data() as { stripeConnectAccountId?: string }).stripeConnectAccountId;
+      if (legacyId) {
+        existingAccountId = legacyId;
+      }
+    }
 
-    // Update professional with Connect account ID
-    const professionalRef = db
-      .collection('businesses')
-      .doc(businessId)
-      .collection('professionals')
-      .doc(professionalId);
+    const account = existingAccountId
+      ? await getAccount(existingAccountId)
+      : await createConnectAccount({
+          email: connectEmail,
+          country,
+          type: 'express',
+        });
 
-    await professionalRef.update({
+    const detailsSubmitted = Boolean((account as { details_submitted?: boolean }).details_submitted);
+    const chargesEnabled = Boolean((account as { charges_enabled?: boolean }).charges_enabled);
+    const payoutsEnabled = Boolean((account as { payouts_enabled?: boolean }).payouts_enabled);
+    const onboardingComplete = detailsSubmitted && chargesEnabled;
+
+    await businessRef.update({
       stripeConnectAccountId: account.id,
+      stripeConnectDetailsSubmitted: detailsSubmitted,
+      stripeConnectChargesEnabled: chargesEnabled,
+      stripeConnectPayoutsEnabled: payoutsEnabled,
+      stripeConnectOnboardingComplete: onboardingComplete,
       updatedAt: Timestamp.now(),
     });
 
-    // Create account link for onboarding
+    const ownerForCleanup = await businessRef
+      .collection('professionals')
+      .where('isOwner', '==', true)
+      .limit(1)
+      .get();
+    if (!ownerForCleanup.empty) {
+      await ownerForCleanup.docs[0].ref.update({
+        stripeConnectAccountId: FieldValue.delete(),
+        stripeConnectDetailsSubmitted: FieldValue.delete(),
+        stripeConnectChargesEnabled: FieldValue.delete(),
+        stripeConnectPayoutsEnabled: FieldValue.delete(),
+        stripeConnectOnboardingComplete: FieldValue.delete(),
+        updatedAt: Timestamp.now(),
+      });
+    }
+
+    if (onboardingComplete) {
+      return NextResponse.json({
+        accountId: account.id,
+        onboardingComplete: true,
+      });
+    }
+
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const accountLink = await createAccountLink(
       account.id,
-      `${baseUrl}/tenant/admin/professionals?onboarding=complete`,
-      `${baseUrl}/tenant/admin/professionals?onboarding=refresh`
+      `${baseUrl}/tenant/admin/payments?onboarding=complete`,
+      `${baseUrl}/tenant/admin/payments?onboarding=refresh`
     );
 
     return NextResponse.json({
       accountId: account.id,
       onboardingUrl: accountLink.url,
+      onboardingComplete: false,
     });
   } catch (error) {
     console.error('[create-connect-account] Error:', error);

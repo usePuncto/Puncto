@@ -23,37 +23,34 @@ export async function getCurrentBusiness(): Promise<Business | null> {
   }
 
   try {
-    // If it looks like a Firestore doc ID, fetch by ID (e.g. from /tenant?subdomain=xxx after onboarding)
+    // Slug first: many slugs are 19–21 alphanumeric chars and would falsely match looksLikeDocId
+    console.log('[Tenant] getCurrentBusiness: lookup by slug:', businessSlug);
+    const bySlug = await db
+      .collection('businesses')
+      .where('slug', '==', businessSlug)
+      .limit(1)
+      .get();
+
+    if (!bySlug.empty) {
+      const doc = bySlug.docs[0];
+      console.log('[Tenant] getCurrentBusiness: found by slug:', doc.id);
+      return { id: doc.id, ...doc.data() } as Business;
+    }
+
+    // Onboarding / redirects: subdomain may be Firestore doc ID before slug is used
     if (looksLikeDocId(businessSlug)) {
       console.log('[Tenant] getCurrentBusiness: lookup by doc ID:', businessSlug);
       const doc = await db.collection('businesses').doc(businessSlug).get();
       if (!doc.exists) {
-        console.log('[Tenant] getCurrentBusiness: doc does not exist:', businessSlug);
+        console.log('[Tenant] getCurrentBusiness: no business for slug or doc ID:', businessSlug);
         return null;
       }
       console.log('[Tenant] getCurrentBusiness: found by ID:', doc.id);
       return { id: doc.id, ...doc.data() } as Business;
     }
 
-    // Otherwise query by slug (production subdomain)
-    console.log('[Tenant] getCurrentBusiness: lookup by slug:', businessSlug);
-    const businessSnapshot = await db
-      .collection('businesses')
-      .where('slug', '==', businessSlug)
-      .limit(1)
-      .get();
-
-    if (businessSnapshot.empty) {
-      console.log('[Tenant] getCurrentBusiness: no business found for slug:', businessSlug);
-      return null;
-    }
-
-    const doc = businessSnapshot.docs[0];
-    console.log('[Tenant] getCurrentBusiness: found by slug:', doc.id);
-    return {
-      id: doc.id,
-      ...doc.data()
-    } as Business;
+    console.log('[Tenant] getCurrentBusiness: no business found for slug:', businessSlug);
+    return null;
   } catch (error) {
     console.error('[Tenant] getCurrentBusiness error:', error);
     return null;

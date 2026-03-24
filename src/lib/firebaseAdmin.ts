@@ -69,6 +69,16 @@ if (!getApps().length) {
     credential: cert(serviceAccount),
     projectId: process.env.FIREBASE_ADMIN_PROJECT_ID || serviceAccount.project_id,
   });
+
+  if (process.env.NODE_ENV === 'development') {
+    const publicProjectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const adminProjectId = process.env.FIREBASE_ADMIN_PROJECT_ID || serviceAccount.project_id;
+    if (publicProjectId && adminProjectId && publicProjectId !== adminProjectId) {
+      console.warn(
+        `[Firebase Admin] Project mismatch: NEXT_PUBLIC_FIREBASE_PROJECT_ID="${publicProjectId}" vs admin "${adminProjectId}". API Firestore writes will not match the client SDK database.`
+      );
+    }
+  }
 } else {
   app = getApps()[0];
 }
