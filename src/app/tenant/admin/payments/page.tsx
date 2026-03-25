@@ -1,12 +1,15 @@
 'use client';
 
+export { default } from '@/components/admin/Payments/PaymentsAdminPage';
+
+/*
 import React, { useState } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { usePayments } from '@/lib/queries/payments';
 import { usePaymentLinks } from '@/lib/queries/paymentLinks';
 import { PaymentLinkForm } from '@/components/admin/PaymentLinkForm';
 
-export default function PaymentsPage() {
+function PaymentsPage() {
   const { business } = useBusiness();
   const { data: payments, isLoading } = usePayments(business.id);
   const { data: paymentLinks, isLoading: paymentLinksLoading } = usePaymentLinks(business.id);
@@ -43,9 +46,16 @@ export default function PaymentsPage() {
 
       if (data?.onboardingUrl) {
         window.location.href = data.onboardingUrl;
-      } else {
-        alert('Stripe Connect criado, mas URL de onboarding não retornou.');
+        return;
       }
+
+      if (data?.onboardingComplete) {
+        // Onboarding already completed server-side; reload so BusinessContext reflects it.
+        window.location.reload();
+        return;
+      }
+
+      alert('Stripe Connect criado, mas URL de onboarding não retornou.');
     } catch (err: any) {
       alert(err instanceof Error ? err.message : 'Erro ao conectar Stripe');
     } finally {
@@ -352,3 +362,4 @@ export default function PaymentsPage() {
     </div>
   );
 }
+*/

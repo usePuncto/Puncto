@@ -1,17 +1,12 @@
 'use client';
 
-export { default } from '@/components/admin/Payments/PaymentsAdminPage';
-
-/*
-'use client';
-
 import React, { useState } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { usePayments } from '@/lib/queries/payments';
 import { usePaymentLinks } from '@/lib/queries/paymentLinks';
 import { PaymentLinkForm } from '@/components/admin/PaymentLinkForm';
 
-function PaymentsPage() {
+export default function PaymentsAdminPage() {
   const { business } = useBusiness();
   const { data: payments, isLoading } = usePayments(business.id);
   const { data: paymentLinks, isLoading: paymentLinksLoading } = usePaymentLinks(business.id);
@@ -169,7 +164,7 @@ function PaymentsPage() {
                 ? 'A conta Stripe está vinculada a este negócio para receber pagamentos. Comissões entre profissionais não são repassadas automaticamente pelo Stripe.'
                 : hasStripeAccount
                   ? 'A conta Stripe do negócio foi criada, mas o onboarding ainda não foi concluído.'
-                : 'Conecte o Stripe ao negócio para receber pagamentos online. Use o e-mail cadastrado nas configurações do negócio.'}
+                  : 'Conecte o Stripe ao negócio para receber pagamentos online. Use o e-mail cadastrado nas configurações do negócio.'}
             </p>
           </div>
 
@@ -259,7 +254,10 @@ function PaymentsPage() {
                 </thead>
                 <tbody>
                   {paymentLinks.slice(0, 10).map((link) => (
-                    <tr key={link.id} className="border-b border-neutral-100 hover:bg-neutral-50">
+                    <tr
+                      key={link.id}
+                      className="border-b border-neutral-100 hover:bg-neutral-50"
+                    >
                       <td className="px-4 py-3 text-sm text-neutral-900">
                         <div className="font-medium">{link.name}</div>
                         {link.qrCodeUrl ? (
@@ -306,16 +304,14 @@ function PaymentsPage() {
           )}
 
           <h2 className="text-lg font-semibold mb-4">Histórico de Pagamentos</h2>
-          
+
           {isLoading ? (
             <div className="text-center py-8">
               <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900 mx-auto"></div>
               <p className="mt-4 text-neutral-600">Carregando pagamentos...</p>
             </div>
           ) : !payments || payments.length === 0 ? (
-            <div className="text-center py-8 text-neutral-600">
-              Nenhum pagamento encontrado
-            </div>
+            <div className="text-center py-8 text-neutral-600">Nenhum pagamento encontrado</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -330,7 +326,10 @@ function PaymentsPage() {
                 </thead>
                 <tbody>
                   {payments.map((payment) => (
-                    <tr key={payment.id} className="border-b border-neutral-100 hover:bg-neutral-50">
+                    <tr
+                      key={payment.id}
+                      className="border-b border-neutral-100 hover:bg-neutral-50"
+                    >
                       <td className="px-4 py-3 text-sm text-neutral-900">
                         {payment.createdAt instanceof Date
                           ? payment.createdAt.toLocaleDateString('pt-BR')
@@ -343,7 +342,9 @@ function PaymentsPage() {
                         {formatAmount(payment.amount, payment.currency)}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(payment.status)}`}>
+                        <span
+                          className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(payment.status)}`}
+                        >
                           {payment.status}
                         </span>
                       </td>
@@ -361,4 +362,4 @@ function PaymentsPage() {
     </div>
   );
 }
-*/
+
