@@ -83,9 +83,9 @@ export const featureDetailsByIndustry: Record<
             'Agenda lotada? Não perca o cliente. Se um horário vago surgir (alguém desmarcou), o sistema ajuda a preencher essa lacuna com clientes que demonstraram interesse naquele dia, garantindo que sua agenda esteja sempre otimizada e cheia.',
         },
         {
-          title: '💳 Pagamentos Online (PIX e Cartão)',
+          title: '🎁 CRM (Aniversário e Retenção)',
           description:
-            'Profissionalize sua cobrança e evite calotes. Receba pagamentos antecipados ou no ato do agendamento via PIX ou Cartão de Crédito diretamente pela plataforma. Isso oferece mais comodidade para o cliente e garante o recebimento para você.',
+            'Fidelize quem já é cliente. O sistema avisa os aniversariantes do mês para você enviar mimos e identifica clientes "sumidos" (que não agendam há x dias), permitindo que você crie campanhas de recuperação para trazê-los de volta.',
         },
         {
           title: '📝 Emissão de NFS-e',
@@ -108,9 +108,9 @@ export const featureDetailsByIndustry: Record<
             'Uma visão financeira de gente grande. Além do faturamento, acompanhe seus custos, despesas e lucro líquido através de um DRE (Demonstrativo do Resultado do Exercício) simplificado. Defina metas de faturamento para o mês e acompanhe o progresso da sua empresa em tempo real.',
         },
         {
-          title: '🎁 CRM (Aniversário e Retenção)',
+          title: '⏰ Ponto Eletrônico',
           description:
-            'Fidelize quem já é cliente. O sistema avisa os aniversariantes do mês para você enviar mimos e identifica clientes "sumidos" (que não agendam há x dias), permitindo que você crie campanhas de recuperação para trazê-los de volta.',
+            'Controle a jornada da sua equipe. Seus funcionários registram entrada, saída e pausas diretamente no sistema. Simples para eles e seguro para você, garantindo o controle de horas trabalhadas de forma transparente.',
         },
         {
           title: '📦 Controle de Estoque Completo',
