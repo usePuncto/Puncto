@@ -139,6 +139,16 @@ export interface Settings {
   whatsapp?: WhatsAppConfig;
   /** Channels for sending booking confirmations (email, whatsapp) */
   confirmationChannels?: ConfirmationChannel[];
+  /** Manual unavailability blocks configured by admin/owner */
+  unavailability?: Array<{
+    id: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    allDay?: boolean;
+    reason?: string;
+    createdAt?: Timestamp | Date | string;
+  }>;
 }
 
 export interface CustomField {
@@ -228,6 +238,16 @@ export interface Professional {
   totalReviews?: number;
   locationIds: string[];
   workingHours?: WorkingHours;
+  /** Manual unavailability blocks for this specific professional */
+  unavailability?: Array<{
+    id: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    allDay?: boolean;
+    reason?: string;
+    createdAt?: Timestamp | Date | string;
+  }>;
   active: boolean;
   canBookOnline: boolean;
   bufferTimeBefore?: number;

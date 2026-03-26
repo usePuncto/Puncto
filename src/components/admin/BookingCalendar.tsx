@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Booking } from '@/types/booking';
 import {
   format,
@@ -33,12 +33,23 @@ const getDayKey = (date: Date) =>
 interface BookingCalendarProps {
   bookings: Booking[];
   workingHours?: WorkingHours;
+  unavailabilityBlocks?: Array<{
+    id: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    reason?: string;
+    allDay?: boolean;
+  }>;
+  onMonthChange?: (month: string) => void; // yyyy-MM
   onStatusChange: (bookingId: string, status: any) => void;
 }
 
 export function BookingCalendar({
   bookings,
   workingHours: wh = {},
+  unavailabilityBlocks = [],
+  onMonthChange,
   onStatusChange,
 }: BookingCalendarProps) {
   const workingHours = { ...DEFAULT_WORKING_HOURS, ...wh };
@@ -50,6 +61,11 @@ export function BookingCalendar({
   const calendarStart = startOfWeek(monthStart, { locale: ptBR });
   const calendarEnd = endOfWeek(monthEnd, { locale: ptBR });
   const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  const monthKey = format(currentMonth, 'yyyy-MM');
+
+  useEffect(() => {
+    onMonthChange?.(monthKey);
+  }, [monthKey, onMonthChange]);
 
   const getBookingsForDay = (day: Date) => {
     return bookings.filter((booking) => {
@@ -65,6 +81,11 @@ export function BookingCalendar({
     const key = getDayKey(day);
     const schedule = workingHours[key];
     return schedule?.closed ? null : schedule;
+  };
+
+  const getBlocksForDay = (day: Date) => {
+    const dayKey = format(day, 'yyyy-MM-dd');
+    return unavailabilityBlocks.filter((block) => block.date === dayKey);
   };
 
   const getStatusColor = (status: string) => {
@@ -102,19 +123,14 @@ export function BookingCalendar({
   };
 
   const getBookingPosition = (
-    booking: Booking,
+    startDate: Date,
+    duration: number,
     dayStart: Date,
     dayEnd: Date,
     totalPx: number
   ) => {
-    const start =
-      booking.scheduledDateTime instanceof Date
-        ? booking.scheduledDateTime
-        : new Date(booking.scheduledDateTime as any);
-    const duration = (booking as any).durationMinutes || 60;
-
     const totalMinutes = (dayEnd.getTime() - dayStart.getTime()) / 60000;
-    const startOffset = Math.max(0, (start.getTime() - dayStart.getTime()) / 60000);
+    const startOffset = Math.max(0, (startDate.getTime() - dayStart.getTime()) / 60000);
     const topPx = (startOffset / totalMinutes) * totalPx;
     const heightPx = Math.min(
       (duration / totalMinutes) * totalPx,
@@ -126,6 +142,7 @@ export function BookingCalendar({
   const DayView = ({ day }: { day: Date }) => {
     const schedule = getScheduleForDay(day);
     const dayBookings = getBookingsForDay(day);
+    const dayBlocks = getBlocksForDay(day);
 
     if (!schedule) {
       return (
@@ -158,8 +175,38 @@ export function BookingCalendar({
               <div className="flex-1 relative" />
             </div>
           ))}
-          {/* Booking blocks */}
+          {/* Unavailability + booking blocks */}
           <div className="absolute inset-0 left-12 top-0 pointer-events-none">
+            {dayBlocks.map((block) => {
+              const [startH, startM] = block.startTime.split(':').map(Number);
+              const [endH, endM] = block.endTime.split(':').map(Number);
+              const blockStart = block.allDay
+                ? dayStart
+                : setMinutes(setHours(day, startH), startM);
+              const blockEnd = block.allDay
+                ? dayEnd
+                : setMinutes(setHours(day, endH), endM);
+              const duration = Math.max(30, (blockEnd.getTime() - blockStart.getTime()) / 60000);
+              const totalH = slots.length * 40;
+              const pos = getBookingPosition(blockStart, duration, dayStart, dayEnd, totalH);
+              return (
+                <div
+                  key={block.id}
+                  className="absolute left-1 right-1 rounded border border-rose-400 bg-rose-100/80 px-2 py-1 text-xs text-rose-900 overflow-hidden"
+                  style={{
+                    top: `${pos.top}px`,
+                    height: `${pos.height}px`,
+                  }}
+                >
+                  <div className="font-semibold truncate">
+                    {block.allDay ? 'Indisponível - dia inteiro' : `Indisponível ${block.startTime}-${block.endTime}`}
+                  </div>
+                  {block.reason && (
+                    <div className="truncate text-[10px] opacity-90">{block.reason}</div>
+                  )}
+                </div>
+              );
+            })}
             {dayBookings
               .filter((b) => b.status !== 'cancelled')
               .map((booking) => {
@@ -170,7 +217,8 @@ export function BookingCalendar({
                 if (!isSameDay(start, day)) return null;
                 const totalH = slots.length * 40;
                 const pos = getBookingPosition(
-                  booking,
+                  start,
+                  (booking as any).durationMinutes || 60,
                   dayStart,
                   dayEnd,
                   totalH
@@ -178,7 +226,7 @@ export function BookingCalendar({
                 return (
                   <div
                     key={booking.id}
-                    className={`absolute left-1 right-1 rounded px-2 py-1 border text-xs overflow-hidden ${getStatusColor(
+                    className={`absolute left-1 right-1 rounded px-2 py-1 border text-xs overflow-hidden shadow-sm ${getStatusColor(
                       booking.status
                     )}`}
                     style={{
@@ -246,6 +294,7 @@ export function BookingCalendar({
 
         {days.map((day, idx) => {
           const dayBookings = getBookingsForDay(day);
+          const dayBlocks = getBlocksForDay(day);
           const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
           const schedule = getScheduleForDay(day);
           const isSelected = selectedDay && isSameDay(day, selectedDay);
@@ -270,6 +319,15 @@ export function BookingCalendar({
                 <div className="text-[10px] text-neutral-400 mb-1">Fechado</div>
               )}
               <div className="space-y-1">
+                {dayBlocks.slice(0, 1).map((block) => (
+                  <div
+                    key={block.id}
+                    className="text-[10px] rounded border border-rose-300 bg-rose-50 px-1 py-0.5 text-rose-700"
+                    title={block.reason || 'Indisponibilidade'}
+                  >
+                    {block.allDay ? 'Dia inteiro indisponível' : `Indisp. ${block.startTime}-${block.endTime}`}
+                  </div>
+                ))}
                 {dayBookings.slice(0, 3).map((booking) => (
                   <div
                     key={booking.id}
@@ -300,6 +358,11 @@ export function BookingCalendar({
                 {dayBookings.length > 3 && (
                   <div className="text-xs text-neutral-500">
                     +{dayBookings.length - 3} mais
+                  </div>
+                )}
+                {dayBlocks.length > 1 && (
+                  <div className="text-[10px] text-rose-600">
+                    +{dayBlocks.length - 1} bloqueio(s)
                   </div>
                 )}
               </div>

@@ -160,8 +160,54 @@ export async function GET(request: NextRequest) {
       return { start, end };
     });
 
-    // Fetch blocks/holidays (if stored in database)
-    // For now, we'll just use bookings as blocks
+    // Fetch manual unavailability blocks (business + professional)
+    type UnavailabilityItem = { date?: string; startTime?: string; endTime?: string; allDay?: boolean };
+    const buildBlockDates = (list: UnavailabilityItem[]) =>
+      list
+        .filter((item) => item.date === date && item.startTime && item.endTime)
+        .map((item) => ({
+          start: fromZonedTime(
+            new Date(
+              year,
+              month - 1,
+              day,
+              item.allDay ? 0 : Number((item.startTime as string).split(':')[0]),
+              item.allDay ? 0 : Number((item.startTime as string).split(':')[1]),
+              0
+            ),
+            timeZone
+          ),
+          end: fromZonedTime(
+            new Date(
+              year,
+              month - 1,
+              day,
+              item.allDay ? 23 : Number((item.endTime as string).split(':')[0]),
+              item.allDay ? 59 : Number((item.endTime as string).split(':')[1]),
+              0
+            ),
+            timeZone
+          ),
+        }));
+
+    const businessUnavailabilityRaw = business?.settings?.unavailability;
+    const businessBlocks = Array.isArray(businessUnavailabilityRaw)
+      ? buildBlockDates(businessUnavailabilityRaw as UnavailabilityItem[])
+      : [];
+
+    let professionalBlocks: Array<{ start: Date; end: Date }> = [];
+    if (professionalId) {
+      const proDocForBlocks = await db
+        .collection('businesses')
+        .doc(businessId)
+        .collection('professionals')
+        .doc(professionalId)
+        .get();
+      const proUnavailabilityRaw = proDocForBlocks.data()?.unavailability;
+      professionalBlocks = Array.isArray(proUnavailabilityRaw)
+        ? buildBlockDates(proUnavailabilityRaw as UnavailabilityItem[])
+        : [];
+    }
 
     // Calculate available slots (use business timezone so 09:00-18:00 means 9am-6pm local)
     const slots = calculateAvailableSlots(
@@ -173,6 +219,7 @@ export async function GET(request: NextRequest) {
         professionalId: professionalId ?? undefined,
         serviceId: serviceId ?? undefined,
         existingBookings,
+        blocks: [...businessBlocks, ...professionalBlocks],
         timeZone,
       }
     );

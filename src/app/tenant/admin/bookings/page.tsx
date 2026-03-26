@@ -1,19 +1,45 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useBookings, useUpdateBooking } from '@/lib/queries/bookings';
+import { useProfessionals } from '@/lib/queries/professionals';
 import { BookingCalendar } from '@/components/admin/BookingCalendar';
 import { BookingStatus } from '@/types/booking';
-import { format } from 'date-fns';
+import { addMonths, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+type UnavailabilityScope = 'business' | 'professional';
+
+interface UnavailabilityItem {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  allDay?: boolean;
+  reason?: string;
+}
 
 export default function AdminBookingsPage() {
   const { business } = useBusiness();
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
   const [statusFilter, setStatusFilter] = useState<BookingStatus | 'all'>('all');
   const [dateFilter, setDateFilter] = useState<string>('');
+  const [showUnavailabilityModal, setShowUnavailabilityModal] = useState(false);
+  const [scope, setScope] = useState<UnavailabilityScope>('business');
+  const [selectedProfessionalId, setSelectedProfessionalId] = useState<string>('');
+  const [blockDate, setBlockDate] = useState<string>('');
+  const [blockStart, setBlockStart] = useState<string>('09:00');
+  const [blockEnd, setBlockEnd] = useState<string>('18:00');
+  const [allDay, setAllDay] = useState<boolean>(false);
+  const [calendarMonth, setCalendarMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [blocksMonth, setBlocksMonth] = useState<string>(new Date().toISOString().slice(0, 7));
+  const [blockReason, setBlockReason] = useState<string>('');
+  const [items, setItems] = useState<UnavailabilityItem[]>([]);
+  const [loadingBlocks, setLoadingBlocks] = useState(false);
+  const [savingBlock, setSavingBlock] = useState(false);
+  const [blockError, setBlockError] = useState<string | null>(null);
 
   const filters: any = {};
   if (statusFilter !== 'all') {
@@ -21,6 +47,7 @@ export default function AdminBookingsPage() {
   }
 
   const { data: bookings, isLoading } = useBookings(business.id, filters);
+  const { data: professionals = [] } = useProfessionals(business.id, { active: true });
   const updateBooking = useUpdateBooking(business.id);
 
   const filteredBookings = bookings?.filter((booking) => {
@@ -38,6 +65,128 @@ export default function AdminBookingsPage() {
       bookingId,
       updates: { status: newStatus },
     });
+  };
+
+  const currentMonth = blocksMonth;
+  const monthDate = new Date(`${currentMonth}-01T00:00:00`);
+  const currentMonthLabel = format(monthDate, "MMMM 'de' yyyy", { locale: ptBR });
+
+  const navigateMonth = (direction: -1 | 1) => {
+    const nextMonth = addMonths(monthDate, direction);
+    setBlocksMonth(format(nextMonth, 'yyyy-MM'));
+  };
+
+  const loadUnavailability = async () => {
+    if (!business?.id) return;
+    if (scope === 'professional' && !selectedProfessionalId) {
+      setItems([]);
+      return;
+    }
+    setLoadingBlocks(true);
+    setBlockError(null);
+    try {
+      const params = new URLSearchParams({
+        businessId: business.id,
+        scope,
+        month: currentMonth,
+      });
+      if (scope === 'professional') {
+        params.set('professionalId', selectedProfessionalId);
+      }
+      const res = await fetch(`/api/unavailability?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao carregar indisponibilidades');
+      }
+      setItems(Array.isArray(data.items) ? data.items : []);
+    } catch (err) {
+      setBlockError(err instanceof Error ? err.message : 'Erro ao carregar indisponibilidades');
+      setItems([]);
+    } finally {
+      setLoadingBlocks(false);
+    }
+  };
+
+  useEffect(() => {
+    loadUnavailability();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [business?.id, scope, selectedProfessionalId, currentMonth]);
+
+  const handleAddUnavailability = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await createUnavailability(false);
+  };
+
+  const createUnavailability = async (forceAllDay: boolean) => {
+    if (!business?.id) return;
+    if (!blockDate) {
+      setBlockError('Data é obrigatória.');
+      return;
+    }
+    if (scope === 'professional' && !selectedProfessionalId) {
+      setBlockError('Selecione um profissional.');
+      return;
+    }
+    const finalAllDay = forceAllDay || allDay;
+    const finalStart = finalAllDay ? '00:00' : blockStart;
+    const finalEnd = finalAllDay ? '23:59' : blockEnd;
+    if (!finalAllDay && finalStart >= finalEnd) {
+      setBlockError('Horário inicial precisa ser menor que o horário final.');
+      return;
+    }
+
+    setSavingBlock(true);
+    setBlockError(null);
+    try {
+      const res = await fetch('/api/unavailability', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId: business.id,
+          scope,
+          professionalId: scope === 'professional' ? selectedProfessionalId : undefined,
+          date: blockDate,
+          startTime: finalStart,
+          endTime: finalEnd,
+          allDay: finalAllDay,
+          reason: blockReason.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao salvar indisponibilidade');
+      }
+      setBlockReason('');
+      await loadUnavailability();
+    } catch (err) {
+      setBlockError(err instanceof Error ? err.message : 'Erro ao salvar indisponibilidade');
+    } finally {
+      setSavingBlock(false);
+    }
+  };
+
+  const handleDeleteUnavailability = async (itemId: string) => {
+    if (!business?.id) return;
+    setBlockError(null);
+    try {
+      const res = await fetch('/api/unavailability', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessId: business.id,
+          scope,
+          professionalId: scope === 'professional' ? selectedProfessionalId : undefined,
+          itemId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao remover indisponibilidade');
+      }
+      await loadUnavailability();
+    } catch (err) {
+      setBlockError(err instanceof Error ? err.message : 'Erro ao remover indisponibilidade');
+    }
   };
 
   if (isLoading) {
@@ -110,11 +259,189 @@ export default function AdminBookingsPage() {
       </div>
 
       {view === 'calendar' ? (
-        <BookingCalendar
-          bookings={filteredBookings}
-          workingHours={business?.settings?.workingHours}
-          onStatusChange={handleStatusChange}
-        />
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setBlocksMonth(calendarMonth);
+                setShowUnavailabilityModal(true);
+              }}
+              className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            >
+              Gerenciar indisponibilidades
+            </button>
+          </div>
+
+          <BookingCalendar
+            bookings={filteredBookings}
+            workingHours={business?.settings?.workingHours}
+            unavailabilityBlocks={items}
+            onMonthChange={(month) => setCalendarMonth(month)}
+            onStatusChange={handleStatusChange}
+          />
+
+          {showUnavailabilityModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+              <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-white p-5 shadow-xl">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-base font-semibold text-neutral-900">
+                      Indisponibilidade (mês específico)
+                    </h3>
+                    <p className="mt-1 text-xs text-neutral-600">
+                      Defina dias e horários em que não haverá atendimento.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowUnavailabilityModal(false)}
+                    className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
+                  >
+                    Fechar
+                  </button>
+                </div>
+
+                <form onSubmit={handleAddUnavailability} className="grid grid-cols-1 gap-3 md:grid-cols-6">
+                  <select
+                    value={scope}
+                    onChange={(e) => setScope(e.target.value as UnavailabilityScope)}
+                    className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  >
+                    <option value="business">Estabelecimento</option>
+                    <option value="professional">Profissional</option>
+                  </select>
+
+                  <select
+                    value={selectedProfessionalId}
+                    onChange={(e) => setSelectedProfessionalId(e.target.value)}
+                    disabled={scope !== 'professional'}
+                    className="rounded-lg border border-neutral-300 px-3 py-2 text-sm disabled:bg-neutral-100"
+                  >
+                    <option value="">Selecione o profissional</option>
+                    {professionals.map((pro) => (
+                      <option key={pro.id} value={pro.id}>
+                        {pro.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <input
+                    type="date"
+                    value={blockDate}
+                    onChange={(e) => setBlockDate(e.target.value)}
+                    className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                    required
+                  />
+                  <input
+                    type="time"
+                    value={blockStart}
+                    onChange={(e) => setBlockStart(e.target.value)}
+                    disabled={allDay}
+                    className="rounded-lg border border-neutral-300 px-3 py-2 text-sm disabled:bg-neutral-100"
+                    required
+                  />
+                  <input
+                    type="time"
+                    value={blockEnd}
+                    onChange={(e) => setBlockEnd(e.target.value)}
+                    disabled={allDay}
+                    className="rounded-lg border border-neutral-300 px-3 py-2 text-sm disabled:bg-neutral-100"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    disabled={savingBlock}
+                    className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                  >
+                    {savingBlock ? 'Salvando...' : 'Adicionar'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={savingBlock || !blockDate}
+                    onClick={() => createUnavailability(true)}
+                    className="rounded-lg border border-rose-300 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                  >
+                    Bloquear dia inteiro
+                  </button>
+
+                  <input
+                    type="text"
+                    value={blockReason}
+                    onChange={(e) => setBlockReason(e.target.value)}
+                    placeholder="Motivo (opcional)"
+                    className="rounded-lg border border-neutral-300 px-3 py-2 text-sm md:col-span-6"
+                  />
+                  <label className="flex items-center gap-2 text-sm text-neutral-700 md:col-span-6">
+                    <input
+                      type="checkbox"
+                      checked={allDay}
+                      onChange={(e) => setAllDay(e.target.checked)}
+                      className="rounded border-neutral-300"
+                    />
+                    Marcar como dia inteiro
+                  </label>
+                </form>
+
+                {blockError && <p className="mt-3 text-sm text-red-600">{blockError}</p>}
+
+                <div className="mt-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-medium text-neutral-600">
+                      Bloqueios do mês {currentMonthLabel}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => navigateMonth(-1)}
+                        className="rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
+                      >
+                        Mês anterior
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => navigateMonth(1)}
+                        className="rounded border border-neutral-300 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-50"
+                      >
+                        Próximo mês
+                      </button>
+                    </div>
+                  </div>
+                  {loadingBlocks ? (
+                    <p className="mt-2 text-sm text-neutral-500">Carregando...</p>
+                  ) : items.length === 0 ? (
+                    <p className="mt-2 text-sm text-neutral-500">Nenhum bloqueio cadastrado.</p>
+                  ) : (
+                    <div className="mt-2 space-y-2">
+                      {items
+                        .slice()
+                        .sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`))
+                        .map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex items-center justify-between rounded border border-neutral-200 px-3 py-2"
+                          >
+                            <div className="text-sm text-neutral-700">
+                              <span className="font-medium">{item.date}</span>{' '}
+                              {item.allDay ? 'Dia inteiro' : `${item.startTime} - ${item.endTime}`}
+                              {item.reason ? ` - ${item.reason}` : ''}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteUnavailability(item.id)}
+                              className="text-xs text-red-600 hover:text-red-700"
+                            >
+                              Remover
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="rounded-lg border border-neutral-200 bg-white">
           <div className="overflow-x-auto">
