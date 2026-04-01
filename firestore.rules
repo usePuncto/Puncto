@@ -127,6 +127,14 @@ service cloud.firestore {
                        isPlatformAdmin();
       }
 
+      // Educação: registros de chamada por turma/aluno/data
+      match /attendanceRollCalls/{recordId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow write: if isBusinessOwner(businessId) ||
+                       hasPermission(businessId, 'manageBookings') ||
+                       isPlatformAdmin();
+      }
+
       // Clinic: anamnese forms and responses (prontuário)
       match /anamnesis_forms/{formId} {
         allow read: if isBusinessStaff(businessId) || isPlatformAdmin();

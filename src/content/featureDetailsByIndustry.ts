@@ -371,7 +371,7 @@ export const featureDetailsByIndustry: Record<
       intro: 'O essencial para começar a organizar matrículas e atendimento pedagógico.',
       features: [
         {
-          title: '📅 Pré-matrículas e Solicitações (Link na Bio)',
+          title: '📅 Agendamento de aulas experimentais',
           description:
             'Centralize pedidos de matrícula e solicitações em um único fluxo. Você cria um link exclusivo para divulgar onde quiser e o aluno escolhe horários/ações disponíveis com agendamento direto. Depois, você confirma a matrícula manualmente para manter o controle.',
         },

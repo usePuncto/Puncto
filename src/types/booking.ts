@@ -60,6 +60,8 @@ export interface Customer {
   lastName: string;
   email?: string;
   phone: string;
+  /** yyyy-MM-dd */
+  birthDate?: string;
   totalBookings: number;
   totalSpent: number;
   lastBookingAt?: Timestamp | Date;

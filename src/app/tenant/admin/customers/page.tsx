@@ -25,6 +25,7 @@ export default function AdminCustomersPage() {
     lastName: '',
     phone: '',
     email: '',
+    birthDate: '',
     notes: '',
   });
   const [error, setError] = useState<string | null>(null);
@@ -119,10 +120,11 @@ export default function AdminCustomersPage() {
         lastName: formData.lastName.trim(),
         phone: formData.phone.trim(),
         email: formData.email.trim() || undefined,
+        birthDate: formData.birthDate || undefined,
         notes: formData.notes.trim() || undefined,
       });
       setShowForm(false);
-      setFormData({ firstName: '', lastName: '', phone: '', email: '', notes: '' });
+      setFormData({ firstName: '', lastName: '', phone: '', email: '', birthDate: '', notes: '' });
     } catch (err: any) {
       setError(err.message || errorCreate);
     }
@@ -267,6 +269,15 @@ export default function AdminCustomersPage() {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                 placeholder="email@exemplo.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Data de nascimento</label>
+              <input
+                type="date"
+                value={formData.birthDate}
+                onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
               />
             </div>
             <div>

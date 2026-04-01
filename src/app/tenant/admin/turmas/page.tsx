@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useCustomers } from '@/lib/queries/customers';
+import { useAttendanceRollCallsRange } from '@/lib/queries/attendance';
 import {
   useTurmas,
   useCreateTurma,
@@ -11,6 +12,7 @@ import {
 } from '@/lib/queries/turmas';
 import type { Turma, TurmaScheduleSlot, TurmaWeekday } from '@/types/turma';
 import type { Customer } from '@/types/booking';
+import type { RollCallStatus } from '@/types/attendance';
 
 const WEEKDAY_OPTIONS: { value: TurmaWeekday; label: string }[] = [
   { value: 1, label: 'Segunda' },
@@ -29,6 +31,11 @@ function customerDisplayName(c: Pick<Customer, 'firstName' | 'lastName'>) {
 function scheduleLabel(slot: TurmaScheduleSlot) {
   const day = WEEKDAY_OPTIONS.find((d) => d.value === slot.weekday)?.label || 'Dia';
   return `${day} • ${slot.startTime} - ${slot.endTime}`;
+}
+
+function pct(part: number, total: number) {
+  if (total <= 0) return '0%';
+  return `${Math.round((part / total) * 100)}%`;
 }
 
 export default function AdminTurmasPage() {
@@ -61,8 +68,192 @@ export default function AdminTurmasPage() {
   const [manageWeekday, setManageWeekday] = useState<TurmaWeekday>(1);
   const [manageStartTime, setManageStartTime] = useState('08:00');
   const [manageEndTime, setManageEndTime] = useState('09:00');
+  const [reportStartDate, setReportStartDate] = useState(
+    new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
+  );
+  const [reportEndDate, setReportEndDate] = useState(new Date().toISOString().slice(0, 10));
+  const [reportGenerated, setReportGenerated] = useState(false);
+  const [reportTurmaFilter, setReportTurmaFilter] = useState<string>('all');
+
+  const { data: attendanceInRange = [], isLoading: loadingAttendanceRange } = useAttendanceRollCallsRange(
+    business?.id ?? '',
+    reportStartDate,
+    reportEndDate,
+    reportGenerated,
+  );
 
   const loading = loadingTurmas || loadingCustomers;
+
+  const reportByTurma = useMemo(() => {
+    const byTurma = new Map<
+      string,
+      {
+        turmaName: string;
+        present: number;
+        absent: number;
+        justified: number;
+        pending: number;
+        total: number;
+        byStudent: Map<
+          string,
+          { name: string; present: number; absent: number; justified: number; pending: number; total: number }
+        >;
+      }
+    >();
+    const customerNameById = new Map(customers.map((c) => [c.id, customerDisplayName(c)]));
+    const turmaNameById = new Map(turmas.map((t) => [t.id, t.name]));
+
+    const addStatus = (
+      target: { present: number; absent: number; justified: number; pending: number; total: number },
+      status: RollCallStatus,
+    ) => {
+      target.total += 1;
+      if (status === 'present') target.present += 1;
+      else if (status === 'absent') target.absent += 1;
+      else if (status === 'justified') target.justified += 1;
+      else target.pending += 1;
+    };
+
+    for (const rec of attendanceInRange) {
+      if (!byTurma.has(rec.turmaId)) {
+        byTurma.set(rec.turmaId, {
+          turmaName: turmaNameById.get(rec.turmaId) || 'Turma',
+          present: 0,
+          absent: 0,
+          justified: 0,
+          pending: 0,
+          total: 0,
+          byStudent: new Map(),
+        });
+      }
+      const group = byTurma.get(rec.turmaId)!;
+      addStatus(group, rec.status);
+
+      if (!group.byStudent.has(rec.studentId)) {
+        group.byStudent.set(rec.studentId, {
+          name: customerNameById.get(rec.studentId) || rec.studentId,
+          present: 0,
+          absent: 0,
+          justified: 0,
+          pending: 0,
+          total: 0,
+        });
+      }
+      addStatus(group.byStudent.get(rec.studentId)!, rec.status);
+    }
+
+    return [...byTurma.entries()].map(([turmaId, value]) => ({
+      turmaId,
+      ...value,
+      students: [...value.byStudent.entries()]
+        .map(([studentId, stats]) => ({ studentId, ...stats }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    }));
+  }, [attendanceInRange, customers, turmas]);
+
+  const filteredReportByTurma = useMemo(() => {
+    if (reportTurmaFilter === 'all') return reportByTurma;
+    return reportByTurma.filter((group) => group.turmaId === reportTurmaFilter);
+  }, [reportByTurma, reportTurmaFilter]);
+
+  const reportGeneral = useMemo(() => {
+    let present = 0;
+    let absent = 0;
+    let justified = 0;
+    let pending = 0;
+    for (const rec of attendanceInRange) {
+      if (rec.status === 'present') present += 1;
+      else if (rec.status === 'absent') absent += 1;
+      else if (rec.status === 'justified') justified += 1;
+      else pending += 1;
+    }
+    const total = present + absent + justified + pending;
+    return { present, absent, justified, pending, total };
+  }, [attendanceInRange]);
+
+  const filteredReportGeneral = useMemo(() => {
+    if (reportTurmaFilter === 'all') return reportGeneral;
+    const group = reportByTurma.find((g) => g.turmaId === reportTurmaFilter);
+    if (!group) return { present: 0, absent: 0, justified: 0, pending: 0, total: 0 };
+    return {
+      present: group.present,
+      absent: group.absent,
+      justified: group.justified,
+      pending: group.pending,
+      total: group.total,
+    };
+  }, [reportByTurma, reportGeneral, reportTurmaFilter]);
+
+  const exportAttendanceCsv = () => {
+    if (!reportGenerated) return;
+
+    const rows: string[][] = [
+      ['Relatorio de Presenca'],
+      ['Periodo', reportStartDate, reportEndDate],
+      ['Turma', reportTurmaFilter === 'all' ? 'Todas' : (turmas.find((t) => t.id === reportTurmaFilter)?.name || 'Turma')],
+      [],
+      ['Resumo Geral'],
+      ['Total', String(filteredReportGeneral.total)],
+      ['Presencas', String(filteredReportGeneral.present), pct(filteredReportGeneral.present, filteredReportGeneral.total)],
+      ['Faltas', String(filteredReportGeneral.absent), pct(filteredReportGeneral.absent, filteredReportGeneral.total)],
+      ['Justificadas', String(filteredReportGeneral.justified), pct(filteredReportGeneral.justified, filteredReportGeneral.total)],
+      ['Pendentes', String(filteredReportGeneral.pending), pct(filteredReportGeneral.pending, filteredReportGeneral.total)],
+      [],
+      ['Detalhe por Turma e Aluno'],
+      ['Turma', 'Aluno', 'Presencas', 'Faltas', 'Justificadas', 'Pendentes', 'Total', 'Taxa'],
+    ];
+
+    for (const group of filteredReportByTurma) {
+      if (group.students.length === 0) {
+        rows.push([
+          group.turmaName,
+          '(sem alunos)',
+          String(group.present),
+          String(group.absent),
+          String(group.justified),
+          String(group.pending),
+          String(group.total),
+          pct(group.present, group.total),
+        ]);
+        continue;
+      }
+
+      for (const student of group.students) {
+        rows.push([
+          group.turmaName,
+          student.name,
+          String(student.present),
+          String(student.absent),
+          String(student.justified),
+          String(student.pending),
+          String(student.total),
+          pct(student.present, student.total),
+        ]);
+      }
+    }
+
+    const escapeCsv = (value: string) => {
+      const normalized = value ?? '';
+      if (normalized.includes('"') || normalized.includes(';') || normalized.includes('\n')) {
+        return `"${normalized.replace(/"/g, '""')}"`;
+      }
+      return normalized;
+    };
+
+    const csv = rows
+      .map((row) => row.map((cell) => escapeCsv(cell)).join(';'))
+      .join('\n');
+
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `relatorio-presenca-${reportStartDate}-a-${reportEndDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -220,6 +411,155 @@ export default function AdminTurmasPage() {
         >
           Nova turma
         </button>
+      </div>
+
+      <div className="mb-8 rounded-xl border border-neutral-200 bg-white p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-neutral-900">Relatório de presença</h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Gere indicadores gerais e por turma/aluno dentro de um período.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="text-xs text-neutral-600">
+              Turma
+              <select
+                value={reportTurmaFilter}
+                onChange={(e) => setReportTurmaFilter(e.target.value)}
+                className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              >
+                <option value="all">Todas as turmas</option>
+                {turmas.map((turma) => (
+                  <option key={turma.id} value={turma.id}>
+                    {turma.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-neutral-600">
+              Início
+              <input
+                type="date"
+                value={reportStartDate}
+                onChange={(e) => setReportStartDate(e.target.value)}
+                className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              />
+            </label>
+            <label className="text-xs text-neutral-600">
+              Fim
+              <input
+                type="date"
+                value={reportEndDate}
+                onChange={(e) => setReportEndDate(e.target.value)}
+                className="mt-1 block rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              />
+            </label>
+            <button
+              type="button"
+              onClick={() => setReportGenerated(true)}
+              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+            >
+              Gerar relatório
+            </button>
+            <button
+              type="button"
+              onClick={exportAttendanceCsv}
+              disabled={!reportGenerated}
+              className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Exportar CSV
+            </button>
+          </div>
+        </div>
+
+        {reportGenerated && (
+          <div className="mt-4 space-y-4">
+            {loadingAttendanceRange ? (
+              <div className="flex h-20 items-center justify-center">
+                <div className="h-6 w-6 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900" />
+              </div>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="rounded-lg border border-neutral-200 p-3">
+                    <p className="text-xs text-neutral-500">Total de registros</p>
+                    <p className="text-xl font-semibold text-neutral-900">{filteredReportGeneral.total}</p>
+                  </div>
+                  <div className="rounded-lg border border-green-200 bg-green-50 p-3">
+                    <p className="text-xs text-green-700">Presenças</p>
+                    <p className="text-xl font-semibold text-green-800">
+                      {filteredReportGeneral.present} ({pct(filteredReportGeneral.present, filteredReportGeneral.total)})
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                    <p className="text-xs text-red-700">Faltas</p>
+                    <p className="text-xl font-semibold text-red-800">
+                      {filteredReportGeneral.absent} ({pct(filteredReportGeneral.absent, filteredReportGeneral.total)})
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                    <p className="text-xs text-blue-700">Justificadas</p>
+                    <p className="text-xl font-semibold text-blue-800">
+                      {filteredReportGeneral.justified} ({pct(filteredReportGeneral.justified, filteredReportGeneral.total)})
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                    <p className="text-xs text-yellow-700">Pendentes</p>
+                    <p className="text-xl font-semibold text-yellow-800">
+                      {filteredReportGeneral.pending} ({pct(filteredReportGeneral.pending, filteredReportGeneral.total)})
+                    </p>
+                  </div>
+                </div>
+
+                {filteredReportByTurma.length === 0 ? (
+                  <p className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-4 text-sm text-neutral-500">
+                    Nenhum registro de chamada no período selecionado.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {filteredReportByTurma.map((group) => (
+                      <div key={group.turmaId} className="rounded-lg border border-neutral-200">
+                        <div className="border-b border-neutral-200 bg-neutral-50 px-4 py-3">
+                          <p className="font-medium text-neutral-900">{group.turmaName}</p>
+                          <p className="text-xs text-neutral-600">
+                            Presença: {group.present}/{group.total} ({pct(group.present, group.total)})
+                          </p>
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="border-b border-neutral-200 bg-white">
+                              <tr>
+                                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-neutral-500">Aluno</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-neutral-500">Presenças</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-neutral-500">Faltas</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-neutral-500">Justificadas</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-neutral-500">Pendentes</th>
+                                <th className="px-4 py-2 text-left text-xs font-medium uppercase text-neutral-500">Taxa</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-neutral-200">
+                              {group.students.map((student) => (
+                                <tr key={student.studentId}>
+                                  <td className="px-4 py-2 text-sm">{student.name}</td>
+                                  <td className="px-4 py-2 text-sm">{student.present}</td>
+                                  <td className="px-4 py-2 text-sm">{student.absent}</td>
+                                  <td className="px-4 py-2 text-sm">{student.justified}</td>
+                                  <td className="px-4 py-2 text-sm">{student.pending}</td>
+                                  <td className="px-4 py-2 text-sm">{pct(student.present, student.total)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {loading ? (

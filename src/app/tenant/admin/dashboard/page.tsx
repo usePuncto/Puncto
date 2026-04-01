@@ -8,6 +8,15 @@ import { useTranslations } from 'next-intl';
 import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { NotificationsPreview } from '@/components/notifications/NotificationsPreview';
+import { format } from 'date-fns';
+
+function isBirthdayToday(birthDate?: string): boolean {
+  if (!birthDate) return false;
+  const dt = new Date(`${birthDate}T00:00:00`);
+  if (Number.isNaN(dt.getTime())) return false;
+  const now = new Date();
+  return dt.getDate() === now.getDate() && dt.getMonth() === now.getMonth();
+}
 
 export default function AdminDashboardPage() {
   const { business } = useBusiness();
@@ -46,6 +55,7 @@ export default function AdminDashboardPage() {
     { label: 'Itens no estoque', value: inventoryCount ?? '—', href: '/tenant/admin/inventory', icon: '📦' },
     { label: 'Ordens de compra', value: purchasesCount ?? '—', href: '/tenant/admin/purchases', icon: '🛒' },
   ];
+  const birthdayStudents = customers.filter((c) => isBirthdayToday(c.birthDate));
 
   return (
     <div>
@@ -71,13 +81,29 @@ export default function AdminDashboardPage() {
           </Link>
         ))}
       </div>
-
+      {/*
       <div className="mt-8 rounded-lg border border-neutral-200 bg-white p-6">
         <h2 className="text-lg font-semibold text-neutral-900 mb-2">Visão geral</h2>
         <p className="text-sm text-neutral-600">
           Use o menu à esquerda para acessar agendamentos, pagamentos, cardápio e outras áreas do seu negócio.
         </p>
       </div>
+      */}
+      {birthdayStudents.length > 0 && (
+        <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-6">
+          <h2 className="text-lg font-semibold text-amber-900">🎂 Aniversariantes de hoje</h2>
+          <p className="mt-1 text-sm text-amber-800">
+            {birthdayStudents.length} aluno{birthdayStudents.length === 1 ? '' : 's'} faz{birthdayStudents.length === 1 ? '' : 'em'} aniversário hoje ({format(new Date(), 'dd/MM')}).
+          </p>
+          <ul className="mt-3 space-y-1 text-sm text-amber-900">
+            {birthdayStudents.slice(0, 10).map((student) => (
+              <li key={student.id}>
+                {student.firstName} {student.lastName}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {business?.id && user?.id && (
         <div className="mt-6">

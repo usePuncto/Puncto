@@ -1,13 +1,17 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useBookings, useUpdateBooking } from '@/lib/queries/bookings';
+import { useCustomers } from '@/lib/queries/customers';
 import { useProfessionals } from '@/lib/queries/professionals';
+import { useAttendanceRollCallsByTurmaDate, useUpsertAttendanceRollCall } from '@/lib/queries/attendance';
+import { useTurmas } from '@/lib/queries/turmas';
 import { BookingCalendar } from '@/components/admin/BookingCalendar';
 import { BookingStatus } from '@/types/booking';
-import { addMonths, format } from 'date-fns';
+import type { RollCallStatus } from '@/types/attendance';
+import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 type UnavailabilityScope = 'business' | 'professional';
@@ -24,7 +28,7 @@ interface UnavailabilityItem {
 export type AdminBookingsVariant = 'default' | 'preEnrollment' | 'rollCall';
 
 interface AdminBookingsViewProps {
-  /** When omitted, uses education → pré-matrículas, otherwise agendamentos. */
+  /** When omitted, uses education → aulas experimentais, otherwise agendamentos. */
   variant?: AdminBookingsVariant;
 }
 
@@ -35,6 +39,7 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
     (business?.industry === 'education' ? 'preEnrollment' : 'default');
 
   const isEducation = business?.industry === 'education';
+  const isPreEnrollment = variant === 'preEnrollment';
 
   const [view, setView] = useState<'calendar' | 'list'>(
     variant === 'rollCall' ? 'list' : 'calendar',
@@ -62,8 +67,38 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
   }
 
   const { data: bookings, isLoading } = useBookings(business?.id ?? '', filters);
+  const { data: customers = [] } = useCustomers(business?.id ?? '');
   const { data: professionals = [] } = useProfessionals(business?.id ?? '', { active: true });
+  const { data: turmas = [] } = useTurmas(business?.id ?? '');
+  const upsertRollCall = useUpsertAttendanceRollCall(business?.id ?? '');
   const updateBooking = useUpdateBooking(business?.id ?? '');
+  const [selectedRollCallDay, setSelectedRollCallDay] = useState<Date | null>(null);
+  const [selectedTurmaId, setSelectedTurmaId] = useState<string>('all');
+  const [selectedRollCallTurmaId, setSelectedRollCallTurmaId] = useState<string | null>(null);
+
+  const selectedTurma = useMemo(
+    () => turmas.find((turma) => turma.id === selectedTurmaId),
+    [turmas, selectedTurmaId],
+  );
+  const selectedRollCallTurma = useMemo(
+    () => turmas.find((turma) => turma.id === selectedRollCallTurmaId) || null,
+    [turmas, selectedRollCallTurmaId],
+  );
+  const selectedTurmaStudentIds = useMemo(
+    () => new Set(selectedTurma?.studentIds || []),
+    [selectedTurma],
+  );
+  const rollCallDate = dateFilter || format(new Date(), 'yyyy-MM-dd');
+  const { data: rollCallRecords = [] } = useAttendanceRollCallsByTurmaDate(
+    business?.id ?? '',
+    selectedRollCallTurma?.id ?? '',
+    rollCallDate,
+  );
+  const rollCallStatusByStudentId = useMemo(() => {
+    const m = new Map<string, RollCallStatus>();
+    for (const rec of rollCallRecords) m.set(rec.studentId, rec.status);
+    return m;
+  }, [rollCallRecords]);
 
   const filteredBookings =
     bookings?.filter((booking) => {
@@ -77,6 +112,13 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
       return true;
     }) || [];
 
+  const filteredBookingsByTurma =
+    variant === 'rollCall' && selectedTurmaId !== 'all'
+      ? filteredBookings.filter((booking) =>
+          booking.customerId ? selectedTurmaStudentIds.has(booking.customerId) : false,
+        )
+      : filteredBookings;
+
   const handleStatusChange = async (bookingId: string, newStatus: BookingStatus) => {
     await updateBooking.mutateAsync({
       bookingId,
@@ -87,6 +129,43 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
   const currentMonth = blocksMonth;
   const monthDate = new Date(`${currentMonth}-01T00:00:00`);
   const currentMonthLabel = format(monthDate, "MMMM 'de' yyyy", { locale: ptBR });
+
+  const rollCallCalendarMonth = new Date(`${calendarMonth}-01T00:00:00`);
+  const rollCallDays = useMemo(() => {
+    const monthStart = startOfMonth(rollCallCalendarMonth);
+    const monthEnd = endOfMonth(rollCallCalendarMonth);
+    return eachDayOfInterval({
+      start: startOfWeek(monthStart, { locale: ptBR }),
+      end: endOfWeek(monthEnd, { locale: ptBR }),
+    });
+  }, [rollCallCalendarMonth]);
+
+  const rollCallEntriesByDate = useMemo(() => {
+    const entries = new Map<string, { turmaId: string; turmaName: string; startTime: string; endTime: string; studentsCount: number }[]>();
+    for (const day of rollCallDays) {
+      if (!isSameMonth(day, rollCallCalendarMonth)) continue;
+      const key = format(day, 'yyyy-MM-dd');
+      const weekday = day.getDay();
+      const dayEntries: { turmaId: string; turmaName: string; startTime: string; endTime: string; studentsCount: number }[] = [];
+      for (const turma of turmas) {
+        if (selectedTurmaId !== 'all' && turma.id !== selectedTurmaId) continue;
+        for (const slot of turma.schedules || []) {
+          if (slot.weekday === weekday) {
+            dayEntries.push({
+              turmaId: turma.id,
+              turmaName: turma.name,
+              startTime: slot.startTime,
+              endTime: slot.endTime,
+              studentsCount: turma.studentIds?.length || 0,
+            });
+          }
+        }
+      }
+      dayEntries.sort((a, b) => a.startTime.localeCompare(b.startTime));
+      entries.set(key, dayEntries);
+    }
+    return entries;
+  }, [rollCallDays, rollCallCalendarMonth, turmas, selectedTurmaId]);
 
   const navigateMonth = (direction: -1 | 1) => {
     const nextMonth = addMonths(monthDate, direction);
@@ -128,6 +207,13 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
     loadUnavailability();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [business?.id, scope, selectedProfessionalId, currentMonth]);
+
+  useEffect(() => {
+    if (variant !== 'rollCall') return;
+    if (selectedRollCallTurmaId) return;
+    if (turmas.length === 0) return;
+    setSelectedRollCallTurmaId(turmas[0]?.id || null);
+  }, [variant, turmas, selectedRollCallTurmaId]);
 
   const handleAddUnavailability = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -210,7 +296,7 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
     variant === 'rollCall'
       ? 'Lista de chamada'
       : variant === 'preEnrollment'
-        ? 'Pré-matrículas'
+        ? 'Aulas experimentais'
         : 'Agendamentos';
 
   const pageSubtitle =
@@ -226,6 +312,24 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
     variant === 'rollCall'
       ? 'Nenhum registro na lista de chamada'
       : 'Nenhum agendamento encontrado';
+
+  const selectedRollCallStudents = useMemo(() => {
+    if (!selectedRollCallTurma) return [];
+    const byId = new Map(customers.map((c) => [c.id, c]));
+    return selectedRollCallTurma.studentIds
+      .map((studentId) => byId.get(studentId))
+      .filter((c): c is NonNullable<typeof c> => !!c);
+  }, [customers, selectedRollCallTurma]);
+
+  const markRollCall = async (studentId: string, status: RollCallStatus) => {
+    if (!selectedRollCallTurma) return;
+    await upsertRollCall.mutateAsync({
+      turmaId: selectedRollCallTurma.id,
+      studentId,
+      date: rollCallDate,
+      status,
+    });
+  };
 
   if (!business?.id || isLoading) {
     return (
@@ -243,7 +347,25 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
           <p className="mt-2 text-neutral-600">{pageSubtitle}</p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-4">
+        {!isPreEnrollment && (
+          <div className="flex flex-wrap items-center gap-4">
+          {variant === 'rollCall' && (
+            <select
+              value={selectedTurmaId}
+              onChange={(e) => {
+                setSelectedTurmaId(e.target.value);
+                setSelectedRollCallDay(null);
+              }}
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            >
+              <option value="all">Todas as turmas</option>
+              {turmas.map((turma) => (
+                <option key={turma.id} value={turma.id}>
+                  {turma.name}
+                </option>
+              ))}
+            </select>
+          )}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as BookingStatus | 'all')}
@@ -295,31 +417,145 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
               Lista
             </button>
           </div>
-        </div>
+          </div>
+        )}
       </div>
 
-      {view === 'calendar' ? (
+      {isPreEnrollment ? (
+        <div className="rounded-lg border border-neutral-200 bg-white p-8 text-center">
+          <p className="text-sm text-neutral-600">
+            A visualização de calendário e lista foi removida desta aba.
+          </p>
+        </div>
+      ) : view === 'calendar' ? (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <button
-              type="button"
-              onClick={() => {
-                setBlocksMonth(calendarMonth);
-                setShowUnavailabilityModal(true);
-              }}
-              className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-            >
-              Gerenciar indisponibilidades
-            </button>
-          </div>
+          {variant === 'rollCall' ? (
+            <div className="rounded-lg border border-neutral-200 bg-white p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const prev = addMonths(rollCallCalendarMonth, -1);
+                    setCalendarMonth(format(prev, 'yyyy-MM'));
+                  }}
+                  className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50"
+                >
+                  ←
+                </button>
+                <h2 className="text-xl font-semibold">
+                  {format(rollCallCalendarMonth, 'MMMM yyyy', { locale: ptBR })}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = addMonths(rollCallCalendarMonth, 1);
+                    setCalendarMonth(format(next, 'yyyy-MM'));
+                  }}
+                  className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50"
+                >
+                  →
+                </button>
+              </div>
 
-          <BookingCalendar
-            bookings={filteredBookings}
-            workingHours={business?.settings?.workingHours}
-            unavailabilityBlocks={items}
-            onMonthChange={(month) => setCalendarMonth(month)}
-            onStatusChange={handleStatusChange}
-          />
+              <div className="grid grid-cols-7 gap-2">
+                {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
+                  <div key={day} className="py-2 text-center text-sm font-medium text-neutral-600">
+                    {day}
+                  </div>
+                ))}
+
+                {rollCallDays.map((day, idx) => {
+                  const dayKey = format(day, 'yyyy-MM-dd');
+                  const dayEntries = rollCallEntriesByDate.get(dayKey) || [];
+                  const isCurrentMonth = isSameMonth(day, rollCallCalendarMonth);
+                  const isSelected = !!selectedRollCallDay && isSameDay(day, selectedRollCallDay);
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => setSelectedRollCallDay(isSelected ? null : day)}
+                      className={`min-h-[110px] cursor-pointer rounded-lg border p-2 transition-colors ${
+                        isSelected
+                          ? 'border-neutral-900 ring-2 ring-neutral-900 ring-offset-1'
+                          : 'border-neutral-200 hover:border-neutral-300'
+                      } ${!isCurrentMonth ? 'bg-neutral-50 opacity-50' : 'bg-white'}`}
+                    >
+                      <div className="mb-1 text-sm font-medium">{format(day, 'd')}</div>
+                      <div className="space-y-1">
+                        {dayEntries.slice(0, 2).map((entry) => (
+                          <div
+                            key={`${entry.turmaId}-${entry.startTime}-${entry.endTime}`}
+                            className="rounded border border-blue-200 bg-blue-50 px-1 py-0.5 text-[10px] text-blue-800"
+                            title={`${entry.turmaName} (${entry.startTime}-${entry.endTime})`}
+                          >
+                            <div className="truncate font-medium">{entry.startTime} {entry.turmaName}</div>
+                          </div>
+                        ))}
+                        {dayEntries.length > 2 && (
+                          <div className="text-xs text-neutral-500">+{dayEntries.length - 2} mais</div>
+                        )}
+                        {dayEntries.length === 0 && isCurrentMonth && (
+                          <div className="text-[10px] text-neutral-400">Sem turma</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {selectedRollCallDay && (
+                <div className="mt-4 rounded-lg border border-neutral-200 p-4">
+                  <h3 className="font-medium text-neutral-900">
+                    Turmas em {format(selectedRollCallDay, "dd/MM/yyyy (EEEE)", { locale: ptBR })}
+                  </h3>
+                  {selectedTurmaId !== 'all' && selectedTurma && (
+                    <p className="mt-1 text-sm text-neutral-600">
+                      Filtro ativo: <span className="font-medium">{selectedTurma.name}</span>
+                    </p>
+                  )}
+                  <div className="mt-2 space-y-2">
+                    {(rollCallEntriesByDate.get(format(selectedRollCallDay, 'yyyy-MM-dd')) || []).length === 0 ? (
+                      <p className="text-sm text-neutral-500">Nenhuma turma neste dia.</p>
+                    ) : (
+                      (rollCallEntriesByDate.get(format(selectedRollCallDay, 'yyyy-MM-dd')) || []).map((entry) => (
+                        <div
+                          key={`detail-${entry.turmaId}-${entry.startTime}-${entry.endTime}`}
+                          className="flex items-center justify-between rounded border border-neutral-200 px-3 py-2 text-sm"
+                        >
+                          <span className="font-medium text-neutral-900">{entry.turmaName}</span>
+                          <span className="text-neutral-600">
+                            {entry.startTime}-{entry.endTime} • {entry.studentsCount} aluno{entry.studentsCount === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBlocksMonth(calendarMonth);
+                    setShowUnavailabilityModal(true);
+                  }}
+                  className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  Gerenciar indisponibilidades
+                </button>
+              </div>
+
+              <BookingCalendar
+                bookings={filteredBookings}
+                workingHours={business?.settings?.workingHours}
+                unavailabilityBlocks={items}
+                onMonthChange={(month) => setCalendarMonth(month)}
+                onStatusChange={handleStatusChange}
+              />
+            </>
+          )}
 
           {showUnavailabilityModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -482,6 +718,104 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
             </div>
           )}
         </div>
+      ) : variant === 'rollCall' ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="rounded-lg border border-neutral-200 bg-white">
+            <div className="border-b border-neutral-200 px-4 py-3">
+              <h3 className="font-medium text-neutral-900">Turmas</h3>
+              <p className="text-xs text-neutral-500">Selecione uma turma para fazer a chamada.</p>
+            </div>
+            <div className="max-h-[65vh] overflow-y-auto p-2">
+              {turmas.length === 0 ? (
+                <p className="p-4 text-sm text-neutral-500">Nenhuma turma cadastrada.</p>
+              ) : (
+                turmas.map((turma) => {
+                  const selected = turma.id === selectedRollCallTurmaId;
+                  return (
+                    <button
+                      key={turma.id}
+                      type="button"
+                      onClick={() => setSelectedRollCallTurmaId(turma.id)}
+                      className={`mb-2 w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                        selected
+                          ? 'border-neutral-900 bg-neutral-900 text-white'
+                          : 'border-neutral-200 hover:bg-neutral-50'
+                      }`}
+                    >
+                      <div className="text-sm font-medium">{turma.name}</div>
+                      <div className={`text-xs ${selected ? 'text-neutral-200' : 'text-neutral-500'}`}>
+                        {turma.studentIds.length} aluno{turma.studentIds.length === 1 ? '' : 's'}
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-neutral-200 bg-white lg:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-200 px-4 py-3">
+              <div>
+                <h3 className="font-medium text-neutral-900">
+                  {selectedRollCallTurma ? `Chamada - ${selectedRollCallTurma.name}` : 'Selecione uma turma'}
+                </h3>
+                <p className="text-xs text-neutral-500">Data da chamada: {format(new Date(`${rollCallDate}T00:00:00`), 'dd/MM/yyyy')}</p>
+              </div>
+            </div>
+
+            {!selectedRollCallTurma ? (
+              <div className="p-8 text-center text-neutral-500">Escolha uma turma para iniciar a chamada.</div>
+            ) : selectedRollCallStudents.length === 0 ? (
+              <div className="p-8 text-center text-neutral-500">
+                Esta turma ainda não possui alunos vinculados.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="border-b border-neutral-200 bg-neutral-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">Aluno</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium uppercase text-neutral-500">Status da chamada</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-200">
+                    {selectedRollCallStudents.map((student) => {
+                      const status = rollCallStatusByStudentId.get(student.id) || 'pending';
+                      const statusButton = (value: RollCallStatus, label: string, activeClass: string) => (
+                        <button
+                          type="button"
+                          onClick={() => markRollCall(student.id, value)}
+                          disabled={upsertRollCall.isPending}
+                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                            status === value ? activeClass : 'border-neutral-300 text-neutral-600 hover:bg-neutral-50'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+
+                      return (
+                        <tr key={student.id}>
+                          <td className="px-4 py-3 text-sm font-medium text-neutral-900">
+                            {student.firstName} {student.lastName}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-2">
+                              {statusButton('present', 'Presente', 'border-green-300 bg-green-100 text-green-800')}
+                              {statusButton('absent', 'Falta', 'border-red-300 bg-red-100 text-red-800')}
+                              {statusButton('justified', 'Justificada', 'border-blue-300 bg-blue-100 text-blue-800')}
+                              {statusButton('pending', 'Pendente', 'border-yellow-300 bg-yellow-100 text-yellow-800')}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
         <div className="rounded-lg border border-neutral-200 bg-white">
           <div className="overflow-x-auto">
@@ -509,7 +843,7 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-200">
-                {filteredBookings.map((booking) => {
+                {filteredBookingsByTurma.map((booking) => {
                   const bookingDate =
                     booking.scheduledDateTime instanceof Date
                       ? booking.scheduledDateTime
@@ -587,7 +921,7 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
                 })}
               </tbody>
             </table>
-            {filteredBookings.length === 0 && (
+            {filteredBookingsByTurma.length === 0 && (
               <div className="p-8 text-center text-neutral-500">{emptyListMessage}</div>
             )}
           </div>
