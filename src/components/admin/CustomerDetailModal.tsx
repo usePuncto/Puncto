@@ -419,9 +419,18 @@ interface CustomerDetailModalProps {
   businessId: string;
   onClose: () => void;
   isClinic?: boolean;
+  /** Educação: textos no singular (aluno) no histórico e mensagens. */
+  isEducation?: boolean;
 }
 
-export function CustomerDetailModal({ customer, businessId, onClose, isClinic = false }: CustomerDetailModalProps) {
+export function CustomerDetailModal({
+  customer,
+  businessId,
+  onClose,
+  isClinic = false,
+  isEducation = false,
+}: CustomerDetailModalProps) {
+  const personLabelSingular = isClinic ? 'paciente' : isEducation ? 'aluno' : 'cliente';
   const { user } = useAuth();
   const { data: allBookings = [] } = useBookings(businessId);
   const updateCustomer = useUpdateCustomer(businessId);
@@ -442,6 +451,7 @@ export function CustomerDetailModal({ customer, businessId, onClose, isClinic = 
     lastName: customer.lastName,
     phone: formatPhoneInput(customer.phone || ''),
     email: customer.email || '',
+    birthDate: customer.birthDate || '',
     notes: customer.notes || '',
   });
   useEffect(() => {
@@ -450,9 +460,10 @@ export function CustomerDetailModal({ customer, businessId, onClose, isClinic = 
       lastName: customer.lastName,
       phone: formatPhoneInput(customer.phone || ''),
       email: customer.email || '',
+      birthDate: customer.birthDate || '',
       notes: customer.notes || '',
     });
-  }, [customer.id, customer.firstName, customer.lastName, customer.phone, customer.email, customer.notes]);
+  }, [customer.id, customer.firstName, customer.lastName, customer.phone, customer.email, customer.birthDate, customer.notes]);
   const [error, setError] = useState<string | null>(null);
 
   const customerPhoneNorm = normalizePhone(customer.phone);
@@ -490,6 +501,7 @@ export function CustomerDetailModal({ customer, businessId, onClose, isClinic = 
           phone: formData.phone.trim(),
           email: formData.email.trim() || undefined,
           notes: formData.notes.trim() || undefined,
+          birthDate: formData.birthDate || undefined,
         },
       });
     } catch (err: any) {
@@ -610,6 +622,15 @@ export function CustomerDetailModal({ customer, businessId, onClose, isClinic = 
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Data de nascimento</label>
+                <input
+                  type="date"
+                  value={formData.birthDate}
+                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1">Observações</label>
                 <textarea
                   value={formData.notes}
@@ -657,7 +678,9 @@ export function CustomerDetailModal({ customer, businessId, onClose, isClinic = 
           {activeTab === 'records' && (
             <div className="space-y-3">
               {customerBookings.length === 0 ? (
-                <p className="text-neutral-500 text-sm">Nenhum agendamento encontrado para este paciente.</p>
+                <p className="text-neutral-500 text-sm">
+                  Nenhum agendamento encontrado para este {personLabelSingular}.
+                </p>
               ) : (
                 <div className="space-y-2">
                   {customerBookings.map((booking) => {

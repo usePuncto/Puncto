@@ -71,11 +71,11 @@ NEXT_PUBLIC_HOTJAR_ID=1234567
 NEXT_PUBLIC_CLARITY_ID=abc123xyz
 ```
 
-### Opcionais - E-mail (SendGrid)
+### Opcionais - E-mail (ZeptoMail)
 ```
-SENDGRID_API_KEY=SG.xxxxx
-SENDGRID_FROM_EMAIL=noreply@puncto.com.br
-SENDGRID_FROM_NAME=Puncto
+ZEPTOMAIL_API_KEY=seu_token_send_mail
+ZEPTOMAIL_FROM_EMAIL=noreply@puncto.com.br
+ZEPTOMAIL_FROM_NAME=Puncto
 ```
 
 ### Opcionais - Tempo Real (Centrifugo)

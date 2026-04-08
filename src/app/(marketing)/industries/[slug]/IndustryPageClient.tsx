@@ -23,6 +23,7 @@ const industryFeatureMap: Record<string, string[]> = {
   corporate: ['scheduling', 'payments', 'crm', 'analytics'],
   health: ['scheduling', 'payments', 'crm', 'analytics'],
   corporativo: ['scheduling', 'payments', 'crm', 'analytics'],
+  education: ['scheduling', 'payments', 'crm', 'analytics'],
 };
 
 const planIds = ['gratis', 'starter', 'growth', 'pro'] as const;

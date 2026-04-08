@@ -27,6 +27,16 @@ service cloud.firestore {
              getUserType() == 'customer';
     }
 
+    function isStudent() {
+      return isAuthenticated() &&
+             getUserType() == 'student';
+    }
+
+    function isStudentOfBusiness(businessId) {
+      return isStudent() &&
+             request.auth.token.studentBusinessId == businessId;
+    }
+
     function isBusinessOwner(businessId) {
       return isBusinessUser() &&
              request.auth.token.businessRoles != null &&
@@ -112,8 +122,32 @@ service cloud.firestore {
 
         // Customer can read their own data
         allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        // Student can read own linked customer profile
+        allow read: if isStudentOfBusiness(businessId) &&
+                      request.auth.token.studentCustomerId == customerId;
 
         // Staff with permission can write
+        allow write: if isBusinessOwner(businessId) ||
+                       hasPermission(businessId, 'manageBookings') ||
+                       isPlatformAdmin();
+      }
+
+      // Educação: turmas e vínculo com alunos (customer IDs)
+      match /turmas/{turmaId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow read: if isStudentOfBusiness(businessId) &&
+                      resource.data.studentIds != null &&
+                      request.auth.token.studentCustomerId in resource.data.studentIds;
+        allow write: if isBusinessOwner(businessId) ||
+                       hasPermission(businessId, 'manageBookings') ||
+                       isPlatformAdmin();
+      }
+
+      // Educação: registros de chamada por turma/aluno/data
+      match /attendanceRollCalls/{recordId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow read: if isStudentOfBusiness(businessId) &&
+                      resource.data.studentId == request.auth.token.studentCustomerId;
         allow write: if isBusinessOwner(businessId) ||
                        hasPermission(businessId, 'manageBookings') ||
                        isPlatformAdmin();
@@ -144,6 +178,8 @@ service cloud.firestore {
 
       match /payments/{paymentId} {
         allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow read: if isStudentOfBusiness(businessId) &&
+                      resource.data.customerId == request.auth.token.studentCustomerId;
         allow write: if isBusinessOwner(businessId) ||
                        hasPermission(businessId, 'manageBookings') ||
                        isPlatformAdmin();
@@ -151,6 +187,17 @@ service cloud.firestore {
 
       match /paymentLinks/{linkId} {
         allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow read: if isStudentOfBusiness(businessId) &&
+                      resource.data.linkedCustomerId == request.auth.token.studentCustomerId;
+        allow write: if isBusinessOwner(businessId) ||
+                       hasPermission(businessId, 'manageBookings') ||
+                       isPlatformAdmin();
+      }
+
+      match /studentSubscriptions/{subscriptionId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow read: if isStudentOfBusiness(businessId) &&
+                      resource.data.customerId == request.auth.token.studentCustomerId;
         allow write: if isBusinessOwner(businessId) ||
                        hasPermission(businessId, 'manageBookings') ||
                        isPlatformAdmin();

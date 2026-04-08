@@ -2,7 +2,7 @@
  * Feature summary per plan, by business type.
  * Used on index and pricing pages to show plan features relevant to each segment.
  */
-export type BusinessTypeKey = 'servicos' | 'comercio' | 'empresas' | 'saude' | 'corporativo';
+export type BusinessTypeKey = 'servicos' | 'comercio' | 'empresas' | 'saude' | 'corporativo' | 'educacao';
 
 export const businessTypeLabels: Record<BusinessTypeKey, string> = {
   servicos: 'Serviços',
@@ -10,6 +10,7 @@ export const businessTypeLabels: Record<BusinessTypeKey, string> = {
   empresas: 'Empresas',
   saude: 'Saúde',
   corporativo: 'Corporativo',
+  educacao: 'Educação',
 };
 
 export const businessTypeOptions: { id: BusinessTypeKey; label: string }[] = [
@@ -18,6 +19,7 @@ export const businessTypeOptions: { id: BusinessTypeKey; label: string }[] = [
   { id: 'empresas', label: 'Indústria' },
   { id: 'saude', label: 'Saúde' },
   { id: 'corporativo', label: 'Corporativo' },
+  { id: 'educacao', label: 'Educação' },
 ];
 
 type PlanId = 'gratis' | 'starter' | 'growth' | 'pro';
@@ -149,6 +151,31 @@ export const planFeaturesByBusinessType: Record<
       'Integração com outras plataformas',
       'Centros de Custo',
       'Gestão de Franquia',
+    ],
+  },
+  educacao: {
+    gratis: [
+      'Agendamentos e solicitações (Link na Bio)',
+      'Cadastro e histórico de alunos',
+    ],
+    starter: [
+      'Tudo do Grátis',
+      'Lembretes automáticos por e-mail + manuais por WhatsApp',
+      'Relatório financeiro',
+    ],
+    growth: [
+      'Tudo do Starter',
+      'Lista de espera',
+      'WhatsApp Automático',
+      'Pagamentos PIX e cartão',
+      'Emissão de NFS-e',
+    ],
+    pro: [
+      'Tudo do Growth',
+      'Rematrícula automática (CRM)',
+      'DRE Gerencial + Metas',
+      'CRM (Retenção e Reengajamento)',
+      'Controle de estoque/insumos completo',
     ],
   },
 };

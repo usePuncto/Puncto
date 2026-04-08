@@ -25,6 +25,7 @@ const INDUSTRY_DISPLAY: Record<string, string> = {
   bakery: 'Padaria',
   event: 'Eventos',
   general: 'Serviços Gerais',
+  education: 'Educação',
 };
 
 function industryDisplayName(industry: string): string {

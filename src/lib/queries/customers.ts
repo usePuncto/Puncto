@@ -53,6 +53,7 @@ export function useCreateCustomer(businessId: string) {
       lastName: string;
       phone: string;
       email?: string;
+      birthDate?: string;
       notes?: string;
     }) => {
       const customersRef = collection(db, 'businesses', businessId, 'customers');
@@ -64,6 +65,7 @@ export function useCreateCustomer(businessId: string) {
         lastName: customerData.lastName.trim(),
         phone: customerData.phone.trim(),
         email: customerData.email?.trim() || '',
+        birthDate: customerData.birthDate || '',
         totalBookings: 0,
         totalSpent: 0,
         consentGiven: true,
@@ -96,8 +98,13 @@ export function useUpdateCustomer(businessId: string) {
       updates: Partial<Customer>;
     }) => {
       const customerRef = doc(db, 'businesses', businessId, 'customers', customerId);
+      // Firestore does not accept `undefined` values in update payloads.
+      const sanitizedUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([, value]) => value !== undefined),
+      );
+
       await updateDoc(customerRef, {
-        ...updates,
+        ...sanitizedUpdates,
         updatedAt: Timestamp.now(),
       });
       return { id: customerId, ...updates };

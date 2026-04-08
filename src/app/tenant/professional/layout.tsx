@@ -30,14 +30,24 @@ function ProfessionalLayoutInner({ children }: { children: ReactNode }) {
     }
   }, [loading, isLoading, role, professionalId, professional, router]);
 
-  const navItems = [
-    { href: '/tenant/professional', label: 'Agenda', icon: '📅' },
-    { href: '/tenant/professional/bookings', label: 'Agendamentos', icon: '📋' },
-    { href: '/tenant/professional/notifications', label: 'Notificações', icon: '🔔' },
-    { href: '/tenant/professional/clients', label: 'Clientes', icon: '👤' },
-    { href: '/tenant/professional/services', label: 'Serviços', icon: '✂️' },
-    { href: '/tenant/professional/working-hours', label: 'Meus horários', icon: '🕐' },
-  ];
+  const isEducation = business?.industry === 'education';
+
+  const navItems = isEducation
+    ? [
+        { href: '/tenant/professional', label: 'Calendário', icon: '📅' },
+        { href: '/tenant/professional/attendance', label: 'Lista de chamada', icon: '📝' },
+        { href: '/tenant/professional/turmas', label: 'Minhas turmas', icon: '🎓' },
+        { href: '/tenant/professional/notifications', label: 'Notificações', icon: '🔔' },
+        { href: '/tenant/professional/clients', label: 'Alunos', icon: '👤' },
+      ]
+    : [
+        { href: '/tenant/professional', label: 'Agenda', icon: '📅' },
+        { href: '/tenant/professional/bookings', label: 'Agendamentos', icon: '📋' },
+        { href: '/tenant/professional/notifications', label: 'Notificações', icon: '🔔' },
+        { href: '/tenant/professional/clients', label: 'Clientes', icon: '👤' },
+        { href: '/tenant/professional/services', label: 'Serviços', icon: '✂️' },
+        { href: '/tenant/professional/working-hours', label: 'Meus horários', icon: '🕐' },
+      ];
 
   if (loading || isLoading) {
     return (
@@ -54,7 +64,9 @@ function ProfessionalLayoutInner({ children }: { children: ReactNode }) {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h1 className="text-lg font-semibold">{business?.displayName}</h1>
-              <p className="text-sm text-neutral-600">Área do profissional</p>
+              <p className="text-sm text-neutral-600">
+                {isEducation ? 'Área do professor' : 'Área do profissional'}
+              </p>
             </div>
             {business?.id && user?.id && (
               <NotificationsBell

@@ -157,9 +157,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate business type (industry) - required for feature access control
-    if (!industry || !['salon', 'clinic', 'restaurant', 'bakery', 'event', 'general'].includes(industry)) {
+    if (!industry || !['salon', 'clinic', 'restaurant', 'bakery', 'event', 'general', 'education'].includes(industry)) {
       return NextResponse.json(
-        { error: 'Valid industry is required. Must be one of: salon, clinic, restaurant, bakery, event, general' },
+        { error: 'Valid industry is required. Must be one of: salon, clinic, restaurant, bakery, event, general, education' },
         { status: 400 }
       );
     }

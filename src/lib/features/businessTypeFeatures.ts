@@ -15,7 +15,8 @@ export type BusinessType =
   | 'restaurant'      // Restaurants, cafes, food service
   | 'bakery'          // Bakeries, confectioneries (custom orders)
   | 'event'           // Event spaces, venues
-  | 'general';        // General service businesses
+  | 'general'         // General service businesses
+  | 'education';      // Education (schools, courses, training)
 
 /**
  * Feature IDs that can be enabled/disabled
@@ -107,6 +108,13 @@ export const INDUSTRY_FEATURE_MAP: Record<BusinessType, FeatureId[]> = {
     'crm',
     'analytics',
   ],
+  education: [
+    // Education uses the same "service/business scheduling + CRM" core as general services.
+    'scheduling',
+    'payments',
+    'crm',
+    'analytics',
+  ],
 };
 
 /**
@@ -143,6 +151,7 @@ export const INDUSTRY_TO_KEY: Record<string, string> = {
   clinic: 'servicos',
   event: 'servicos',
   general: 'servicos',
+  education: 'educacao',
   retail: 'comercio',
   varejo: 'comercio',
   comercio: 'comercio',
@@ -190,6 +199,15 @@ export const FEATURES_BY_PLAN_AND_INDUSTRY: Record<string, Record<string, Featur
     starter: ['analytics', 'crm', 'timeClock'],
     growth: ['analytics', 'crm', 'timeClock', 'payments'],
     pro: ['analytics', 'crm', 'timeClock', 'payments', 'costCalculation'],
+    enterprise: [...ALL_FEATURE_IDS],
+  },
+  educacao: {
+    // Por padrão, segue a lógica de "serviços".
+    // No plano Pro, liberamos todas as features que aparecem no admin dashboard.
+    gratis: ['scheduling', 'crm'],
+    starter: ['scheduling', 'payments', 'crm', 'analytics'],
+    growth: ['scheduling', 'payments', 'crm', 'analytics', 'campaigns', 'loyaltyPrograms', 'customerSegmentation'],
+    pro: [...ALL_FEATURE_IDS],
     enterprise: [...ALL_FEATURE_IDS],
   },
 };
@@ -286,6 +304,7 @@ export function getBusinessTypeLabel(type: string): string {
     bakery: 'Padaria',
     event: 'Eventos',
     general: 'Serviços Gerais',
+    education: 'Educação',
   };
   return labels[type as BusinessType] || type;
 }
@@ -294,5 +313,5 @@ export function getBusinessTypeLabel(type: string): string {
  * Check if a business type is valid
  */
 export function isValidBusinessType(type: string): type is BusinessType {
-  return ['salon', 'clinic', 'restaurant', 'bakery', 'event', 'general'].includes(type);
+  return ['salon', 'clinic', 'restaurant', 'bakery', 'event', 'general', 'education'].includes(type);
 }

@@ -163,6 +163,7 @@ export default function PlatformBusinessesPage() {
               <option value="bakery">Padaria</option>
               <option value="event">Eventos</option>
               <option value="general">Geral</option>
+              <option value="education">Educação</option>
             </select>
           </div>
 

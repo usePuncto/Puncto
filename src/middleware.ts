@@ -19,6 +19,7 @@ export async function middleware(request: NextRequest) {
   // Extract subdomain and isGestaoApp (handle localhost, ngrok, and production)
   let subdomain = '';
   let isGestaoApp = false;
+  let isAlunosApp = false;
 
   if (useQuerySubdomain) {
     // Local development: ?subdomain=primazia or ?subdomain=salaodamaria&app=gestao
@@ -35,6 +36,9 @@ export async function middleware(request: NextRequest) {
     } else if (parts.length >= 4 && parts[1] === 'gestao') {
       subdomain = parts[0];
       isGestaoApp = true;
+    } else if (parts.length >= 4 && parts[1] === 'alunos') {
+      subdomain = parts[0];
+      isAlunosApp = true;
     } else if (parts.length >= 3) {
       subdomain = parts[0];
     }
@@ -114,13 +118,20 @@ export async function middleware(request: NextRequest) {
     );
   }
 
-  // On localhost/ngrok: redirect to set cookie for subdomain (preserve query params)
+  // On localhost/ngrok: sync ?subdomain= into x-business-slug once. Never 302 to the same URL with the
+  // same query — that caused ERR_TOO_MANY_REDIRECTS. If cookie already matches the query, continue.
   if (useQuerySubdomain && url.searchParams.has('subdomain') && (url.pathname === '/' || url.pathname.startsWith('/tenant'))) {
-    const basePath = url.pathname === '/' ? (isGestaoApp ? '/tenant/admin' : '/tenant') : url.pathname;
-    const target = basePath + (url.search || '');
-    const res = NextResponse.redirect(new URL(target, request.url));
-    res.cookies.set('x-business-slug', subdomain, { path: '/', httpOnly: false, sameSite: 'lax', maxAge: 60 * 60 });
-    return res;
+    const querySubdomain = url.searchParams.get('subdomain') ?? '';
+    const cookieSlug = request.cookies.get('x-business-slug')?.value;
+    if (cookieSlug !== querySubdomain) {
+      const basePath = url.pathname === '/' ? (isGestaoApp ? '/tenant/admin' : '/tenant') : url.pathname;
+      const targetUrl = new URL(request.url);
+      targetUrl.pathname = basePath;
+      targetUrl.searchParams.delete('subdomain');
+      const res = NextResponse.redirect(targetUrl);
+      res.cookies.set('x-business-slug', querySubdomain, { path: '/', httpOnly: false, sameSite: 'lax', maxAge: 60 * 60 });
+      return res;
+    }
   }
 
   const requestHeaders = new Headers(request.headers);
@@ -144,7 +155,7 @@ export async function middleware(request: NextRequest) {
     if (hasAuthCookie && customClaims) {
       const hasAccess = hasBusinessAccess(customClaims, subdomain);
       if (!hasAccess) {
-        if (customClaims.userType === 'customer') {
+        if (customClaims.userType === 'customer' || customClaims.userType === 'student') {
           return NextResponse.redirect(new URL('/unauthorized?reason=business_admin_required', request.url));
         }
         if (customClaims.userType === 'business_user' && customClaims.primaryBusinessId) {
@@ -176,6 +187,49 @@ export async function middleware(request: NextRequest) {
     return gestaoResponse;
   }
 
+  // Student app (.alunos): force login/portal routes with tenant context from host slug.
+  if (isAlunosApp) {
+    const studentHeaders = new Headers(request.headers);
+    studentHeaders.set('x-business-slug', subdomain);
+    studentHeaders.set('x-middleware-request-url', request.url);
+
+    const studentAuthPath = '/auth/student/login';
+    const studentHomePath = '/tenant/student';
+
+    if (!hasAuthCookie && !url.pathname.startsWith('/auth/')) {
+      const loginUrl = new URL(studentAuthPath, request.url);
+      loginUrl.searchParams.set('returnUrl', url.pathname === '/' ? studentHomePath : url.pathname + url.search);
+      const res = NextResponse.redirect(loginUrl);
+      res.cookies.set('x-business-slug', subdomain, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 });
+      return res;
+    }
+
+    if (hasAuthCookie && customClaims && customClaims.userType !== 'student' && !url.pathname.startsWith('/auth/')) {
+      return NextResponse.redirect(new URL('/unauthorized?reason=student_required', request.url));
+    }
+
+    if (url.pathname === '/' || url.pathname === '/tenant') {
+      const res = NextResponse.redirect(new URL(studentHomePath, request.url));
+      res.cookies.set('x-business-slug', subdomain, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 });
+      return res;
+    }
+
+    // Keep auth pages and student portal accessible; redirect everything else to student home.
+    if (
+      !url.pathname.startsWith('/auth/student') &&
+      !url.pathname.startsWith('/tenant/student') &&
+      !url.pathname.startsWith('/api')
+    ) {
+      const res = NextResponse.redirect(new URL(studentHomePath, request.url));
+      res.cookies.set('x-business-slug', subdomain, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 });
+      return res;
+    }
+
+    const res = NextResponse.next({ request: { headers: studentHeaders } });
+    res.cookies.set('x-business-slug', subdomain, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 });
+    return res;
+  }
+
   // Protected customer account routes
   const isProtectedCustomerRoute =
     url.pathname.startsWith('/tenant/my-bookings') ||
@@ -191,6 +245,20 @@ export async function middleware(request: NextRequest) {
     if (hasAuthCookie && (!customClaims || customClaims.userType !== 'customer')) {
       return NextResponse.redirect(
         new URL(`/auth/customer/login?returnUrl=${encodeURIComponent(url.pathname + url.search)}`, request.url)
+      );
+    }
+  }
+
+  const isProtectedStudentRoute = url.pathname.startsWith('/tenant/student');
+  if (isProtectedStudentRoute) {
+    if (!hasAuthCookie) {
+      return NextResponse.redirect(
+        new URL(`/auth/student/login?returnUrl=${encodeURIComponent(url.pathname + url.search)}`, request.url)
+      );
+    }
+    if (hasAuthCookie && (!customClaims || customClaims.userType !== 'student')) {
+      return NextResponse.redirect(
+        new URL(`/auth/student/login?returnUrl=${encodeURIComponent(url.pathname + url.search)}`, request.url)
       );
     }
   }

@@ -17,11 +17,16 @@ export function usePaymentLinks(businessId: string) {
           id: doc.id,
           ...data,
           createdAt: data.createdAt?.toDate?.() || data.createdAt,
+          updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
           expiresAt: data.expiresAt?.toDate?.() || data.expiresAt,
+          paidAt: data.paidAt?.toDate?.() || data.paidAt,
+          cancelledAt: data.cancelledAt?.toDate?.() || data.cancelledAt,
         } as PaymentLink;
       });
     },
     enabled: !!businessId,
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
   });
 }
 

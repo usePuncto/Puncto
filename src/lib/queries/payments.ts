@@ -42,10 +42,19 @@ export function usePayments(businessId: string) {
       const snapshot = await getDocs(q);
       return snapshot.docs.map((doc) => {
         const data = doc.data() as Record<string, any>;
-        return { id: doc.id, ...data } as Payment;
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.() || data.createdAt,
+          updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
+          succeededAt: data.succeededAt?.toDate?.() || data.succeededAt,
+          failedAt: data.failedAt?.toDate?.() || data.failedAt,
+        } as Payment;
       });
     },
     enabled: !!businessId,
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
   });
 }
 

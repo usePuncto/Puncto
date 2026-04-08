@@ -112,13 +112,17 @@ export async function POST(request: NextRequest) {
       itemId: movement.itemId,
       type: movement.type,
       quantity: movement.quantity,
-      unitCost: movement.unitCost ? Math.round(movement.unitCost * 100) : undefined,
-      reason: movement.reason,
-      purchaseOrderId: movement.purchaseOrderId,
-      orderId: movement.orderId,
       createdBy: movement.createdBy || 'system',
       createdAt: new Date(),
     };
+
+    // Firestore does not accept undefined values in document fields.
+    if (typeof movement.unitCost === 'number') {
+      movementData.unitCost = Math.round(movement.unitCost * 100);
+    }
+    if (movement.reason) movementData.reason = movement.reason;
+    if (movement.purchaseOrderId) movementData.purchaseOrderId = movement.purchaseOrderId;
+    if (movement.orderId) movementData.orderId = movement.orderId;
 
     const movementRef = await movementsRef.add(movementData);
 

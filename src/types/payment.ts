@@ -11,6 +11,8 @@ export interface Payment {
   businessId: string;
   bookingId?: string; // Link to booking if payment is for booking
   paymentLinkId?: string; // Link to payment link if created via Virtual POS
+  /** Stripe Payment Link id (e.g. pl_...) when checkout came from a Payment Link */
+  stripePaymentLinkStripeId?: string;
   customerId?: string;
   customerEmail?: string;
   customerName?: string;
@@ -19,6 +21,8 @@ export interface Payment {
   status: PaymentStatus;
   paymentMethod: PaymentMethod;
   stripePaymentIntentId?: string;
+  stripeInvoiceId?: string;
+  stripeSubscriptionId?: string;
   stripeChargeId?: string;
   stripeCheckoutSessionId?: string;
   metadata?: Record<string, string>;
@@ -60,6 +64,15 @@ export interface PaymentLink {
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
   expiresAt?: Timestamp | Date;
+  /** First successful payment (webhook) */
+  paidAt?: Timestamp | Date;
+  /** Firestore payment doc id from last checkout */
+  lastPaymentId?: string;
+  paymentCount?: number;
+  /** Manual cancel timestamp */
+  cancelledAt?: Timestamp | Date;
+  /** Linked business customer (aluno) */
+  linkedCustomerId?: string;
 }
 
 export interface Commission {

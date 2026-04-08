@@ -54,8 +54,8 @@ module.exports = {
   additionalPaths: async (config) => {
     const paths = [];
     
-    // Add industry pages
-    const industries = ['salons', 'restaurants', 'clinics', 'bakeries', 'events'];
+    // Add industry pages (must match `src/content/industries.ts` slugs)
+    const industries = ['servicos', 'varejo', 'empresas', 'saude', 'corporativo', 'educacao'];
     industries.forEach((industry) => {
       paths.push({
         loc: `/industries/${industry}`,

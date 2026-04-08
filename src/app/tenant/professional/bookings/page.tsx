@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useProfessional } from '@/lib/contexts/ProfessionalContext';
 import { useBookings, useUpdateBooking } from '@/lib/queries/bookings';
@@ -10,8 +11,15 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function ProfessionalBookingsPage() {
+  const router = useRouter();
   const { business } = useBusiness();
   const { professional } = useProfessional();
+
+  useEffect(() => {
+    if (business?.industry === 'education') {
+      router.replace('/tenant/professional');
+    }
+  }, [business?.industry, router]);
   const [view, setView] = useState<'calendar' | 'list'>('calendar');
   const [statusFilter, setStatusFilter] = useState<BookingStatus | 'all'>('all');
   const [dateFilter, setDateFilter] = useState<string>('');
@@ -46,6 +54,14 @@ export default function ProfessionalBookingsPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-neutral-500">Carregando...</p>
+      </div>
+    );
+  }
+
+  if (business?.industry === 'education') {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900" />
       </div>
     );
   }

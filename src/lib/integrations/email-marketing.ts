@@ -2,7 +2,7 @@
  * Email Marketing Integration Layer
  * 
  * This module provides an abstraction layer for email marketing platforms.
- * Currently supports: Mailchimp, SendGrid, Resend
+ * Currently supports: Mailchimp, ZeptoMail, Resend
  * 
  * To use a specific platform, set the EMAIL_MARKETING_PROVIDER environment variable
  * and provide the necessary API keys.
@@ -128,9 +128,9 @@ class MailchimpProvider implements EmailMarketingProvider {
   }
 }
 
-// SendGrid implementation stub
-class SendGridProvider implements EmailMarketingProvider {
-  name = 'SendGrid';
+// ZeptoMail implementation stub
+class ZeptoMailProvider implements EmailMarketingProvider {
+  name = 'ZeptoMail';
   private apiKey: string;
 
   constructor(apiKey: string) {
@@ -138,23 +138,23 @@ class SendGridProvider implements EmailMarketingProvider {
   }
 
   async addSubscriber(listId: string, subscriber: Subscriber): Promise<void> {
-    console.log('[SendGrid] Adding subscriber:', subscriber.email, 'to list:', listId);
+    console.log('[ZeptoMail] Adding subscriber:', subscriber.email, 'to list:', listId);
   }
 
   async removeSubscriber(listId: string, email: string): Promise<void> {
-    console.log('[SendGrid] Removing subscriber:', email, 'from list:', listId);
+    console.log('[ZeptoMail] Removing subscriber:', email, 'from list:', listId);
   }
 
   async updateSubscriber(listId: string, email: string, data: Partial<Subscriber>): Promise<void> {
-    console.log('[SendGrid] Updating subscriber:', email, data);
+    console.log('[ZeptoMail] Updating subscriber:', email, data);
   }
 
   async addTag(email: string, tag: string): Promise<void> {
-    console.log('[SendGrid] Adding tag:', tag, 'to:', email);
+    console.log('[ZeptoMail] Adding tag:', tag, 'to:', email);
   }
 
   async removeTag(email: string, tag: string): Promise<void> {
-    console.log('[SendGrid] Removing tag:', tag, 'from:', email);
+    console.log('[ZeptoMail] Removing tag:', tag, 'from:', email);
   }
 
   async sendTransactionalEmail(
@@ -162,9 +162,9 @@ class SendGridProvider implements EmailMarketingProvider {
     templateId: string,
     data: Record<string, unknown>
   ): Promise<void> {
-    console.log('[SendGrid] Sending transactional email:', to, templateId);
-    // TODO: Implement SendGrid API call
-    // const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    console.log('[ZeptoMail] Sending transactional email:', to, templateId);
+    // TODO: Implement ZeptoMail API call
+    // const response = await fetch('https://api.zeptomail.com/v1.1/email', {
     //   method: 'POST',
     //   headers: {
     //     'Authorization': `Bearer ${this.apiKey}`,
@@ -179,12 +179,12 @@ class SendGridProvider implements EmailMarketingProvider {
   }
 
   async createCampaign(campaign: EmailCampaign): Promise<EmailCampaign> {
-    console.log('[SendGrid] Creating campaign:', campaign.name);
-    return { ...campaign, id: `sg_campaign_${Date.now()}` };
+    console.log('[ZeptoMail] Creating campaign:', campaign.name);
+    return { ...campaign, id: `zepto_campaign_${Date.now()}` };
   }
 
   async sendCampaign(campaignId: string): Promise<void> {
-    console.log('[SendGrid] Sending campaign:', campaignId);
+    console.log('[ZeptoMail] Sending campaign:', campaignId);
   }
 }
 
@@ -290,13 +290,13 @@ function getEmailMarketingProvider(): EmailMarketingProvider {
       }
       return new MailchimpProvider(mailchimpKey);
       
-    case 'sendgrid':
-      const sendgridKey = process.env.SENDGRID_API_KEY;
-      if (!sendgridKey) {
-        console.warn('SENDGRID_API_KEY not configured');
+    case 'zeptomail':
+      const zeptomailKey = process.env.ZEPTOMAIL_API_KEY;
+      if (!zeptomailKey) {
+        console.warn('ZEPTOMAIL_API_KEY not configured');
         return new NullProvider();
       }
-      return new SendGridProvider(sendgridKey);
+      return new ZeptoMailProvider(zeptomailKey);
       
     case 'resend':
       const resendKey = process.env.RESEND_API_KEY;

@@ -247,7 +247,7 @@ export default function FeaturesPage() {
               { name: 'PIX', category: 'Pagamentos' },
               { name: 'iFood', category: 'Delivery' },
               { name: 'TecnoSpeed', category: 'Fiscal' },
-              { name: 'Mailgun', category: 'Email' },
+              { name: 'ZeptoMail', category: 'Email' },
               { name: 'Twilio', category: 'SMS' },
               { name: 'Firebase', category: 'Infraestrutura' },
               { name: 'Sentry', category: 'Monitoramento' },

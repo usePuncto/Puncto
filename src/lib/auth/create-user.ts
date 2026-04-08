@@ -46,6 +46,8 @@ export async function createUser(params: CreateUserParams) {
       delete claims.businessRoles;
       delete claims.primaryBusinessId;
       delete claims.customerId;
+      delete claims.studentBusinessId;
+      delete claims.studentCustomerId;
     } else if (userType === 'business_user') {
       claims.businessRoles = customClaims.businessRoles || {};
       claims.primaryBusinessId = customClaims.primaryBusinessId;
@@ -54,6 +56,8 @@ export async function createUser(params: CreateUserParams) {
       delete claims.platformAdmin;
       delete claims.platformRole;
       delete claims.customerId;
+      delete claims.studentBusinessId;
+      delete claims.studentCustomerId;
     } else if (userType === 'customer') {
       claims.customerId = userRecord.uid;
       // Remove platform and business claims
@@ -61,6 +65,16 @@ export async function createUser(params: CreateUserParams) {
       delete claims.platformRole;
       delete claims.businessRoles;
       delete claims.primaryBusinessId;
+      delete claims.studentBusinessId;
+      delete claims.studentCustomerId;
+    } else if (userType === 'student') {
+      claims.studentBusinessId = customClaims.studentBusinessId;
+      claims.studentCustomerId = customClaims.studentCustomerId;
+      delete claims.platformAdmin;
+      delete claims.platformRole;
+      delete claims.businessRoles;
+      delete claims.primaryBusinessId;
+      delete claims.customerId;
     }
 
     await auth.setCustomUserClaims(userRecord.uid, claims);
@@ -95,6 +109,10 @@ export async function createUser(params: CreateUserParams) {
 
     if (userType === 'customer') {
       (userData as any).loyaltyPoints = 0;
+    }
+    if (userType === 'student') {
+      (userData as any).studentBusinessId = customClaims.studentBusinessId;
+      (userData as any).studentCustomerId = customClaims.studentCustomerId;
     }
 
     await userDocRef.set(userData);

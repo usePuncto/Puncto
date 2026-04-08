@@ -26,6 +26,7 @@ const businessTypeToIndustrySlug: Record<BusinessTypeKey, string> = {
   empresas: 'empresas',
   saude: 'saude',
   corporativo: 'corporativo',
+  educacao: 'educacao',
 };
 
 export default function HomePage() {

@@ -9,6 +9,16 @@ function stripUndefined<T extends Record<string, any>>(obj: T) {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
 }
 
+function parseExpiresAtInput(value: unknown): Date | undefined {
+  if (!value) return undefined;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? undefined : value;
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+  return undefined;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: CreatePaymentLinkParams & { generateQR?: boolean } = await request.json();
@@ -23,6 +33,7 @@ export async function POST(request: NextRequest) {
       expiresAt,
       generateQR = true,
     } = body;
+    const parsedExpiresAt = parseExpiresAtInput(expiresAt);
 
     if (!businessId || !name || !amount || !currency) {
       return NextResponse.json(
@@ -37,6 +48,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Business not found' },
         { status: 404 }
+      );
+    }
+    const businessData = businessDoc.data() as { stripeConnectAccountId?: string } | undefined;
+    const stripeAccount = businessData?.stripeConnectAccountId;
+    if (!stripeAccount) {
+      return NextResponse.json(
+        { error: 'Conecte a conta Stripe do negocio antes de criar links.' },
+        { status: 400 }
       );
     }
 
@@ -61,9 +80,15 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    if (expiresAt) {
-      paymentLinkParams.expires_at = Math.floor(expiresAt.getTime() / 1000);
+    if (expiresAt && !parsedExpiresAt) {
+      return NextResponse.json(
+        { error: 'Invalid expiresAt. Use a valid date string, timestamp, or Date.' },
+        { status: 400 }
+      );
     }
+
+    // Stripe Payment Links (API 2025-12-15) does not accept expires_at.
+    // We keep expiration as internal metadata in Firestore and enforce it in the app.
 
     // Pix precisa estar habilitado na conta Stripe.
     // Em desenvolvimento/teste pode não estar, então fazemos fallback automático.
@@ -75,18 +100,31 @@ export async function POST(request: NextRequest) {
 
     let paymentLink: any;
     try {
-      paymentLink = await stripe.paymentLinks.create(paymentLinkParams);
+      paymentLink = await stripe.paymentLinks.create(paymentLinkParams, { stripeAccount });
     } catch (err: any) {
       const message = typeof err?.message === 'string' ? err.message : '';
       // Fallback: retry without pix if Stripe says pix is invalid/unavailable.
       if (message.toLowerCase().includes('pix') && message.toLowerCase().includes('invalid')) {
         console.warn('[create-payment-link] Pix not enabled/available; retrying with card only.');
         paymentLinkParams.payment_method_types = ['card'];
-        paymentLink = await stripe.paymentLinks.create(paymentLinkParams);
+        paymentLink = await stripe.paymentLinks.create(paymentLinkParams, { stripeAccount });
       } else {
         throw err;
       }
     }
+
+    // Ensure PaymentIntent metadata includes pl_ id so webhooks can mark this Firestore link as paid.
+    await stripe.paymentLinks.update(
+      paymentLink.id,
+      {
+        metadata: {
+          ...metadata,
+          businessId,
+          stripePaymentLinkStripeId: paymentLink.id,
+        },
+      },
+      { stripeAccount }
+    );
 
     // Generate QR code if requested
     let qrCodeUrl: string | undefined;
@@ -108,7 +146,7 @@ export async function POST(request: NextRequest) {
       metadata,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
-      expiresAt: expiresAt ? Timestamp.fromDate(expiresAt) : undefined,
+      expiresAt: parsedExpiresAt ? Timestamp.fromDate(parsedExpiresAt) : undefined,
     });
 
     const paymentLinksRef = db

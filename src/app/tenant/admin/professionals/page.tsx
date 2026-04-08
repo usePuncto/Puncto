@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -11,7 +11,9 @@ import {
   useUpdateProfessional,
   useDeleteProfessional,
 } from '@/lib/queries/professionals';
+import { useTurmas } from '@/lib/queries/turmas';
 import { Professional } from '@/types/business';
+import type { Turma } from '@/types/turma';
 
 const initialFormData = {
   name: '',
@@ -22,13 +24,16 @@ const initialFormData = {
   avatarUrl: '',
   canBookOnline: true,
   active: true,
+  accessRole: 'professional' as 'professional' | 'manager',
 };
 
 export default function AdminProfessionalsPage() {
-  const { user } = useAuth();
+  const { user, getBusinessRole } = useAuth();
   const { business } = useBusiness();
+  const isEducation = business?.industry === 'education';
   const queryClient = useQueryClient();
   const { data: professionals, isLoading } = useProfessionals(business.id);
+  const { data: turmas = [] } = useTurmas(isEducation ? business.id : '');
   const createProfessional = useCreateProfessional(business.id);
   const updateProfessional = useUpdateProfessional(business.id);
   const deleteProfessional = useDeleteProfessional(business.id);
@@ -42,6 +47,18 @@ export default function AdminProfessionalsPage() {
   const [invitingId, setInvitingId] = useState<string | null>(null);
   const [invitedId, setInvitedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const isCurrentUserOwner = getBusinessRole(business.id) === 'owner';
+
+  const turmasByProfessionalId = useMemo(() => {
+    const m = new Map<string, Turma[]>();
+    for (const t of turmas) {
+      if (!t.professionalId) continue;
+      const list = m.get(t.professionalId) || [];
+      list.push(t);
+      m.set(t.professionalId, list);
+    }
+    return m;
+  }, [turmas]);
 
   const isOwnerProfessional = (pro: Professional) =>
     (pro as Professional & { isOwner?: boolean }).isOwner ||
@@ -50,7 +67,12 @@ export default function AdminProfessionalsPage() {
 
   const handleDelete = async (pro: Professional) => {
     if (isOwnerProfessional(pro)) return;
-    if (!confirm(`Excluir ${pro.name}? Esta ação não pode ser desfeita.`)) return;
+    if (
+      !confirm(
+        `Excluir ${pro.name}? ${isEducation ? 'Remova o vínculo nas turmas antes, se houver. ' : ''}Esta ação não pode ser desfeita.`,
+      )
+    )
+      return;
     setDeletingId(pro.id);
     try {
       await deleteProfessional.mutateAsync(pro.id);
@@ -63,7 +85,7 @@ export default function AdminProfessionalsPage() {
 
   const handleInvite = async (pro: Professional) => {
     if (!pro.email?.trim()) {
-      alert('Adicione um e-mail ao profissional antes de convidar.');
+      alert(`Adicione um e-mail ao ${isEducation ? 'professor' : 'profissional'} antes de convidar.`);
       return;
     }
     setInvitingId(pro.id);
@@ -124,6 +146,7 @@ export default function AdminProfessionalsPage() {
       setError('Nome é obrigatório');
       return;
     }
+    const canBookOnline = isEducation ? false : formData.canBookOnline;
     try {
       if (editingProfessional) {
         await updateProfessional.mutateAsync({
@@ -139,7 +162,8 @@ export default function AdminProfessionalsPage() {
               .map((s) => s.trim())
               .filter(Boolean),
             active: formData.active,
-            canBookOnline: formData.canBookOnline,
+            canBookOnline,
+            accessRole: formData.accessRole,
           },
         });
       } else {
@@ -155,14 +179,19 @@ export default function AdminProfessionalsPage() {
             .filter(Boolean),
           locationIds: [],
           active: formData.active,
-          canBookOnline: formData.canBookOnline,
+          canBookOnline,
+          accessRole: formData.accessRole,
         });
       }
       setShowForm(false);
       setEditingProfessional(null);
       setFormData(initialFormData);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erro ao salvar profissional');
+      setError(
+        err instanceof Error
+          ? err.message
+          : `Erro ao salvar ${isEducation ? 'professor' : 'profissional'}`,
+      );
     }
   };
 
@@ -177,6 +206,7 @@ export default function AdminProfessionalsPage() {
       avatarUrl: professional.avatarUrl || '',
       canBookOnline: professional.canBookOnline ?? true,
       active: professional.active ?? true,
+      accessRole: professional.accessRole === 'manager' ? 'manager' : 'professional',
     });
     setShowForm(true);
   };
@@ -201,19 +231,26 @@ export default function AdminProfessionalsPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-neutral-900">Profissionais</h1>
-          <p className="text-neutral-600 mt-2">Gerencie sua equipe</p>
+          <h1 className="text-3xl font-bold text-neutral-900">
+            {isEducation ? 'Professores' : 'Profissionais'}
+          </h1>
+          <p className="text-neutral-600 mt-2">
+            {isEducation ? 'Cadastre professores e vincule-os às turmas' : 'Gerencie sua equipe'}
+          </p>
         </div>
         {!showForm && (
           <button
             onClick={() => {
               setEditingProfessional(null);
-              setFormData(initialFormData);
+              setFormData({
+                ...initialFormData,
+                canBookOnline: isEducation ? false : initialFormData.canBookOnline,
+              });
               setShowForm(true);
             }}
             className="rounded-xl bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
           >
-            Cadastrar profissional
+            {isEducation ? 'Cadastrar professor' : 'Cadastrar profissional'}
           </button>
         )}
       </div>
@@ -221,7 +258,13 @@ export default function AdminProfessionalsPage() {
       {showForm && (
         <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-6">
           <h2 className="text-lg font-semibold text-neutral-900 mb-4">
-            {editingProfessional ? 'Editar profissional' : 'Novo profissional'}
+            {editingProfessional
+              ? isEducation
+                ? 'Editar professor'
+                : 'Editar profissional'
+              : isEducation
+                ? 'Novo professor'
+                : 'Novo profissional'}
           </h2>
           <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
             <div>
@@ -296,17 +339,22 @@ export default function AdminProfessionalsPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">
-                Especialidades
+                {isEducation ? 'Disciplinas ou áreas (opcional)' : 'Especialidades'}
               </label>
               <input
                 type="text"
                 value={formData.specialties}
                 onChange={(e) => setFormData({ ...formData, specialties: e.target.value })}
                 className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
-                placeholder="Corte, Barba, Coloração (separadas por vírgula)"
+                placeholder={
+                  isEducation
+                    ? 'Ex.: Inglês, reforço de matemática (separadas por vírgula)'
+                    : 'Corte, Barba, Coloração (separadas por vírgula)'
+                }
               />
             </div>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
+              {!isEducation && (
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -320,6 +368,7 @@ export default function AdminProfessionalsPage() {
                   Pode receber agendamentos online
                 </span>
               </label>
+              )}
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -330,6 +379,24 @@ export default function AdminProfessionalsPage() {
                 <span className="text-sm text-neutral-700">Ativo</span>
               </label>
             </div>
+            {isCurrentUserOwner && (
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Cargo de acesso</label>
+                <select
+                  value={formData.accessRole}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      accessRole: e.target.value === 'manager' ? 'manager' : 'professional',
+                    })
+                  }
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                >
+                  <option value="professional">{isEducation ? 'Professor' : 'Profissional'}</option>
+                  <option value="manager">Gerente (acesso total ao dashboard)</option>
+                </select>
+              </div>
+            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex gap-2">
               <button
@@ -358,7 +425,9 @@ export default function AdminProfessionalsPage() {
       )}
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {professionals?.map((professional) => (
+        {professionals?.map((professional) => {
+          const linkedTurmas = turmasByProfessionalId.get(professional.id) ?? [];
+          return (
           <div
             key={professional.id}
             className="rounded-lg border border-neutral-200 bg-white p-6"
@@ -381,6 +450,10 @@ export default function AdminProfessionalsPage() {
               {isOwnerProfessional(professional) ? (
                 <span className="mt-1 inline-flex rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
                   Proprietário
+                </span>
+              ) : professional.accessRole === 'manager' ? (
+                <span className="mt-1 inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                  Gerente
                 </span>
               ) : null}
             </div>
@@ -409,13 +482,46 @@ export default function AdminProfessionalsPage() {
                 </span>
               </div>
             )}
+            {isEducation && (
+              <div className="mt-4 w-full border-t border-neutral-100 pt-4 text-left">
+                <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Turmas</p>
+                {linkedTurmas.length === 0 ? (
+                  <p className="mt-2 text-sm text-neutral-600">
+                    Nenhuma turma vinculada.{' '}
+                    <Link
+                      href="/tenant/admin/turmas"
+                      className="font-medium text-blue-600 hover:underline"
+                    >
+                      Defina o professor na página Turmas
+                    </Link>
+                    .
+                  </p>
+                ) : (
+                  <ul className="mt-2 space-y-1.5">
+                    {linkedTurmas.map((t) => (
+                      <li key={t.id}>
+                        <Link
+                          href={`/tenant/admin/turmas?t=${t.id}`}
+                          className="text-sm font-medium text-blue-600 hover:underline"
+                        >
+                          {t.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
             <div className="mt-4 flex flex-wrap gap-2">
+              {!isEducation && (
               <Link
                 href={`/tenant/admin/professionals/${professional.id}/bookings`}
                 className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
               >
                 Agendamentos
               </Link>
+              )}
               <button
                 onClick={() => handleEdit(professional)}
                 className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
@@ -437,7 +543,7 @@ export default function AdminProfessionalsPage() {
                   onClick={() => handleDelete(professional)}
                   disabled={!!deletingId}
                   className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-                  title="Excluir profissional"
+                  title={isEducation ? 'Excluir professor' : 'Excluir profissional'}
                 >
                   {deletingId === professional.id ? 'Excluindo...' : 'Excluir'}
                 </button>
@@ -447,11 +553,12 @@ export default function AdminProfessionalsPage() {
               <p className="mt-2 text-xs text-green-600">Convite enviado para {professional.email}</p>
             )}
           </div>
-        ))}
+        );
+        })}
 
         {professionals?.length === 0 && (
           <div className="col-span-full p-8 text-center text-neutral-500">
-            Nenhum profissional cadastrado.
+            {isEducation ? 'Nenhum professor cadastrado.' : 'Nenhum profissional cadastrado.'}
           </div>
         )}
       </div>

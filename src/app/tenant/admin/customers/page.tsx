@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
+import { useAuth } from '@/lib/contexts/AuthContext';
 import { useCustomers, useCreateCustomer } from '@/lib/queries/customers';
 import { Customer } from '@/types/booking';
 import { CustomerDetailModal } from '@/components/admin/CustomerDetailModal';
@@ -11,7 +12,9 @@ import { formatPhoneInput } from '@/lib/utils/phone';
 
 export default function AdminCustomersPage() {
   const { business } = useBusiness();
+  const { firebaseUser } = useAuth();
   const isClinic = business?.industry === 'clinic';
+  const isEducation = business?.industry === 'education';
   const { data: customers = [], isLoading } = useCustomers(business.id);
   const createCustomer = useCreateCustomer(business.id);
   const [activeSection, setActiveSection] = useState<'patients' | 'anamnese'>('patients');
@@ -24,22 +27,40 @@ export default function AdminCustomersPage() {
     lastName: '',
     phone: '',
     email: '',
+    birthDate: '',
     notes: '',
   });
   const [error, setError] = useState<string | null>(null);
+  const [accessLoadingId, setAccessLoadingId] = useState<string | null>(null);
+  const [subscriptionLoadingId, setSubscriptionLoadingId] = useState<string | null>(null);
 
-  const patientLabel = isClinic ? 'Paciente' : 'Cliente';
-  const patientsLabel = isClinic ? 'Pacientes' : 'Clientes';
-  const registerLabel = isClinic ? 'Cadastrar paciente' : 'Cadastrar cliente';
-  const newPatientLabel = isClinic ? 'Novo paciente' : 'Novo cliente';
-  const notesPlaceholder = isClinic ? 'Anotações sobre o paciente' : 'Anotações sobre o cliente';
+  const patientsLabel = isClinic ? 'Pacientes' : isEducation ? 'Alunos' : 'Clientes';
+  const registerLabel = isClinic
+    ? 'Cadastrar paciente'
+    : isEducation
+      ? 'Cadastrar aluno'
+      : 'Cadastrar cliente';
+  const newPatientLabel = isClinic ? 'Novo paciente' : isEducation ? 'Novo aluno' : 'Novo cliente';
+  const notesPlaceholder = isClinic
+    ? 'Anotações sobre o paciente'
+    : isEducation
+      ? 'Anotações sobre o aluno'
+      : 'Anotações sobre o cliente';
   const emptySearch = isClinic
     ? 'Nenhum paciente encontrado com os filtros aplicados.'
-    : 'Nenhum cliente encontrado com os filtros aplicados.';
+    : isEducation
+      ? 'Nenhum aluno encontrado com os filtros aplicados.'
+      : 'Nenhum cliente encontrado com os filtros aplicados.';
   const emptyList = isClinic
     ? 'Nenhum paciente cadastrado. Clique em "Cadastrar paciente" para adicionar.'
-    : 'Nenhum cliente cadastrado. Clique em "Cadastrar cliente" para adicionar.';
-  const errorCreate = isClinic ? 'Erro ao cadastrar paciente' : 'Erro ao cadastrar cliente';
+    : isEducation
+      ? 'Nenhum aluno cadastrado. Clique em "Cadastrar aluno" para adicionar.'
+      : 'Nenhum cliente cadastrado. Clique em "Cadastrar cliente" para adicionar.';
+  const errorCreate = isClinic
+    ? 'Erro ao cadastrar paciente'
+    : isEducation
+      ? 'Erro ao cadastrar aluno'
+      : 'Erro ao cadastrar cliente';
 
   const searchParams = useSearchParams();
   const customerIdFromUrl = searchParams?.get('customerId') ?? null;
@@ -103,12 +124,68 @@ export default function AdminCustomersPage() {
         lastName: formData.lastName.trim(),
         phone: formData.phone.trim(),
         email: formData.email.trim() || undefined,
+        birthDate: formData.birthDate || undefined,
         notes: formData.notes.trim() || undefined,
       });
       setShowForm(false);
-      setFormData({ firstName: '', lastName: '', phone: '', email: '', notes: '' });
+      setFormData({ firstName: '', lastName: '', phone: '', email: '', birthDate: '', notes: '' });
     } catch (err: any) {
       setError(err.message || errorCreate);
+    }
+  };
+
+  const handleCreateStudentAccess = async (customer: Customer) => {
+    if (!firebaseUser) return;
+    setAccessLoadingId(customer.id);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch('/api/students/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          businessId: business.id,
+          customerId: customer.id,
+          email: customer.email,
+          displayName: `${customer.firstName} ${customer.lastName}`.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha ao criar acesso');
+      alert(`Acesso criado. Senha temporaria: ${data.temporaryPassword}`);
+    } catch (err: any) {
+      alert(err?.message || 'Erro ao criar acesso');
+    } finally {
+      setAccessLoadingId(null);
+    }
+  };
+
+  const handleCreateSubscription = async (customer: Customer) => {
+    if (!firebaseUser) return;
+    const amountStr = prompt('Valor da mensalidade (em R$, ex: 299.90):', '299.90');
+    if (!amountStr) return;
+    const cents = Math.round(Number(amountStr.replace(',', '.')) * 100);
+    if (!Number.isFinite(cents) || cents <= 0) return;
+    setSubscriptionLoadingId(customer.id);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const res = await fetch('/api/students/subscriptions/manage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          action: 'create',
+          businessId: business.id,
+          customerId: customer.id,
+          amount: cents,
+          currency: 'brl',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Falha ao criar mensalidade');
+      if (data.checkoutUrl) window.open(data.checkoutUrl, '_blank');
+    } catch (err: any) {
+      alert(err?.message || 'Erro ao criar mensalidade');
+    } finally {
+      setSubscriptionLoadingId(null);
     }
   };
 
@@ -126,7 +203,11 @@ export default function AdminCustomersPage() {
         <div>
           <h1 className="text-3xl font-bold text-neutral-900">{patientsLabel}</h1>
           <p className="text-neutral-600 mt-2">
-            {isClinic ? 'Base de dados de pacientes e prontuários' : 'Base de dados de clientes'}
+            {isClinic
+              ? 'Base de dados de pacientes e prontuários'
+              : isEducation
+                ? 'Base de dados de alunos'
+                : 'Base de dados de clientes'}
           </p>
         </div>
         {activeSection === 'patients' && (
@@ -250,6 +331,15 @@ export default function AdminCustomersPage() {
               />
             </div>
             <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Data de nascimento</label>
+              <input
+                type="date"
+                value={formData.birthDate}
+                onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+              />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Observações</label>
               <textarea
                 value={formData.notes}
@@ -292,6 +382,9 @@ export default function AdminCustomersPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Contato</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Agendamentos</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Total Gasto</th>
+                {isEducation && (
+                  <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Ações aluno</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-neutral-200">
@@ -312,6 +405,34 @@ export default function AdminCustomersPage() {
                   <td className="px-6 py-4 text-sm font-medium">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((customer.totalSpent || 0) / 100)}
                   </td>
+                  {isEducation && (
+                    <td className="px-6 py-4 text-right text-sm">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCreateStudentAccess(customer);
+                          }}
+                          disabled={!customer.email || accessLoadingId === customer.id}
+                          className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                        >
+                          Acesso
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCreateSubscription(customer);
+                          }}
+                          disabled={subscriptionLoadingId === customer.id}
+                          className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                        >
+                          Mensalidade
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -330,6 +451,7 @@ export default function AdminCustomersPage() {
           businessId={business.id}
           onClose={() => setSelectedCustomer(null)}
           isClinic={isClinic}
+          isEducation={isEducation}
         />
       )}
         </>

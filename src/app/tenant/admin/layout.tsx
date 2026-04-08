@@ -27,8 +27,15 @@ const TIER_TO_PLAN: Record<string, string> = {
   enterprise: 'enterprise',
 };
 
-/** Nav items with required feature (null = always visible) */
-const adminNavItems: { href: string; key: string; icon: string; feature: FeatureId | 'always' | 'enterprise' }[] = [
+type NavItem = {
+  href: string;
+  key: string;
+  icon: string;
+  feature: FeatureId | 'always' | 'enterprise';
+};
+
+/** Default nav (most industries) */
+const adminNavItems: NavItem[] = [
   { href: '/tenant/admin/dashboard', key: 'dashboard', icon: '📊', feature: 'always' },
   { href: '/tenant/admin/notifications', key: 'notifications', icon: '🔔', feature: 'always' },
   { href: '/tenant/admin/bookings', key: 'bookings', icon: '📅', feature: 'scheduling' },
@@ -46,6 +53,22 @@ const adminNavItems: { href: string; key: string; icon: string; feature: Feature
   { href: '/tenant/admin/loyalty', key: 'loyalty', icon: '🎁', feature: 'loyaltyPrograms' },
   { href: '/tenant/admin/whatsapp', key: 'whatsapp', icon: '💬', feature: 'always' },
   { href: '/tenant/admin/franchise', key: 'franchise', icon: '🏢', feature: 'enterprise' },
+  { href: '/tenant/admin/settings', key: 'settings', icon: '⚙️', feature: 'always' },
+];
+
+/** Education: school-oriented labels and routes (no cardápio/pedidos/mesas/serviços/estoque/compras/ponto). */
+const educationAdminNavItems: NavItem[] = [
+  { href: '/tenant/admin/dashboard', key: 'dashboard', icon: '📊', feature: 'always' },
+  { href: '/tenant/admin/notifications', key: 'notifications', icon: '🔔', feature: 'always' },
+  { href: '/tenant/admin/bookings', key: 'preEnrollments', icon: '📅', feature: 'scheduling' },
+  { href: '/tenant/admin/professionals', key: 'professionals', icon: '👥', feature: 'scheduling' },
+  { href: '/tenant/admin/customers', key: 'students', icon: '👤', feature: 'crm' },
+  { href: '/tenant/admin/turmas', key: 'turmas', icon: '🎓', feature: 'scheduling' },
+  { href: '/tenant/admin/attendance', key: 'rollCall', icon: '📝', feature: 'scheduling' },
+  { href: '/tenant/admin/payments', key: 'payments', icon: '💳', feature: 'payments' },
+  { href: '/tenant/admin/financial', key: 'financial', icon: '💰', feature: 'analytics' },
+  { href: '/tenant/admin/loyalty', key: 'loyalty', icon: '🎁', feature: 'loyaltyPrograms' },
+  { href: '/tenant/admin/whatsapp', key: 'whatsapp', icon: '💬', feature: 'always' },
   { href: '/tenant/admin/settings', key: 'settings', icon: '⚙️', feature: 'always' },
 ];
 
@@ -70,7 +93,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     const industry = business?.industry || 'general';
     const includedFeatures = new Set(getIncludedFeaturesForPlanAndIndustry(planId, industry));
 
-    return adminNavItems.filter((item) => {
+    const items = industry === 'education' ? educationAdminNavItems : adminNavItems;
+
+    return items.filter((item) => {
       if (item.feature === 'always') return true;
       if (item.feature === 'enterprise') return planId === 'enterprise';
       return includedFeatures.has(item.feature as FeatureId);
@@ -102,9 +127,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <nav className="min-h-0 flex-1 overflow-y-auto p-4 space-y-1">
             {visibleNavItems.map((item) => {
               const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
-              const label = item.key === 'customers' && business?.industry === 'clinic'
-                ? t('patients')
-                : t(item.key);
+              const label =
+                item.key === 'customers' && business?.industry === 'clinic'
+                  ? t('patients')
+                  : item.key === 'professionals' && business?.industry === 'education'
+                    ? t('teachers')
+                    : t(item.key);
               return (
                 <Link
                   key={item.href}

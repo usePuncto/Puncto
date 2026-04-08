@@ -54,7 +54,7 @@ O Puncto simplifica as operações diárias de pequenas e médias empresas de be
 - Firebase Cloud Functions (2ª Geração) — Lembretes, webhooks, triggers
 
 **Integrações:**
-- **Mensagens:** WhatsApp Business Platform (Meta), ZeptoMail/Resend/Mailgun, Twilio (SMS)
+- **Mensagens:** WhatsApp Business Platform (Meta), ZeptoMail, Twilio (SMS)
 - **Pagamentos:** Stripe (Checkout, Billing, Connect)
 - **Calendário:** iCalendar (.ics)
 - **Fiscal:** TecnoSpeed, eNotas, PlugNotas (NFS-e/NFC-e)

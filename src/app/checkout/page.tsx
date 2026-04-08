@@ -53,7 +53,7 @@ function BetaNoticeModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
 }
 
 const VALID_PLANS = ['gratis', 'starter', 'growth', 'pro'];
-const VALID_INDUSTRIES = ['servicos', 'varejo', 'empresas', 'saude', 'corporativo'];
+const VALID_INDUSTRIES = ['servicos', 'varejo', 'empresas', 'saude', 'corporativo', 'educacao'];
 
 const PASSWORD_REQUIREMENTS = [
   { id: 'length', label: 'Mínimo 8 caracteres', test: (p: string) => p.length >= 8 },
@@ -316,7 +316,7 @@ export default function CheckoutPage() {
             <button
               type="submit"
               disabled
-              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white opacity-50 cursor-not-allowed"
+              className="w-full cursor-not-allowed rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white opacity-50"
             >
               Criar conta e continuar
             </button>

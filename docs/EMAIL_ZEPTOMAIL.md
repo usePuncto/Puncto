@@ -11,7 +11,7 @@ O Puncto usa **ZeptoMail** (da Zoho) como provedor padrão de e-mails transacion
 | `ZEPTOMAIL_API_KEY` | Sim | Token Send Mail em ZeptoMail Agents → SMTP/API → Send Mail Token |
 | `ZEPTOMAIL_FROM_EMAIL` | Não | E-mail remetente (padrão: `noreply@puncto.app`). Deve ser de um domínio verificado no ZeptoMail |
 | `ZEPTOMAIL_FROM_NAME` | Não | Nome de exibição do remetente (padrão: `Puncto`) |
-| `EMAIL_PROVIDER` | Não | Defina como `zeptomail`, `resend` ou `mailgun` para sobrescrever a detecção automática |
+| `EMAIL_PROVIDER` | Não | Defina como `zeptomail` (ou `resend`) para sobrescrever a detecção automática |
 
 ### Onde Configurar
 
@@ -39,4 +39,3 @@ Defina `EMAIL_PROVIDER`:
 
 - `zeptomail` – ZeptoMail (padrão quando `ZEPTOMAIL_API_KEY` está definido)
 - `resend` – Resend (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`)
-- `mailgun` – Mailgun (`MAILGUN_API_KEY`, `MAILGUN_DOMAIN`)

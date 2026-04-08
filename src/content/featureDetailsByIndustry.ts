@@ -27,6 +27,11 @@ export const addOnContentByIndustry: Record<string, AddOnContent> = {
     description:
       'Precisa de algo além do padrão? Adicione módulos complementares à sua gestão de saúde. Se a sua clínica cresceu, você pode ativar o controle de Ponto Eletrônico para a equipe da recepção ou a Gestão de Contratos para parcerias com convênios, através de nossos Add-ons pagos, mantendo tudo integrado em um único sistema.',
   },
+  educacao: {
+    title: '🧩 Seu processo de ensino, do seu jeito',
+    description:
+      'Precisa de recursos além do básico para sua escola, curso ou treinamento? Ative módulos complementares como lembretes automatizados, gestão de turmas e (quando necessário) controles adicionais (ex: materiais e rotinas operacionais) via add-ons pagos. Assim, você adapta a Puncto ao seu modelo sem trocar de plataforma.',
+  },
   corporativo: {
     title: '🧩 Um sistema que se molda à sua empresa',
     description:
@@ -357,6 +362,88 @@ export const featureDetailsByIndustry: Record<
           title: '📦 Controle de Estoque Completo',
           description:
             'Evite o desperdício de insumos caros. Controle a validade e a quantidade de materiais descartáveis, seringas, anestésicos ou produtos de uso contínuo. O sistema dá baixa conforme o uso nos procedimentos e avisa a hora exata de comprar mais.',
+        },
+      ],
+    },
+  },
+  educacao: {
+    gratis: {
+      intro: 'O essencial para começar a organizar matrículas e atendimento pedagógico.',
+      features: [
+        {
+          title: '📅 Agendamento de aulas experimentais',
+          description:
+            'Centralize pedidos de matrícula e solicitações em um único fluxo. Você cria um link exclusivo para divulgar onde quiser e o aluno escolhe horários/ações disponíveis com agendamento direto. Depois, você confirma a matrícula manualmente para manter o controle.',
+        },
+        {
+          title: '📇 Cadastro e Histórico de Alunos',
+          description:
+            'Pare de perder informações. O sistema registra dados do aluno e mantém um histórico das interações e necessidades ao longo do tempo, facilitando o acompanhamento pedagógico e a comunicação na próxima aula.',
+        },
+      ],
+    },
+    starter: {
+      intro: 'Para reduzir faltas e começar a ter previsibilidade do seu calendário.',
+      features: [
+        {
+          title: '🔔 Lembretes de Aulas (E-mail Automático + WhatsApp Manual)',
+          description:
+            'Diminua o número de faltas e remarcações de última hora. Por E-mail: o sistema envia confirmações e lembretes automáticos. Por WhatsApp: você envia mensagens prontas e personalizadas com poucos cliques para confirmar presenças e avisar mudanças.',
+        },
+        {
+          title: '📊 Relatório Financeiro',
+          description:
+            'Acompanhe mensalidades e entradas com clareza. Separe as finanças pessoais das da escola e identifique quais turmas e serviços estão trazendo mais receita ao longo do período.',
+        },
+      ],
+    },
+    growth: {
+      intro: 'Automação e retenção para escolas e cursos que querem vender mais turmas.',
+      features: [
+        {
+          title: '💬 WhatsApp Automático (Sem intervenção manual)',
+          description:
+            'Sua comunicação pedagógica no piloto automático. O sistema envia lembretes de aula, confirmações e mensagens de atualização diretamente no WhatsApp do aluno, reduzindo trabalho manual para a secretaria e os professores.',
+        },
+        {
+          title: '📍 Lista de Presença Inteligente',
+          description:
+            'Acompanhe presenças com menos esforço. Registre faltas e confirmações de forma organizada e use os dados para melhorar o planejamento de turmas, reduzir desistências e manter a comunicação em dia com alunos e responsáveis.',
+        },
+        {
+          title: '🎁 CRM (Retenção e Reengajamento)',
+          description:
+            'Mantenha alunos engajados. Use o CRM para identificar quem precisa de retorno e criar campanhas de recuperação para rematrículas, aulas extras ou atividades complementares.',
+        },
+        {
+          title: '🧾 Emissão de NFS-e',
+          description:
+            'Regularize mensalidades e serviços com menos burocracia. O sistema emite NFS-e de forma integrada às suas cobranças, economizando tempo e evitando retrabalho.',
+        },
+      ],
+    },
+    pro: {
+      intro: 'Gestão avançada para escolas e cursos em escala, com rotinas e acompanhamento contínuo.',
+      features: [
+        {
+          title: '🔁 Rematrícula automática',
+          description:
+            'Use o CRM para identificar alunos em risco de evasão e disparar campanhas e lembretes de rematrícula para eles e seus responsáveis, com confirmações e comunicação organizada para reduzir desistências.',
+        },
+        {
+          title: '📈 DRE Gerencial + Metas',
+          description:
+            'Analise resultados com visão de negócio. Acompanhe custos, despesas e lucro líquido, defina metas por período e entenda o desempenho real das suas turmas.',
+        },
+        {
+          title: '⏰ Ponto Eletrônico (Presenças e Rotinas)',
+          description:
+            'Controle presença e rotinas com segurança. Professores registram entradas/saídas e pausas diretamente no sistema, gerando dados consistentes para acompanhamento e organização interna.',
+        },
+        {
+          title: '📦 Controle de Estoque/insumos',
+          description:
+            'Gerencie materiais, kits e recursos. Tenha controle de entrada e saída de insumos utilizados em aulas e atividades, evitando faltas e perdas por falta de reposição.',
         },
       ],
     },

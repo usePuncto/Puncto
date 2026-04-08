@@ -40,6 +40,8 @@ export async function getCustomClaimsFromRequest(
       businessRoles: payload.businessRoles,
       primaryBusinessId: payload.primaryBusinessId,
       customerId: payload.customerId,
+      studentBusinessId: payload.studentBusinessId,
+      studentCustomerId: payload.studentCustomerId,
     };
 
     return customClaims;

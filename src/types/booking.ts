@@ -15,6 +15,13 @@ export interface Reminders {
 
 export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled' | 'no_show';
 
+export interface BookingUsedInventoryItem {
+  inventoryItemId: string;
+  inventoryItemName?: string;
+  quantity: number;
+  unit?: string;
+}
+
 export interface Booking {
   id: string;
   businessId: string;
@@ -46,6 +53,9 @@ export interface Booking {
   cancelledAt?: Timestamp | Date;
   cancelledBy?: string;
   cancellationReason?: string;
+  /** Actual inventory consumption recorded when completing the booking */
+  usedInventoryItems?: BookingUsedInventoryItem[];
+  inventoryDeductedAt?: Timestamp | Date;
   customFields?: Record<string, any>;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
@@ -60,6 +70,8 @@ export interface Customer {
   lastName: string;
   email?: string;
   phone: string;
+  /** yyyy-MM-dd */
+  birthDate?: string;
   totalBookings: number;
   totalSpent: number;
   lastBookingAt?: Timestamp | Date;
@@ -80,6 +92,10 @@ export interface Customer {
   loyaltyTier?: string;
   totalPointsEarned?: number;
   totalPointsRedeemed?: number;
+  // Education/student portal fields
+  studentUserId?: string;
+  studentAccessEnabled?: boolean;
+  stripeCustomerId?: string;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
 }

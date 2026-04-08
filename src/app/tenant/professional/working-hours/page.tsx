@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useProfessional } from '@/lib/contexts/ProfessionalContext';
 import { WorkingHours } from '@/types/business';
@@ -26,8 +27,15 @@ const DEFAULT_WH: WorkingHours = {
 };
 
 export default function ProfessionalWorkingHoursPage() {
+  const router = useRouter();
   const { business } = useBusiness();
   const { professional } = useProfessional();
+
+  useEffect(() => {
+    if (business?.industry === 'education') {
+      router.replace('/tenant/professional');
+    }
+  }, [business?.industry, router]);
   const [workingHours, setWorkingHours] = useState<WorkingHours>(DEFAULT_WH);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +103,14 @@ export default function ProfessionalWorkingHoursPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-neutral-500">Carregando...</p>
+      </div>
+    );
+  }
+
+  if (business?.industry === 'education') {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900" />
       </div>
     );
   }

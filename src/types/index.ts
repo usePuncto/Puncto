@@ -100,3 +100,9 @@ export type {
   MarketplaceFilters,
   MarketplaceSearchResult,
 } from './marketplace';
+
+// Education billing
+export type {
+  StudentSubscription,
+  StudentSubscriptionStatus,
+} from './studentSubscription';

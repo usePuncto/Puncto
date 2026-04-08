@@ -118,7 +118,7 @@ ZEPTOMAIL_FROM_NAME=Puncto
 ```
 Obtenha seu token em [ZeptoMail](https://www.zoho.com/zeptomail/) → Agents → SMTP/API → Send Mail Token.
 
-Provedores alternativos (Resend, Mailgun) são suportados via `EMAIL_PROVIDER=resend` ou `EMAIL_PROVIDER=mailgun` e suas respectivas chaves de API.
+Provedor alternativo (Resend) é suportado via `EMAIL_PROVIDER=resend` e suas respectivas chaves de API.
 
 #### Opcional: Segredo Admin da Plataforma
 ```

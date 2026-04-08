@@ -11,6 +11,7 @@ const INDUSTRIES = [
   { value: 'bakery', label: 'Padaria/Confeitaria' },
   { value: 'event', label: 'Eventos' },
   { value: 'general', label: 'Outro' },
+  { value: 'education', label: 'Educação' },
 ];
 
 // Map industry page slugs to onboarding industry values
@@ -20,6 +21,7 @@ const INDUSTRY_SLUG_TO_VALUE: Record<string, string> = {
   empresas: 'general',
   saude: 'clinic',
   corporativo: 'general',
+  educacao: 'education',
 };
 
 export default function OnboardingBusinessPage() {

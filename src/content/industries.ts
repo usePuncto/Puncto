@@ -243,6 +243,64 @@ export const industries = [
       'É possível incluir ferramentas de outros segmentos (controle de estoque avançado, ponto eletrônico, gestão de contratos ou centros de custo) mediante add-ons pagos, mantendo o foco em saúde.',
   },
   {
+    id: 'education',
+    slug: 'educacao',
+    name: 'Educação',
+    shortName: 'Educação',
+    icon: 'calendar',
+    description:
+      'Para escolas, cursos e treinamentos que precisam de matrículas, agenda e acompanhamento de alunos com menos fricção.',
+    longDescription:
+      'Transforme as matrículas e a rotina pedagógica em um fluxo mais organizado. Com a Puncto, você automatiza confirmações, acompanha alunos, gerencia turmas e reduz faltas e desistências com comunicações inteligentes.',
+    benefits: [
+      'Matrículas e agenda sem conflitos',
+      'Confirmações automáticas para reduzir faltas',
+      'Histórico de alunos e comunicação direcionada',
+      'Organização financeira para mensalidades e cobranças'
+    ],
+    useCases: [
+      'Escolas e colégios',
+      'Cursos e aulas particulares',
+      'Treinamentos corporativos',
+      'Academias de idiomas',
+      'Formações técnicas'
+    ],
+    stats: {
+      reduction: 'Faltas',
+      reductionLabel: 'com menos desistências',
+      increase: 'Matrículas',
+      increaseLabel: 'mais previsibilidade'
+    },
+    color: 'accent',
+    planFeatures: {
+      gratis: [
+        'Agendamentos e solicitações (Link na Bio)',
+        'Cadastro e histórico de alunos',
+      ],
+      starter: [
+        'Tudo do Grátis',
+        'Lembretes automáticos por e-mail + manuais por WhatsApp',
+        'Relatório financeiro',
+      ],
+      growth: [
+        'Tudo do Starter',
+        'Lista de espera',
+        'WhatsApp Automático',
+        'Pagamentos PIX e cartão',
+        'Emissão de NFS-e',
+      ],
+      pro: [
+        'Tudo do Growth',
+        'Rematrícula automática',
+        'DRE Gerencial + Metas',
+        'CRM (Retenção e Reengajamento)',
+        'Controle de estoque/insumos completo',
+      ],
+    },
+    addOnNote:
+      'Você pode ativar recursos de outros segmentos como add-ons pagos (por exemplo: controles avançados de estoque, ponto eletrônico e gestão de contratos) para adaptar a Puncto ao seu processo educacional.',
+  },
+  {
     id: 'corporativo',
     slug: 'corporativo',
     name: 'Gestão Corporativa',

@@ -250,6 +250,8 @@ export interface Professional {
   }>;
   active: boolean;
   canBookOnline: boolean;
+  /** Access role used when this professional gets login access */
+  accessRole?: 'professional' | 'manager';
   bufferTimeBefore?: number;
   bufferTimeAfter?: number;
   commissionPercent?: number;

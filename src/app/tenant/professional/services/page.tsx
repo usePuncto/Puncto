@@ -1,12 +1,21 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useProfessional } from '@/lib/contexts/ProfessionalContext';
 import { useServices } from '@/lib/queries/services';
 
 export default function ProfessionalServicesPage() {
+  const router = useRouter();
   const { business } = useBusiness();
   const { professional } = useProfessional();
+
+  useEffect(() => {
+    if (business?.industry === 'education') {
+      router.replace('/tenant/professional');
+    }
+  }, [business?.industry, router]);
   const { data: allServices } = useServices(business?.id ?? '');
   const services =
     (allServices ?? []).filter((s) =>
@@ -17,6 +26,14 @@ export default function ProfessionalServicesPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-neutral-500">Carregando...</p>
+      </div>
+    );
+  }
+
+  if (business?.industry === 'education') {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900" />
       </div>
     );
   }

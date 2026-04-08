@@ -34,6 +34,26 @@ export async function POST(request: NextRequest) {
 
     const professional = professionalSnap.data();
     const email = professional?.email?.trim();
+    const accessRole = professional?.accessRole === 'manager' ? 'manager' : 'professional';
+    const fullDashboardPermissions = {
+      manageServices: true,
+      manageProfessionals: true,
+      manageBookings: true,
+      viewReports: true,
+      manageSettings: true,
+      manageLocations: true,
+      exportData: true,
+    };
+    const professionalPermissions = {
+      manageServices: false,
+      manageProfessionals: false,
+      manageBookings: false,
+      viewReports: false,
+      manageSettings: false,
+      manageLocations: false,
+      exportData: false,
+    };
+    const permissions = accessRole === 'manager' ? fullDashboardPermissions : professionalPermissions;
     if (!email) {
       return NextResponse.json(
         { error: 'Professional has no email. Add an email before inviting.' },
@@ -50,7 +70,7 @@ export async function POST(request: NextRequest) {
       // Update existing user's custom claims to add professional role
       const existingClaims = (existingUser.customClaims || {}) as Record<string, unknown>;
       const businessRoles = { ...(existingClaims.businessRoles as Record<string, string> || {}) };
-      businessRoles[businessId] = 'professional';
+      businessRoles[businessId] = accessRole;
 
       await auth.setCustomUserClaims(userId, {
         ...existingClaims,
@@ -67,6 +87,7 @@ export async function POST(request: NextRequest) {
         'customClaims.businessRoles': businessRoles,
         'customClaims.primaryBusinessId': businessId,
         'customClaims.professionalId': professionalId,
+        role: accessRole,
         updatedAt: new Date(),
       });
     } catch (err: unknown) {
@@ -81,10 +102,11 @@ export async function POST(request: NextRequest) {
         displayName: professional?.name || email.split('@')[0],
         userType: 'business_user',
         customClaims: {
-          businessRoles: { [businessId]: 'professional' },
+          businessRoles: { [businessId]: accessRole },
           primaryBusinessId: businessId,
           professionalId,
         },
+        additionalData: { role: accessRole },
       });
 
       const newUser = await auth.getUserByEmail(email);
@@ -96,6 +118,21 @@ export async function POST(request: NextRequest) {
       userId,
       updatedAt: new Date(),
     });
+
+    // Keep staff access in sync with the selected professional role
+    await db.collection('businesses').doc(businessId).collection('staff').doc(userId).set(
+      {
+        businessId,
+        userId,
+        professionalId,
+        role: accessRole,
+        permissions,
+        active: true,
+        invitedAt: new Date(),
+        updatedAt: new Date(),
+      },
+      { merge: true }
+    );
 
     // Send password reset email (lets them set their own password)
     await getAuth().generatePasswordResetLink(email);
@@ -122,7 +159,7 @@ export async function POST(request: NextRequest) {
     // by having the client call sendPasswordResetEmail - but the professional doesn't have an account "from their perspective" yet. Actually they do - we created it. So we could have the OWNER click "Send reset email" and we call an API that... we need to send the email from server. Let me use a simple approach:
     // Create a Cloud Function isn't in this codebase. So we'll use fetch to Firebase Identity Toolkit REST API.
     // Actually, the easiest: create the user. The professional will use "Forgot password" with their email - that will work since we created the account. So we just need to inform the owner "Tell the professional to use 'Forgot password' at the login page with their email to set their password." Not ideal.
-    // Better: Use the Admin generatePasswordResetLink, then we need to send it. If the project has Mailgun/SendGrid/nodemailer configured, we could use that. Let me check if there's email sending in the codebase.
+    // Better: Use the Admin generatePasswordResetLink, then we need to send it. The project uses ZeptoMail for transactional email delivery.
     const resetLink = await getAuth().generatePasswordResetLink(email);
 
     try {

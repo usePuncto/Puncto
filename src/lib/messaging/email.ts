@@ -1,6 +1,6 @@
 /**
  * Email messaging client
- * Supports ZeptoMail (default), Resend, and Mailgun providers
+ * Supports ZeptoMail (default) and Resend providers
  */
 
 export interface EmailOptions {
@@ -18,22 +18,21 @@ const ZEPTOMAIL_API_URL = 'https://api.zeptomail.com/v1.1/email';
 
 /**
  * Resolve which provider to use. Priority:
- * 1. EMAIL_PROVIDER env (zeptomail, resend, mailgun)
+ * 1. EMAIL_PROVIDER env (zeptomail, resend)
  * 2. If ZEPTOMAIL_API_KEY set → zeptomail
  * 3. If RESEND_API_KEY set → resend
  * 4. Fallback: zeptomail
  */
-function getProvider(): 'zeptomail' | 'resend' | 'mailgun' {
+function getProvider(): 'zeptomail' | 'resend' {
   const env = process.env.EMAIL_PROVIDER?.toLowerCase();
-  if (env === 'zeptomail' || env === 'resend' || env === 'mailgun') return env;
+  if (env === 'zeptomail' || env === 'resend') return env;
   if (process.env.ZEPTOMAIL_API_KEY) return 'zeptomail';
   if (process.env.RESEND_API_KEY) return 'resend';
-  if (process.env.MAILGUN_API_KEY && process.env.MAILGUN_DOMAIN) return 'mailgun';
   return 'zeptomail';
 }
 
 /**
- * Send email via ZeptoMail, Resend, or Mailgun
+ * Send email via ZeptoMail or Resend
  */
 export async function sendEmail(options: EmailOptions): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const provider = getProvider();
@@ -42,8 +41,6 @@ export async function sendEmail(options: EmailOptions): Promise<{ success: boole
     return sendViaZeptoMail(options);
   } else if (provider === 'resend') {
     return sendViaResend(options);
-  } else if (provider === 'mailgun') {
-    return sendViaMailgun(options);
   }
 
   throw new Error(`Unknown email provider: ${provider}`);
@@ -159,49 +156,3 @@ async function sendViaResend(options: EmailOptions) {
   }
 }
 
-/**
- * Send email via Mailgun
- */
-async function sendViaMailgun(options: EmailOptions) {
-  const apiKey = process.env.MAILGUN_API_KEY;
-  const domain = process.env.MAILGUN_DOMAIN;
-
-  if (!apiKey || !domain) {
-    throw new Error('MAILGUN_API_KEY and MAILGUN_DOMAIN must be configured');
-  }
-
-  const from = options.from || `noreply@${domain}`;
-
-  try {
-    const formData = new FormData();
-    formData.append('from', from);
-    if (Array.isArray(options.to)) {
-      options.to.forEach((to) => formData.append('to', to));
-    } else {
-      formData.append('to', options.to);
-    }
-    formData.append('subject', options.subject);
-    if (options.html) formData.append('html', options.html);
-    if (options.text) formData.append('text', options.text);
-    if (options.replyTo) formData.append('h:Reply-To', options.replyTo);
-
-    const response = await fetch(`https://api.mailgun.net/v3/${domain}/messages`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${Buffer.from(`api:${apiKey}`).toString('base64')}`,
-      },
-      body: formData,
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      return { success: false, error: data.message || 'Failed to send email' };
-    }
-
-    return { success: true, messageId: data.id };
-  } catch (error: any) {
-    console.error('[Mailgun] Error sending email:', error);
-    return { success: false, error: error.message };
-  }
-}

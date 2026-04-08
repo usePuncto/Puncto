@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { usePayments } from '@/lib/queries/payments';
 
 export default function FinancialPage() {
   const { business } = useBusiness();
@@ -104,6 +105,30 @@ export default function FinancialPage() {
     enabled: !!business?.id,
   });
 
+  const { data: stripePayments, isLoading: stripePaymentsLoading } = usePayments(business.id);
+
+  const filteredStripePayments = useMemo(() => {
+    if (!stripePayments) return [];
+    const startMs = startDate ? new Date(startDate).getTime() : null;
+    const endMs = endDate ? new Date(endDate + 'T23:59:59.999').getTime() : null;
+
+    const toMs = (value: unknown): number | null => {
+      if (!value) return null;
+      if (value instanceof Date) return value.getTime();
+      const s = (value as { seconds?: number })?.seconds;
+      if (typeof s === 'number') return s * 1000;
+      return null;
+    };
+
+    return stripePayments.filter((p) => {
+      const ms = toMs(p.succeededAt) ?? toMs(p.createdAt);
+      if (ms === null) return false;
+      if (startMs !== null && ms < startMs) return false;
+      if (endMs !== null && ms > endMs) return false;
+      return true;
+    });
+  }, [stripePayments, startDate, endDate]);
+
   const { data: ledgerData, isLoading: entriesLoading, isError: entriesError } = useQuery({
     queryKey: ['ledgerEntries', business?.id, startDate, endDate],
     queryFn: async () => {
@@ -125,6 +150,31 @@ export default function FinancialPage() {
       style: 'currency',
       currency: 'BRL',
     }).format(cents / 100);
+  };
+
+  const formatDateTimePt = (value: unknown) => {
+    if (!value) return '—';
+    if (value instanceof Date) {
+      return value.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    }
+    const s = (value as { seconds?: number })?.seconds;
+    if (typeof s === 'number') {
+      return new Date(s * 1000).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+    }
+    return '—';
+  };
+
+  const paymentStatusPt = (status: string) => {
+    const map: Record<string, string> = {
+      succeeded: 'Pago',
+      pending: 'Pendente',
+      processing: 'Processando',
+      failed: 'Falhou',
+      refunded: 'Reembolsado',
+      partially_refunded: 'Parcialmente reembolsado',
+      canceled: 'Cancelado',
+    };
+    return map[status] || status;
   };
 
   return (
@@ -161,6 +211,60 @@ export default function FinancialPage() {
           Carregando dados do negócio...
         </div>
       )}
+
+      {/* Stripe payments (same source as P&L / fluxo de caixa) */}
+      <div className="rounded-lg border border-neutral-200 bg-white p-6">
+        <h2 className="text-lg font-semibold mb-4">Pagamentos Stripe</h2>
+        <p className="text-sm text-neutral-600 mb-4">
+          Recebimentos via checkout e links de pagamento no período selecionado (filtrado por data de pagamento ou, se ausente, data de registro).
+        </p>
+        {stripePaymentsLoading ? (
+          <div className="text-center py-8">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-neutral-300 border-t-neutral-900 mx-auto"></div>
+          </div>
+        ) : filteredStripePayments.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-neutral-200 text-left text-neutral-500">
+                  <th className="py-2 pr-4">Pago em</th>
+                  <th className="py-2 pr-4">Cliente</th>
+                  <th className="py-2 pr-4">Status</th>
+                  <th className="py-2 pr-4">Método</th>
+                  <th className="py-2 text-right">Valor</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredStripePayments.map((p) => (
+                  <tr key={p.id} className="border-b border-neutral-100">
+                    <td className="py-3 pr-4 whitespace-nowrap">
+                      {formatDateTimePt(p.succeededAt || p.createdAt)}
+                    </td>
+                    <td className="py-3 pr-4">{p.customerName || p.customerEmail || '—'}</td>
+                    <td className="py-3 pr-4">
+                      <span
+                        className={`px-2 py-0.5 rounded text-xs font-medium ${
+                          p.status === 'succeeded' ? 'bg-green-100 text-green-800' : 'bg-neutral-100 text-neutral-800'
+                        }`}
+                      >
+                        {paymentStatusPt(p.status)}
+                      </span>
+                    </td>
+                    <td className="py-3 pr-4 capitalize">{p.paymentMethod}</td>
+                    <td className="py-3 text-right font-medium text-green-600">
+                      {formatAmount(p.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-neutral-500 py-4 text-sm">
+            Nenhum pagamento Stripe no período. Os totais de receita no P&L e no fluxo de caixa também dependem desses registros.
+          </p>
+        )}
+      </div>
 
       {/* Registered occurrences list */}
       <div className="rounded-lg border border-neutral-200 bg-white p-6">

@@ -5,8 +5,9 @@ import { Timestamp } from 'firebase/firestore';
  * - platform_admin: SaaS team managing the platform
  * - business_user: Business owners, managers, staff
  * - customer: End users (booking, ordering, etc.)
+ * - student: Education student portal users
  */
-export type UserType = 'platform_admin' | 'business_user' | 'customer';
+export type UserType = 'platform_admin' | 'business_user' | 'customer' | 'student';
 
 export interface Dependent {
   id: string;
@@ -41,6 +42,9 @@ export interface CustomClaims {
 
   // Customer metadata (only for customer userType)
   customerId?: string;
+  // Student metadata (only for student userType)
+  studentCustomerId?: string;
+  studentBusinessId?: string;
 }
 
 /**
@@ -66,6 +70,9 @@ export interface User {
 
   // Customer specific fields
   loyaltyPoints?: number; // Set only if type === 'customer'
+  // Student specific fields
+  studentBusinessId?: string; // Set only if type === 'student'
+  studentCustomerId?: string; // Customer document id in business scope
 }
 
 export interface PlatformAdmin {

@@ -31,6 +31,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
     const event = await verifyWebhookSignature(request, body);
+    const sourceAccount = (event as Stripe.Event & { account?: string }).account || 'platform';
+    console.log(`[webhook] ${event.type} account=${sourceAccount}`);
 
     const syntheticRequest = (path: string) =>
       new NextRequest(new URL(path, request.url), {
@@ -42,7 +44,14 @@ export async function POST(request: NextRequest) {
     // checkout.session.completed: route by mode
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object as Stripe.Checkout.Session;
+      const isConnectEvent = Boolean((event as Stripe.Event & { account?: string }).account);
       if (session.mode === 'subscription') {
+        if (isConnectEvent) {
+          const res = await import('../payments/webhook/route').then((m) =>
+            m.POST(syntheticRequest('/api/payments/webhook'))
+          );
+          return res;
+        }
         const res = await import('../subscriptions/webhook/route').then((m) =>
           m.POST(syntheticRequest('/api/subscriptions/webhook'))
         );
@@ -58,6 +67,12 @@ export async function POST(request: NextRequest) {
     }
 
     if (SUBSCRIPTION_EVENTS.has(event.type)) {
+      const isConnectEvent = Boolean((event as Stripe.Event & { account?: string }).account);
+      if (isConnectEvent) {
+        return import('../payments/webhook/route').then((m) =>
+          m.POST(syntheticRequest('/api/payments/webhook'))
+        );
+      }
       return import('../subscriptions/webhook/route').then((m) =>
         m.POST(syntheticRequest('/api/subscriptions/webhook'))
       );
