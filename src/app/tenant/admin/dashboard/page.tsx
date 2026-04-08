@@ -12,14 +12,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { NotificationsPreview } from '@/components/notifications/NotificationsPreview';
 import { format, startOfMonth } from 'date-fns';
 import type { Customer } from '@/types/booking';
-
-function isBirthdayToday(birthDate?: string): boolean {
-  if (!birthDate) return false;
-  const dt = new Date(`${birthDate}T00:00:00`);
-  if (Number.isNaN(dt.getTime())) return false;
-  const now = new Date();
-  return dt.getDate() === now.getDate() && dt.getMonth() === now.getMonth();
-}
+import { isBirthdayToday } from '@/lib/utils/birthdays';
 
 function birthMonthDay(birthDate?: string): { month: number; day: number } | null {
   if (!birthDate) return null;

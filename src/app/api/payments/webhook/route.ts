@@ -101,7 +101,10 @@ async function upsertStudentSubscriptionFromStripe(params: {
   return created.id;
 }
 
-async function resolveBusinessIdFromCheckoutSession(session: Stripe.Checkout.Session): Promise<string | null> {
+async function resolveBusinessIdFromCheckoutSession(
+  session: Stripe.Checkout.Session,
+  stripeAccount?: string
+): Promise<string | null> {
   const meta = session.metadata || {};
   if (meta.businessId) return meta.businessId;
 
@@ -110,7 +113,7 @@ async function resolveBusinessIdFromCheckoutSession(session: Stripe.Checkout.Ses
 
   const plId = typeof plRef === 'string' ? plRef : (plRef as Stripe.PaymentLink).id;
   try {
-    const pl = await stripe.paymentLinks.retrieve(plId);
+    const pl = await stripe.paymentLinks.retrieve(plId, stripeAccount ? { stripeAccount } : undefined);
     const fromPl = pl.metadata?.businessId;
     if (fromPl) return fromPl;
   } catch (e) {
@@ -138,18 +141,19 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.text();
     const event = await verifyWebhookSignature(request, body);
+    const stripeAccount = event.account;
 
     // Handle the event
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        await handleCheckoutSessionCompleted(session);
+        await handleCheckoutSessionCompleted(session, stripeAccount);
         break;
       }
 
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        await handlePaymentIntentSucceeded(paymentIntent);
+        await handlePaymentIntentSucceeded(paymentIntent, stripeAccount);
         break;
       }
 
@@ -209,10 +213,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
+async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, stripeAccount?: string) {
   const metadata = session.metadata || {};
   const bookingId = metadata.bookingId;
-  const businessId = (await resolveBusinessIdFromCheckoutSession(session)) || metadata.businessId;
+  const businessId = (await resolveBusinessIdFromCheckoutSession(session, stripeAccount)) || metadata.businessId;
 
   if (!businessId) {
     console.error('[webhook] Missing businessId (metadata + Payment Link resolution failed)');
@@ -346,14 +350,17 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   console.log(`[webhook] Payment created: ${paymentRef.id} for booking: ${bookingId}`);
 }
 
-async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent) {
+async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent, stripeAccount?: string) {
   let metadata = paymentIntent.metadata || {};
   let businessId = metadata.businessId;
   const bookingId = metadata.bookingId;
 
   if (!businessId) {
     try {
-      const pi = await stripe.paymentIntents.retrieve(paymentIntent.id);
+      const pi = await stripe.paymentIntents.retrieve(
+        paymentIntent.id,
+        stripeAccount ? { stripeAccount } : undefined
+      );
       metadata = { ...metadata, ...(pi.metadata || {}) };
       businessId = metadata.businessId || pi.metadata?.businessId;
     } catch (e) {
@@ -368,7 +375,10 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
 
   if (!metadata.stripePaymentLinkStripeId) {
     try {
-      const pi = await stripe.paymentIntents.retrieve(paymentIntent.id);
+      const pi = await stripe.paymentIntents.retrieve(
+        paymentIntent.id,
+        stripeAccount ? { stripeAccount } : undefined
+      );
       metadata = { ...metadata, ...(pi.metadata || {}) };
     } catch (e) {
       console.warn('[webhook] PI retrieve for metadata:', (e as Error)?.message);
