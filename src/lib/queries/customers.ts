@@ -6,9 +6,30 @@ import {
   updateDoc,
   doc,
   Timestamp,
+  deleteField,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Customer } from '@/types/booking';
+import { Customer, CustomerAddress } from '@/types/booking';
+
+function normalizeCustomerAddress(input: {
+  street?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+}): CustomerAddress {
+  return {
+    street: (input.street ?? '').trim(),
+    complement: (input.complement ?? '').trim(),
+    neighborhood: (input.neighborhood ?? '').trim(),
+    city: (input.city ?? '').trim(),
+    state: (input.state ?? '').trim(),
+  };
+}
+
+function hasAnyAddressField(a: CustomerAddress): boolean {
+  return !!(a.street || a.complement || a.neighborhood || a.city || a.state);
+}
 
 /**
  * Fetch customers for a business
@@ -55,9 +76,18 @@ export function useCreateCustomer(businessId: string) {
       email?: string;
       birthDate?: string;
       notes?: string;
+      tuitionTypeId?: string;
+      address?: {
+        street?: string;
+        complement?: string;
+        neighborhood?: string;
+        city?: string;
+        state?: string;
+      };
     }) => {
       const customersRef = collection(db, 'businesses', businessId, 'customers');
       const now = Timestamp.now();
+      const address = customerData.address ? normalizeCustomerAddress(customerData.address) : undefined;
 
       const data = {
         businessId,
@@ -70,6 +100,8 @@ export function useCreateCustomer(businessId: string) {
         totalSpent: 0,
         consentGiven: true,
         notes: customerData.notes?.trim() || '',
+        ...(customerData.tuitionTypeId ? { tuitionTypeId: customerData.tuitionTypeId } : {}),
+        ...(address && hasAnyAddressField(address) ? { address } : {}),
         createdAt: now,
         updatedAt: now,
       };
@@ -101,7 +133,11 @@ export function useUpdateCustomer(businessId: string) {
       // Firestore does not accept `undefined` values in update payloads.
       const sanitizedUpdates = Object.fromEntries(
         Object.entries(updates).filter(([, value]) => value !== undefined),
-      );
+      ) as Record<string, unknown>;
+
+      if ('tuitionTypeId' in sanitizedUpdates && sanitizedUpdates.tuitionTypeId === '') {
+        sanitizedUpdates.tuitionTypeId = deleteField();
+      }
 
       await updateDoc(customerRef, {
         ...sanitizedUpdates,

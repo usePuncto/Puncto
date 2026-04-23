@@ -2,21 +2,28 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useAuth } from '@/lib/contexts/AuthContext';
+import { ensureStudentTuitionSubscription } from '@/lib/student/ensureTuitionSubscription';
 import { useCustomers, useCreateCustomer } from '@/lib/queries/customers';
+import { useTuitionTypes } from '@/lib/queries/tuitionTypes';
 import { Customer } from '@/types/booking';
 import { CustomerDetailModal } from '@/components/admin/CustomerDetailModal';
+import { StudentEducationDetailModal } from '@/components/admin/StudentEducationDetailModal';
 import { AnamnesisFormsSection } from '@/components/admin/AnamnesisFormsSection';
 import { formatPhoneInput } from '@/lib/utils/phone';
+import { BRAZIL_UFS } from '@/lib/constants/brazilUfs';
 
 export default function AdminCustomersPage() {
   const { business } = useBusiness();
+  const queryClient = useQueryClient();
   const { firebaseUser } = useAuth();
   const isClinic = business?.industry === 'clinic';
   const isEducation = business?.industry === 'education';
   const { data: customers = [], isLoading } = useCustomers(business.id);
   const createCustomer = useCreateCustomer(business.id);
+  const { data: tuitionTypes = [] } = useTuitionTypes(business.id, isEducation);
   const [activeSection, setActiveSection] = useState<'patients' | 'anamnese'>('patients');
   const [showForm, setShowForm] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -29,10 +36,18 @@ export default function AdminCustomersPage() {
     email: '',
     birthDate: '',
     notes: '',
+    tuitionTypeId: '',
+    address: {
+      street: '',
+      complement: '',
+      neighborhood: '',
+      city: '',
+      state: '',
+    },
   });
   const [error, setError] = useState<string | null>(null);
   const [accessLoadingId, setAccessLoadingId] = useState<string | null>(null);
-  const [subscriptionLoadingId, setSubscriptionLoadingId] = useState<string | null>(null);
+  const [educationDetailCustomer, setEducationDetailCustomer] = useState<Customer | null>(null);
 
   const patientsLabel = isClinic ? 'Pacientes' : isEducation ? 'Alunos' : 'Clientes';
   const registerLabel = isClinic
@@ -119,16 +134,48 @@ export default function AdminCustomersPage() {
       return;
     }
     try {
-      await createCustomer.mutateAsync({
+      const created = await createCustomer.mutateAsync({
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         phone: formData.phone.trim(),
         email: formData.email.trim() || undefined,
         birthDate: formData.birthDate || undefined,
         notes: formData.notes.trim() || undefined,
+        ...(isEducation && formData.tuitionTypeId ? { tuitionTypeId: formData.tuitionTypeId } : {}),
+        address: formData.address,
       });
+
+      if (
+        isEducation &&
+        created.tuitionTypeId &&
+        typeof created.email === 'string' &&
+        created.email.trim() &&
+        firebaseUser
+      ) {
+        const tuitionResult = await ensureStudentTuitionSubscription(() => firebaseUser.getIdToken(), {
+          businessId: business.id,
+          customerId: created.id,
+        });
+        if (tuitionResult.ok && tuitionResult.created) {
+          await queryClient.invalidateQueries({ queryKey: ['studentSubscriptions', 'admin', business.id] });
+        } else if (!tuitionResult.ok) {
+          window.alert(
+            `Aluno cadastrado. Não foi possível preparar a mensalidade no portal:\n\n${tuitionResult.error}\n\nConfira o valor (R$) no tipo em Pagamentos e o Stripe.`,
+          );
+        }
+      }
+
       setShowForm(false);
-      setFormData({ firstName: '', lastName: '', phone: '', email: '', birthDate: '', notes: '' });
+      setFormData({
+        firstName: '',
+        lastName: '',
+        phone: '',
+        email: '',
+        birthDate: '',
+        notes: '',
+        tuitionTypeId: '',
+        address: { street: '', complement: '', neighborhood: '', city: '', state: '' },
+      });
     } catch (err: any) {
       setError(err.message || errorCreate);
     }
@@ -151,41 +198,22 @@ export default function AdminCustomersPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Falha ao criar acesso');
-      alert(`Acesso criado. Senha temporaria: ${data.temporaryPassword}`);
+      await queryClient.invalidateQueries({ queryKey: ['customers', business.id] });
+      if (data.emailSent) {
+        window.alert(
+          `Convite enviado para ${customer.email}.\n\nA senha inicial é a data de nascimento no formato DDMMAAAA (ex.: ${data.temporaryPassword}).\n\nPeça ao aluno a verificar a caixa de entrada e o spam.`,
+        );
+      } else {
+        window.alert(
+          `Acesso criado. Senha inicial (DDMMAAAA): ${data.temporaryPassword}\n\n${
+            data.loginUrl ? `Login do aluno: ${data.loginUrl}\n\n` : ''
+          }O e-mail automático não foi enviado — configure o provedor de e-mail (ZeptoMail ou Resend) no servidor ou repasse os dados manualmente.`,
+        );
+      }
     } catch (err: any) {
       alert(err?.message || 'Erro ao criar acesso');
     } finally {
       setAccessLoadingId(null);
-    }
-  };
-
-  const handleCreateSubscription = async (customer: Customer) => {
-    if (!firebaseUser) return;
-    const amountStr = prompt('Valor da mensalidade (em R$, ex: 299.90):', '299.90');
-    if (!amountStr) return;
-    const cents = Math.round(Number(amountStr.replace(',', '.')) * 100);
-    if (!Number.isFinite(cents) || cents <= 0) return;
-    setSubscriptionLoadingId(customer.id);
-    try {
-      const token = await firebaseUser.getIdToken();
-      const res = await fetch('/api/students/subscriptions/manage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          action: 'create',
-          businessId: business.id,
-          customerId: customer.id,
-          amount: cents,
-          currency: 'brl',
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Falha ao criar mensalidade');
-      if (data.checkoutUrl) window.open(data.checkoutUrl, '_blank');
-    } catch (err: any) {
-      alert(err?.message || 'Erro ao criar mensalidade');
-    } finally {
-      setSubscriptionLoadingId(null);
     }
   };
 
@@ -282,7 +310,7 @@ export default function AdminCustomersPage() {
       {showForm && (
         <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-6">
           <h2 className="text-lg font-semibold text-neutral-900 mb-4">{newPatientLabel}</h2>
-          <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
+          <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1">Nome *</label>
@@ -349,6 +377,109 @@ export default function AdminCustomersPage() {
                 rows={2}
               />
             </div>
+            <div className="border-t border-neutral-200 pt-4 space-y-4">
+              <h3 className="text-sm font-semibold text-neutral-900">Endereço</h3>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Rua</label>
+                <input
+                  type="text"
+                  value={formData.address.street}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      address: { ...formData.address, street: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  placeholder="Logradouro"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Complemento</label>
+                <input
+                  type="text"
+                  value={formData.address.complement}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      address: { ...formData.address, complement: e.target.value },
+                    })
+                  }
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  placeholder="Apto, bloco, referência..."
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Bairro</label>
+                  <input
+                    type="text"
+                    value={formData.address.neighborhood}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        address: { ...formData.address, neighborhood: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Cidade</label>
+                  <input
+                    type="text"
+                    value={formData.address.city}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        address: { ...formData.address, city: e.target.value },
+                      })
+                    }
+                    className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Estado (UF)</label>
+                <select
+                  value={formData.address.state}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      address: { ...formData.address, state: e.target.value },
+                    })
+                  }
+                  className="w-full max-w-xs rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                >
+                  <option value="">Selecione...</option>
+                  {BRAZIL_UFS.map((uf) => (
+                    <option key={uf} value={uf}>
+                      {uf}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {isEducation && (
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Tipo de mensalidade</label>
+                <select
+                  value={formData.tuitionTypeId}
+                  onChange={(e) => setFormData({ ...formData, tuitionTypeId: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                >
+                  <option value="">Nenhum</option>
+                  {tuitionTypes.map((tt) => (
+                    <option key={tt.id} value={tt.id}>
+                      {tt.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-1 text-xs text-neutral-500">
+                  Com e-mail e valor sugerido no tipo (Pagamentos), a mensalidade é preparada no portal ao cadastrar.
+                </p>
+              </div>
+            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex gap-2">
               <button
@@ -380,8 +511,12 @@ export default function AdminCustomersPage() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Nome</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Contato</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Agendamentos</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Total Gasto</th>
+                {!isEducation && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Agendamentos</th>
+                )}
+                {!isEducation && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Total Gasto</th>
+                )}
                 {isEducation && (
                   <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Ações aluno</th>
                 )}
@@ -401,34 +536,56 @@ export default function AdminCustomersPage() {
                     <div>{customer.email || '-'}</div>
                     {customer.phone && <div className="text-neutral-500">{customer.phone}</div>}
                   </td>
-                  <td className="px-6 py-4 text-sm">{customer.totalBookings}</td>
-                  <td className="px-6 py-4 text-sm font-medium">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((customer.totalSpent || 0) / 100)}
-                  </td>
+                  {!isEducation && <td className="px-6 py-4 text-sm">{customer.totalBookings}</td>}
+                  {!isEducation && (
+                    <td className="px-6 py-4 text-sm font-medium">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((customer.totalSpent || 0) / 100)}
+                    </td>
+                  )}
                   {isEducation && (
                     <td className="px-6 py-4 text-right text-sm">
                       <div className="flex justify-end gap-2">
+                        {customer.studentUserId || customer.studentAccessEnabled ? (
+                          <span
+                            role="status"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex cursor-default select-none items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-400"
+                          >
+                            Criado
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCreateStudentAccess(customer);
+                            }}
+                            disabled={
+                              !customer.email ||
+                              !customer.birthDate ||
+                              accessLoadingId === customer.id
+                            }
+                            title={
+                              !customer.email
+                                ? 'Cadastre o e-mail do aluno'
+                                : !customer.birthDate
+                                  ? 'Informe a data de nascimento (a senha inicial será DDMMAAAA)'
+                                  : undefined
+                            }
+                            className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                          >
+                            Acesso
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleCreateStudentAccess(customer);
+                            setEducationDetailCustomer(customer);
                           }}
-                          disabled={!customer.email || accessLoadingId === customer.id}
-                          className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                          className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
                         >
-                          Acesso
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCreateSubscription(customer);
-                          }}
-                          disabled={subscriptionLoadingId === customer.id}
-                          className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
-                        >
-                          Mensalidade
+                          Detalhes
                         </button>
                       </div>
                     </td>
@@ -444,6 +601,14 @@ export default function AdminCustomersPage() {
           )}
         </div>
       </div>
+
+      {educationDetailCustomer && (
+        <StudentEducationDetailModal
+          customer={educationDetailCustomer}
+          businessId={business.id}
+          onClose={() => setEducationDetailCustomer(null)}
+        />
+      )}
 
       {selectedCustomer && business && (
         <CustomerDetailModal

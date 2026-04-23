@@ -7,6 +7,16 @@ export interface CustomerData {
   email?: string;
 }
 
+/** Endereço residencial do cliente/paciente/aluno (admin). */
+export interface CustomerAddress {
+  street?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  /** UF (ex.: SP) */
+  state?: string;
+}
+
 export interface Reminders {
   whatsappSent?: Timestamp | Date;
   emailSent?: Timestamp | Date;
@@ -96,6 +106,9 @@ export interface Customer {
   studentUserId?: string;
   studentAccessEnabled?: boolean;
   stripeCustomerId?: string;
+  /** Tipo de mensalidade padrão (tuitionTypes/{id}) — educação */
+  tuitionTypeId?: string;
+  address?: CustomerAddress;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
 }

@@ -13,6 +13,61 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import type { Payment, PaymentLink, PaymentMethod, PaymentStatus } from '@/types/payment';
 import type { StudentSubscription } from '@/types/studentSubscription';
 import { useAllStudentSubscriptionsForBusiness } from '@/lib/queries/studentSubscriptionsAdmin';
+import { useTuitionTypes, useTuitionTypeMutations } from '@/lib/queries/tuitionTypes';
+
+/** Mesma cobrança (fatura / PI) pode ter ficado com vários documentos por webhooks — exibe uma linha. */
+function dedupePaymentHistoryRows(rows: Payment[]): Payment[] {
+  const piToInvoice = new Map<string, string>();
+  const chargeToInvoice = new Map<string, string>();
+  for (const p of rows) {
+    if (p.stripeInvoiceId) {
+      if (p.stripePaymentIntentId) piToInvoice.set(p.stripePaymentIntentId, p.stripeInvoiceId);
+      if (p.stripeChargeId) chargeToInvoice.set(p.stripeChargeId, p.stripeInvoiceId);
+    }
+  }
+
+  const canonicalKey = (p: Payment): string => {
+    if (p.stripeInvoiceId) return `inv:${p.stripeInvoiceId}`;
+    const invFromPi = p.stripePaymentIntentId ? piToInvoice.get(p.stripePaymentIntentId) : undefined;
+    if (invFromPi) return `inv:${invFromPi}`;
+    const invFromCharge = p.stripeChargeId ? chargeToInvoice.get(p.stripeChargeId) : undefined;
+    if (invFromCharge) return `inv:${invFromCharge}`;
+    if (p.stripePaymentIntentId) return `pi:${p.stripePaymentIntentId}`;
+    if (p.stripeChargeId) return `ch:${p.stripeChargeId}`;
+    return `id:${p.id}`;
+  };
+
+  const rowScore = (p: Payment) => {
+    let n = 0;
+    if (p.customerId) n += 3;
+    if (p.customerName) n += 2;
+    if (p.customerEmail) n += 1;
+    if (p.tuitionTypeName) n += 2;
+    if (p.description) n += 1;
+    if (p.stripeInvoiceId) n += 3;
+    if (p.stripeChargeId) n += 1;
+    return n;
+  };
+
+  const eventMs = (p: Payment): number => {
+    if (p.succeededAt) {
+      if (p.succeededAt instanceof Date) return p.succeededAt.getTime();
+      const s = (p.succeededAt as { seconds?: number })?.seconds;
+      if (typeof s === 'number') return s * 1000;
+    }
+    if (p.createdAt instanceof Date) return p.createdAt.getTime();
+    const s = (p.createdAt as { seconds?: number })?.seconds;
+    return typeof s === 'number' ? s * 1000 : 0;
+  };
+
+  const byKey = new Map<string, Payment>();
+  for (const p of rows) {
+    const k = canonicalKey(p);
+    const prev = byKey.get(k);
+    if (!prev || rowScore(p) > rowScore(prev)) byKey.set(k, p);
+  }
+  return Array.from(byKey.values()).sort((a, b) => eventMs(b) - eventMs(a));
+}
 
 export default function PaymentsAdminPage() {
   const { business } = useBusiness();
@@ -44,9 +99,12 @@ export default function PaymentsAdminPage() {
   const [educationTab, setEducationTab] = useState<'tuitions' | 'links' | 'history'>('tuitions');
   const { data: studentSubscriptions = [], isLoading: subscriptionsLoading } =
     useAllStudentSubscriptionsForBusiness(business.id, isEducation);
-  const [tuitionCustomerId, setTuitionCustomerId] = useState('');
-  const [tuitionAmountBrl, setTuitionAmountBrl] = useState('');
+  const [newTuitionTypeName, setNewTuitionTypeName] = useState('');
+  const [newTuitionTypeAmountBrl, setNewTuitionTypeAmountBrl] = useState('');
   const [tuitionActionLoading, setTuitionActionLoading] = useState(false);
+
+  const { data: tuitionTypes = [] } = useTuitionTypes(business.id, isEducation);
+  const tuitionTypeMutations = useTuitionTypeMutations(business.id);
 
   const customerLabelById = useMemo(() => {
     const m: Record<string, string> = {};
@@ -117,7 +175,7 @@ export default function PaymentsAdminPage() {
       }
 
       if (data?.onboardingUrl) {
-        window.location.href = data.onboardingUrl;
+        window.open(data.onboardingUrl, '_blank', 'noopener,noreferrer');
         return;
       }
 
@@ -155,14 +213,14 @@ export default function PaymentsAdminPage() {
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 409 && data?.onboardingUrl) {
-          window.location.href = data.onboardingUrl;
+          window.open(data.onboardingUrl, '_blank', 'noopener,noreferrer');
           return;
         }
         throw new Error(data.error || 'Falha ao abrir dashboard do Stripe');
       }
 
       if (data?.url) {
-        window.location.href = data.url;
+        window.open(data.url, '_blank', 'noopener,noreferrer');
       } else {
         alert('A Stripe não retornou uma URL de login.');
       }
@@ -206,6 +264,15 @@ export default function PaymentsAdminPage() {
     return map[status] || status;
   };
 
+  const paymentMethodLabelPt = (method: string) => {
+    const map: Record<string, string> = {
+      card: 'Cartão',
+      pix: 'Pix',
+      other: 'Outro',
+    };
+    return map[method] || method;
+  };
+
   const subscriptionStatusLabelPt = (status: string) => {
     const map: Record<string, string> = {
       pending_checkout: 'Aguardando 1º pagamento',
@@ -226,49 +293,22 @@ export default function PaymentsAdminPage() {
     return Math.round(n * 100);
   };
 
-  const handleCreateTuition = async () => {
-    const cents = parseBrlToCents(tuitionAmountBrl);
-    if (!tuitionCustomerId || !cents) {
-      alert('Selecione um aluno e informe o valor mensal (ex.: 350 ou 350,50).');
+  const handleAddTuitionType = async () => {
+    const name = newTuitionTypeName.trim();
+    if (!name) {
+      alert('Informe o nome do tipo de mensalidade (ex.: Integral, Meio período).');
       return;
     }
-    if (!firebaseUser) {
-      alert('Sessão expirada. Entre novamente.');
-      return;
-    }
-    setTuitionActionLoading(true);
+    const suggested = newTuitionTypeAmountBrl.trim() ? parseBrlToCents(newTuitionTypeAmountBrl) : null;
     try {
-      const token = await firebaseUser.getIdToken();
-      const res = await fetch('/api/students/subscriptions/manage', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          action: 'create',
-          businessId: business.id,
-          customerId: tuitionCustomerId,
-          amount: cents,
-          currency: 'brl',
-        }),
+      await tuitionTypeMutations.create.mutateAsync({
+        name,
+        ...(suggested && suggested > 0 ? { suggestedAmountCents: suggested } : {}),
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(typeof data.error === 'string' ? data.error : 'Falha ao criar mensalidade');
-      }
-      if (typeof data.checkoutUrl === 'string' && data.checkoutUrl) {
-        const open = window.confirm(
-          'Link de checkout gerado. Abrir em nova aba para copiar a URL ou enviar ao responsável?',
-        );
-        if (open) window.open(data.checkoutUrl, '_blank', 'noopener,noreferrer');
-      }
-      setTuitionAmountBrl('');
-      await queryClient.invalidateQueries({ queryKey: ['studentSubscriptions', 'admin', business.id] });
+      setNewTuitionTypeName('');
+      setNewTuitionTypeAmountBrl('');
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Erro ao criar mensalidade');
-    } finally {
-      setTuitionActionLoading(false);
+      alert(e instanceof Error ? e.message : 'Erro ao criar tipo de mensalidade');
     }
   };
 
@@ -469,13 +509,15 @@ export default function PaymentsAdminPage() {
     }
   }, [linkListPage, linkListTotalPages, linkListTotal]);
 
+  const dedupedPayments = useMemo(() => dedupePaymentHistoryRows(payments ?? []), [payments]);
+
   const filteredPayments = useMemo(() => {
-    if (!payments?.length) return [];
+    if (!dedupedPayments.length) return [];
     const q = filterSearch.trim().toLowerCase();
     const fromMs = filterDateFrom ? new Date(filterDateFrom + 'T00:00:00').getTime() : null;
     const toMs = filterDateTo ? new Date(filterDateTo + 'T23:59:59.999').getTime() : null;
 
-    return payments.filter((p) => {
+    return dedupedPayments.filter((p) => {
       if (filterStatus && p.status !== filterStatus) return false;
       if (filterMethod && p.paymentMethod !== filterMethod) return false;
 
@@ -488,9 +530,13 @@ export default function PaymentsAdminPage() {
         p.id,
         p.customerEmail,
         p.customerName,
+        p.description,
+        p.tuitionTypeName,
         p.stripePaymentIntentId,
         p.stripeCheckoutSessionId,
         p.stripeChargeId,
+        p.stripeInvoiceId,
+        p.stripeSubscriptionId,
         p.bookingId,
         p.stripePaymentLinkStripeId,
       ]
@@ -499,7 +545,7 @@ export default function PaymentsAdminPage() {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [payments, filterSearch, filterStatus, filterMethod, filterDateFrom, filterDateTo]);
+  }, [dedupedPayments, filterSearch, filterStatus, filterMethod, filterDateFrom, filterDateTo]);
 
   const hasSucceededPaymentByLinkId = useMemo(() => {
     const set = new Set<string>();
@@ -524,6 +570,7 @@ export default function PaymentsAdminPage() {
       'status',
       'valor_centavos',
       'moeda',
+      'descricao',
       'cliente_nome',
       'cliente_email',
       'metodo',
@@ -538,6 +585,7 @@ export default function PaymentsAdminPage() {
       p.status,
       String(p.amount),
       p.currency,
+      p.description || (p.tuitionTypeName ? `Mensalidade — ${p.tuitionTypeName}` : ''),
       p.customerName || '',
       p.customerEmail || '',
       p.paymentMethod,
@@ -568,7 +616,7 @@ export default function PaymentsAdminPage() {
           <h1 className="text-2xl font-bold tracking-tight text-neutral-900 sm:text-3xl">Pagamentos</h1>
           <p className="mt-1 max-w-xl text-sm text-neutral-600">
             {isEducation
-              ? 'Gerencie mensalidades (assinatura Stripe), links avulsos e o histórico de recebimentos.'
+              ? 'Cadastre tipos de mensalidade, acompanhe assinaturas e o histórico. O vínculo do aluno ao plano e a criação da cobrança ficam no cadastro de alunos (Clientes).'
               : 'Conecte o Stripe, crie links para cobrar clientes e acompanhe o que foi pago.'}
           </p>
         </div>
@@ -680,62 +728,73 @@ export default function PaymentsAdminPage() {
       {isEducation && educationTab === 'tuitions' && (
         <section className="space-y-6">
           <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <h2 className="text-base font-semibold text-neutral-900">Nova mensalidade</h2>
+            <h2 className="text-base font-semibold text-neutral-900">Tipos de mensalidade</h2>
             <p className="mt-1 text-sm text-neutral-600">
-              Cria uma assinatura mensal na Stripe para o aluno. Envie o link de checkout gerado ao responsável para
-              concluir o pagamento.
+              Cadastre os planos (ex.: Integral) e informe o <strong className="font-medium text-neutral-800">valor
+              sugerido (R$)</strong> — ele define o valor da mensalidade no Stripe. Em{' '}
+              <strong className="font-medium text-neutral-800">Clientes</strong>, atribua o tipo ao aluno (com
+              e-mail); ao salvar, a mensalidade fica disponível no portal do aluno para pagar e ativar a recorrência.
             </p>
-            <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-end">
-              <div className="min-w-[200px] flex-1">
-                <label className="block text-xs font-medium text-neutral-600 mb-1">Aluno</label>
-                <select
-                  value={tuitionCustomerId}
-                  onChange={(e) => setTuitionCustomerId(e.target.value)}
-                  disabled={tuitionActionLoading}
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+              <div className="min-w-[180px] flex-1">
+                <label className="block text-xs font-medium text-neutral-600 mb-1">Nome do tipo</label>
+                <input
+                  type="text"
+                  value={newTuitionTypeName}
+                  onChange={(e) => setNewTuitionTypeName(e.target.value)}
+                  placeholder="ex.: Integral"
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                >
-                  <option value="">Selecione…</option>
-                  {(customers ?? [])
-                    .slice()
-                    .sort((a, b) =>
-                      `${a.firstName} ${a.lastName}`.localeCompare(
-                        `${b.firstName} ${b.lastName}`,
-                        'pt-BR',
-                      ),
-                    )
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {`${c.firstName} ${c.lastName}`.trim()}
-                        {c.email ? ` (${c.email})` : ''}
-                      </option>
-                    ))}
-                </select>
+                />
               </div>
-              <div className="w-full min-w-[140px] sm:w-40">
-                <label className="block text-xs font-medium text-neutral-600 mb-1">Valor mensal (R$)</label>
+              <div className="w-full min-w-[140px] sm:w-36">
+                <label className="block text-xs font-medium text-neutral-600 mb-1">Valor (R$)</label>
                 <input
                   type="text"
                   inputMode="decimal"
-                  placeholder="ex.: 350,00"
-                  value={tuitionAmountBrl}
-                  onChange={(e) => setTuitionAmountBrl(e.target.value)}
-                  disabled={tuitionActionLoading}
+                  value={newTuitionTypeAmountBrl}
+                  onChange={(e) => setNewTuitionTypeAmountBrl(e.target.value)}
+                  placeholder="obrigatório p/ portal"
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                 />
               </div>
               <button
                 type="button"
-                onClick={handleCreateTuition}
-                disabled={tuitionActionLoading || !hasStripeAccount || !isStripeOnboardingComplete}
-                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => void handleAddTuitionType()}
+                disabled={tuitionTypeMutations.create.isPending}
+                className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50 disabled:opacity-50"
               >
-                {tuitionActionLoading ? 'Gerando…' : 'Gerar checkout'}
+                {tuitionTypeMutations.create.isPending ? 'Salvando…' : 'Adicionar tipo'}
               </button>
             </div>
-            {(!hasStripeAccount || !isStripeOnboardingComplete) && (
-              <p className="mt-3 text-xs text-amber-800">
-                Conclua a conexão com o Stripe acima para criar mensalidades.
-              </p>
+            {tuitionTypes.length > 0 ? (
+              <ul className="mt-4 divide-y divide-neutral-100 rounded-lg border border-neutral-100">
+                {tuitionTypes.map((tt) => (
+                  <li
+                    key={tt.id}
+                    className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-sm"
+                  >
+                    <span className="font-medium text-neutral-900">{tt.name}</span>
+                    <span className="text-neutral-600">
+                      {tt.suggestedAmountCents
+                        ? formatAmount(tt.suggestedAmountCents, 'brl')
+                        : 'Sem valor sugerido'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!window.confirm(`Remover o tipo "${tt.name}"?`)) return;
+                        void tuitionTypeMutations.remove.mutateAsync(tt.id);
+                      }}
+                      disabled={tuitionTypeMutations.remove.isPending}
+                      className="text-xs font-medium text-red-700 hover:underline disabled:opacity-50"
+                    >
+                      Remover
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-neutral-500">Nenhum tipo cadastrado ainda — é opcional.</p>
             )}
           </div>
 
@@ -743,7 +802,8 @@ export default function PaymentsAdminPage() {
             <div className="border-b border-neutral-100 bg-neutral-50/80 px-5 py-4">
               <h2 className="text-base font-semibold text-neutral-900">Mensalidades cadastradas</h2>
               <p className="mt-0.5 text-sm text-neutral-600">
-                Assinaturas vinculadas a alunos. Status atualizado via Stripe.
+                Assinaturas recorrentes na Stripe (diferente dos tipos de mensalidade no catálogo acima). Status
+                atualizado via Stripe.
               </p>
             </div>
             <div className="p-5">
@@ -753,15 +813,21 @@ export default function PaymentsAdminPage() {
                   <p className="mt-3 text-sm">Carregando…</p>
                 </div>
               ) : studentSubscriptions.length === 0 ? (
-                <p className="py-10 text-center text-sm text-neutral-500">
-                  Nenhuma mensalidade ainda. Use o formulário acima para criar.
+                <p className="py-10 text-center text-sm text-neutral-500 max-w-xl mx-auto">
+                  Nenhuma assinatura ainda. Com tipo de mensalidade e <strong className="font-medium text-neutral-700">
+                    valor (R$)
+                  </strong>{' '}
+                  no tipo acima, ao salvar o aluno em <strong className="font-medium text-neutral-700">Clientes</strong>{' '}
+                  (e-mail obrigatório) a mensalidade é preparada para o portal. Esta lista atualiza quando o aluno
+                  pagar ou quando existir contrato na Stripe.
                 </p>
               ) : (
                 <div className="overflow-x-auto -mx-5 px-5 sm:mx-0 sm:px-0">
-                  <table className="w-full min-w-[720px] text-sm">
+                  <table className="w-full min-w-[800px] text-sm">
                     <thead>
                       <tr className="border-b border-neutral-200 text-left text-neutral-500">
                         <th className="pb-3 pr-3 font-medium">Aluno</th>
+                        <th className="pb-3 pr-3 font-medium">Tipo</th>
                         <th className="pb-3 pr-3 font-medium">Valor / mês</th>
                         <th className="pb-3 pr-3 font-medium">Status</th>
                         <th className="pb-3 pr-3 font-medium">Período atual</th>
@@ -774,6 +840,9 @@ export default function PaymentsAdminPage() {
                         <tr key={sub.id} className="hover:bg-neutral-50/80">
                           <td className="py-3.5 pr-3 align-middle text-neutral-900">
                             {customerLabelById[sub.customerId] ?? sub.customerId}
+                          </td>
+                          <td className="py-3.5 pr-3 align-middle text-neutral-700">
+                            {sub.tuitionTypeName || '—'}
                           </td>
                           <td className="py-3.5 pr-3 align-middle tabular-nums font-medium">
                             {formatAmount(sub.amount, sub.currency)}
@@ -1026,6 +1095,9 @@ export default function PaymentsAdminPage() {
           <h2 className="text-base font-semibold text-neutral-900">Histórico de recebimentos</h2>
           <p className="mt-0.5 text-sm text-neutral-600">
             Pagamentos confirmados e demais status. Filtre por período ou exporte em CSV.
+            {isEducation
+              ? ' Inclui mensalidades (faturas Stripe) e links de pagamento.'
+              : ''}
           </p>
         </div>
         <div className="p-5">
@@ -1037,7 +1109,7 @@ export default function PaymentsAdminPage() {
                   type="search"
                   value={filterSearch}
                   onChange={(e) => setFilterSearch(e.target.value)}
-                  placeholder="ID, e-mail, Stripe…"
+                  placeholder="ID, e-mail, descrição, tipo…"
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                 />
               </div>
@@ -1114,7 +1186,11 @@ export default function PaymentsAdminPage() {
             </div>
             <p className="text-xs text-neutral-500">
               Período: usa a data de pagamento quando existir; caso contrário, a data de registro. Mostrando{' '}
-              <strong>{filteredPayments.length}</strong> de <strong>{payments?.length ?? 0}</strong> pagamentos.
+              <strong>{filteredPayments.length}</strong> de <strong>{dedupedPayments.length}</strong> pagamentos
+              {payments && payments.length !== dedupedPayments.length ? (
+                <span className="text-neutral-400"> ({payments.length} no banco, deduplicados)</span>
+              ) : null}
+              .
             </p>
           </div>
 
@@ -1125,7 +1201,9 @@ export default function PaymentsAdminPage() {
             </div>
           ) : !payments || payments.length === 0 ? (
             <p className="py-10 text-center text-sm text-neutral-500">
-              Ainda não há pagamentos registrados. Quando alguém pagar um link, aparece aqui.
+              {isEducation
+                ? 'Ainda não há pagamentos registrados. Cobranças de links e mensalidades confirmadas pelo Stripe aparecem aqui.'
+                : 'Ainda não há pagamentos registrados. Quando alguém pagar um link, aparece aqui.'}
             </p>
           ) : filteredPayments.length === 0 ? (
             <p className="py-10 text-center text-sm text-neutral-500">
@@ -1133,12 +1211,13 @@ export default function PaymentsAdminPage() {
             </p>
           ) : (
             <div className="overflow-x-auto -mx-5 px-5 sm:mx-0 sm:px-0">
-              <table className="w-full min-w-[720px] text-sm">
+              <table className="w-full min-w-[880px] text-sm">
                 <thead>
                   <tr className="border-b border-neutral-200 text-left text-neutral-500">
                     <th className="pb-3 pr-3 font-medium">Registrado</th>
                     <th className="pb-3 pr-3 font-medium">Pago em</th>
                     <th className="pb-3 pr-3 font-medium">Cliente</th>
+                    <th className="pb-3 pr-3 font-medium max-w-[220px]">Descrição</th>
                     <th className="pb-3 pr-3 font-medium">Valor</th>
                     <th className="pb-3 pr-3 font-medium">Status</th>
                     <th className="pb-3 pr-3 font-medium">Método</th>
@@ -1157,6 +1236,10 @@ export default function PaymentsAdminPage() {
                       <td className="py-3.5 pr-3 align-middle text-neutral-800">
                         {payment.customerName || payment.customerEmail || '—'}
                       </td>
+                      <td className="py-3.5 pr-3 align-middle text-neutral-600 text-xs max-w-[220px]">
+                        {payment.description ||
+                          (payment.tuitionTypeName ? `Mensalidade — ${payment.tuitionTypeName}` : '—')}
+                      </td>
                       <td className="py-3.5 pr-3 align-middle font-medium tabular-nums text-neutral-900">
                         {formatAmount(payment.amount, payment.currency)}
                       </td>
@@ -1167,8 +1250,8 @@ export default function PaymentsAdminPage() {
                           {paymentStatusLabelPt(payment.status)}
                         </span>
                       </td>
-                      <td className="py-3.5 pr-3 align-middle capitalize text-neutral-600">
-                        {payment.paymentMethod}
+                      <td className="py-3.5 pr-3 align-middle text-neutral-600">
+                        {paymentMethodLabelPt(payment.paymentMethod)}
                       </td>
                       <td className="py-3.5 text-right align-middle">
                         <button

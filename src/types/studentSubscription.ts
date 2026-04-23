@@ -23,6 +23,9 @@ export interface StudentSubscription {
   currentPeriodStart?: Timestamp | Date;
   currentPeriodEnd?: Timestamp | Date;
   cancelAtPeriodEnd?: boolean;
+  /** Referência ao tipo de mensalidade (tuitionTypes) quando aplicável */
+  tuitionTypeId?: string;
+  tuitionTypeName?: string;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
 }

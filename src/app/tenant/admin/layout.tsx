@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useMemo, useEffect } from 'react';
+import { ReactNode, useMemo, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
@@ -61,6 +61,7 @@ const educationAdminNavItems: NavItem[] = [
   { href: '/tenant/admin/dashboard', key: 'dashboard', icon: '📊', feature: 'always' },
   { href: '/tenant/admin/notifications', key: 'notifications', icon: '🔔', feature: 'always' },
   { href: '/tenant/admin/bookings', key: 'preEnrollments', icon: '📅', feature: 'scheduling' },
+  { href: '/tenant/admin/eventos', key: 'events', icon: '🎉', feature: 'scheduling' },
   { href: '/tenant/admin/professionals', key: 'professionals', icon: '👥', feature: 'scheduling' },
   { href: '/tenant/admin/customers', key: 'students', icon: '👤', feature: 'crm' },
   { href: '/tenant/admin/turmas', key: 'turmas', icon: '🎓', feature: 'scheduling' },
@@ -78,6 +79,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const { business } = useBusiness();
   const { user, logout } = useAuth();
   const t = useTranslations('nav');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const role = user && business ? getBusinessRole(user, business.id) : null;
 
@@ -86,6 +88,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       router.replace('/tenant/professional');
     }
   }, [role, router]);
+
+  useEffect(() => {
+    setIsMobileMenuOpen(false);
+  }, [pathname]);
 
   const visibleNavItems = useMemo(() => {
     const tier = business?.subscription?.tier || 'free';
@@ -102,11 +108,114 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     });
   }, [business?.subscription?.tier, business?.industry]);
 
+  const getNavLabel = (item: NavItem) => {
+    if (item.key === 'customers' && business?.industry === 'clinic') return t('patients');
+    if (item.key === 'professionals' && business?.industry === 'education') return t('teachers');
+    return t(item.key);
+  };
+
   return (
     <ProtectedRoute allowedRoles={['owner', 'manager', 'professional']}>
       <div className="min-h-screen bg-neutral-50">
+        {/* Mobile top bar + drawer */}
+        <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white px-4 py-3 lg:hidden print:hidden">
+          <div className="flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-700"
+              aria-label="Abrir menu"
+            >
+              ☰ Menu
+            </button>
+            <div className="min-w-0 text-center">
+              <p className="truncate text-sm font-semibold text-neutral-900">{business?.displayName || 'Admin'}</p>
+              <p className="truncate text-xs text-neutral-600">{t('adminPanel')}</p>
+            </div>
+            {business?.id && user?.id ? (
+              <NotificationsBell
+                businessId={business.id}
+                recipientUserId={user.id}
+                href="/tenant/admin/notifications"
+              />
+            ) : (
+              <div className="w-8" />
+            )}
+          </div>
+        </header>
+
+        {isMobileMenuOpen && (
+          <button
+            type="button"
+            aria-label="Fechar menu"
+            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
+
+        <aside
+          className={`fixed left-0 top-0 z-50 h-full w-[85%] max-w-xs border-r border-neutral-200 bg-white transition-transform duration-200 ease-out lg:hidden print:hidden ${
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="flex h-full flex-col">
+            <div className="border-b border-neutral-200 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="truncate text-base font-semibold text-neutral-900">{business?.displayName || 'Admin'}</h2>
+                  <p className="mt-1 text-xs text-neutral-600">{t('adminPanel')}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="rounded-md border border-neutral-200 px-2 py-1 text-xs text-neutral-700"
+                  aria-label="Fechar menu"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-4">
+              {visibleNavItems.map((item) => {
+                const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      isActive ? 'bg-neutral-900 text-white' : 'text-neutral-700 hover:bg-neutral-100'
+                    }`}
+                  >
+                    <span>{item.icon}</span>
+                    <span>{getNavLabel(item)}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="border-t border-neutral-200 p-4">
+              <p className="truncate text-sm font-medium text-neutral-900">{user?.displayName || user?.email}</p>
+              <div className="mt-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    logout();
+                  }}
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  {t('logout')}
+                </button>
+                <LocaleSwitcher />
+              </div>
+            </div>
+          </div>
+        </aside>
+
         {/* Sidebar (hidden when printing) */}
-        <aside className="fixed left-0 top-0 flex h-full w-64 flex-col border-r border-neutral-200 bg-white print:hidden">
+        <aside className="fixed left-0 top-0 hidden h-full w-64 flex-col border-r border-neutral-200 bg-white print:hidden lg:flex">
           <div className="flex-shrink-0 p-4 border-b border-neutral-200">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -127,12 +236,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <nav className="min-h-0 flex-1 overflow-y-auto p-4 space-y-1">
             {visibleNavItems.map((item) => {
               const isActive = pathname === item.href || pathname?.startsWith(item.href + '/');
-              const label =
-                item.key === 'customers' && business?.industry === 'clinic'
-                  ? t('patients')
-                  : item.key === 'professionals' && business?.industry === 'education'
-                    ? t('teachers')
-                    : t(item.key);
               return (
                 <Link
                   key={item.href}
@@ -144,7 +247,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   }`}
                 >
                   <span>{item.icon}</span>
-                  <span>{label}</span>
+                  <span>{getNavLabel(item)}</span>
                 </Link>
               );
             })}
@@ -168,8 +271,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </aside>
 
         {/* Main Content (full-width when printing) */}
-        <main className="ml-64 min-h-screen print:ml-0">
-          <div className="p-8">
+        <main className="min-h-screen lg:ml-64 print:ml-0">
+          <div className="p-4 sm:p-6 lg:p-8">
             {children}
           </div>
         </main>

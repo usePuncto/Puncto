@@ -75,9 +75,9 @@ export function TurmaScheduleMonthCalendar({ turmas, showTurmaFilter = true }: P
     selectedTurmaId !== 'all' ? turmas.find((t) => t.id === selectedTurmaId) : undefined;
 
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-6">
+    <div className="rounded-lg border border-neutral-200 bg-white p-3 sm:p-6">
       {showTurmaFilter && turmas.length > 1 && (
-        <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
           <label htmlFor="pro-cal-turma" className="text-sm text-neutral-600">
             Turma
           </label>
@@ -88,7 +88,7 @@ export function TurmaScheduleMonthCalendar({ turmas, showTurmaFilter = true }: P
               setSelectedTurmaId(e.target.value);
               setSelectedDay(null);
             }}
-            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm sm:w-auto"
           >
             <option value="all">Todas as minhas turmas</option>
             {turmas.map((turma) => (
@@ -100,18 +100,18 @@ export function TurmaScheduleMonthCalendar({ turmas, showTurmaFilter = true }: P
         </div>
       )}
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-2">
         <button
           type="button"
           onClick={() => {
             const prev = addMonths(monthAnchor, -1);
             setCalendarMonth(format(prev, 'yyyy-MM'));
           }}
-          className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50"
+          className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50 sm:px-4 sm:py-2"
         >
           ←
         </button>
-        <h2 className="text-xl font-semibold">
+        <h2 className="text-base font-semibold capitalize sm:text-xl">
           {format(monthAnchor, 'MMMM yyyy', { locale: ptBR })}
         </h2>
         <button
@@ -120,15 +120,16 @@ export function TurmaScheduleMonthCalendar({ turmas, showTurmaFilter = true }: P
             const next = addMonths(monthAnchor, 1);
             setCalendarMonth(format(next, 'yyyy-MM'));
           }}
-          className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50"
+          className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50 sm:px-4 sm:py-2"
         >
           →
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
+      <div className="overflow-x-auto pb-1">
+      <div className="grid min-w-[680px] grid-cols-7 gap-2">
         {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
-          <div key={day} className="py-2 text-center text-sm font-medium text-neutral-600">
+          <div key={day} className="py-2 text-center text-xs font-medium text-neutral-600 sm:text-sm">
             {day}
           </div>
         ))}
@@ -142,7 +143,7 @@ export function TurmaScheduleMonthCalendar({ turmas, showTurmaFilter = true }: P
             <div
               key={idx}
               onClick={() => setSelectedDay(isSelected ? null : day)}
-              className={`min-h-[110px] cursor-pointer rounded-lg border p-2 transition-colors ${
+              className={`min-h-[90px] cursor-pointer rounded-lg border p-1.5 transition-colors sm:min-h-[110px] sm:p-2 ${
                 isSelected
                   ? 'border-neutral-900 ring-2 ring-neutral-900 ring-offset-1'
                   : 'border-neutral-200 hover:border-neutral-300'
@@ -171,6 +172,7 @@ export function TurmaScheduleMonthCalendar({ turmas, showTurmaFilter = true }: P
             </div>
           );
         })}
+      </div>
       </div>
 
       {selectedDay && (

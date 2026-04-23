@@ -27,6 +27,7 @@
     "customers": "Clientes",
     "students": "Alumnos",
     "preEnrollments": "Calendario de clases",
+    "events": "Eventos",
     "turmas": "Clases",
     "rollCall": "Lista de asistencia",
     "patients": "Pacientes",
@@ -83,7 +84,7 @@
     "viewAll": "Ver todas",
 
     "previewTitle": "Últimas notificaciones",
-    "previewSubtitle": "Actualizaciones recientes sobre tus reservas",
+    "previewSubtitle": "Actualizaciones recientes sobre reservas y cambios de clase",
 
     "withCustomer": "Cliente: {customerName}",
 
@@ -101,6 +102,11 @@
       "created": "Nueva reserva: {serviceName} con {professionalName}",
       "confirmed": "Reserva confirmada: {serviceName} con {professionalName}",
       "completed": "Reserva completada: {serviceName} con {professionalName}"
+    },
+
+    "lessonReschedule": {
+      "pending": "Nueva solicitud de cambio de clase en «{turmaName}» — {professionalName}",
+      "noProfessional": "profesor sin asignar"
     }
   },
   "business": {

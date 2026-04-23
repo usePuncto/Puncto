@@ -27,6 +27,7 @@
     "customers": "Customers",
     "students": "Students",
     "preEnrollments": "Class calendar",
+    "events": "Events",
     "turmas": "Classes",
     "rollCall": "Attendance",
     "patients": "Patients",
@@ -83,7 +84,7 @@
     "viewAll": "View all",
 
     "previewTitle": "Latest notifications",
-    "previewSubtitle": "Recent updates about your bookings",
+    "previewSubtitle": "Recent updates about bookings and reschedule requests",
 
     "withCustomer": "Customer: {customerName}",
 
@@ -101,6 +102,11 @@
       "created": "New booking: {serviceName} with {professionalName}",
       "confirmed": "Booking confirmed: {serviceName} with {professionalName}",
       "completed": "Booking completed: {serviceName} with {professionalName}"
+    },
+
+    "lessonReschedule": {
+      "pending": "New lesson reschedule request for class «{turmaName}» — {professionalName}",
+      "noProfessional": "instructor not set"
     }
   },
   "business": {

@@ -43,11 +43,22 @@ service cloud.firestore {
              request.auth.token.businessRoles[businessId] == 'owner';
     }
 
+    // Staff da unidade: dono/gestor/profissional via claims (business_user) ou claims de tenant sem
+    // userType legível (ex.: convite aceito sem atualizar userType), ou documento staff ativo.
+    // get()/exists() não aplicam as regras do documento alvo — evita dependência circular com /staff.
     function isBusinessStaff(businessId) {
       return (isPlatformAdmin()) ||
              (isBusinessUser() &&
               request.auth.token.businessRoles != null &&
-              request.auth.token.businessRoles[businessId] in ['owner', 'manager', 'professional']);
+              request.auth.token.businessRoles[businessId] in ['owner', 'manager', 'professional']) ||
+             (isAuthenticated() &&
+              request.auth.token.businessRoles != null &&
+              request.auth.token.businessRoles[businessId] in ['owner', 'manager', 'professional'] &&
+              getUserType() != 'customer' &&
+              getUserType() != 'student') ||
+             (isAuthenticated() &&
+              exists(/databases/$(database)/documents/businesses/$(businessId)/staff/$(request.auth.uid)) &&
+              get(/databases/$(database)/documents/businesses/$(businessId)/staff/$(request.auth.uid)).data.active != false);
     }
 
     function hasPermission(businessId, permission) {
@@ -153,6 +164,78 @@ service cloud.firestore {
                        isPlatformAdmin();
       }
 
+      // Educação: solicitações de reposição de faltas
+      match /lessonRescheduleRequests/{requestId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow read: if isStudentOfBusiness(businessId) &&
+                      resource.data.studentId == request.auth.token.studentCustomerId;
+
+        allow create: if isStudentOfBusiness(businessId) &&
+                        request.resource.data.businessId == businessId &&
+                        request.resource.data.studentId == request.auth.token.studentCustomerId &&
+                        request.resource.data.requestedByUserId == request.auth.uid &&
+                        request.resource.data.status == 'pending';
+
+        // Aluno só pode cancelar uma solicitação própria pendente.
+        allow update: if isStudentOfBusiness(businessId) &&
+                        resource.data.studentId == request.auth.token.studentCustomerId &&
+                        resource.data.status == 'pending' &&
+                        request.resource.data.studentId == resource.data.studentId &&
+                        request.resource.data.businessId == resource.data.businessId &&
+                        request.resource.data.attendanceRollCallId == resource.data.attendanceRollCallId &&
+                        request.resource.data.turmaId == resource.data.turmaId &&
+                        request.resource.data.requestedDate == resource.data.requestedDate &&
+                        request.resource.data.requestedStartTime == resource.data.requestedStartTime &&
+                        request.resource.data.requestedEndTime == resource.data.requestedEndTime &&
+                        request.resource.data.requestedByUserId == resource.data.requestedByUserId &&
+                        request.resource.data.status == 'cancelled_by_student';
+
+        // Staff/plataforma fazem revisão (aprovar/reprovar)
+        allow update: if isBusinessOwner(businessId) ||
+                        hasPermission(businessId, 'manageBookings') ||
+                        isPlatformAdmin();
+        allow delete: if false;
+      }
+
+      // Educação: eventos e coletor de cadastros do evento
+      match /events/{eventId} {
+        // Eventos publicados devem aparecer na página pública de pré-cadastro.
+        allow read: if true;
+        allow write: if isBusinessOwner(businessId) ||
+                       hasPermission(businessId, 'manageBookings') ||
+                       isPlatformAdmin();
+
+        match /registrations/{registrationId} {
+          // Pré-cadastro público (site de eventos) com validação mínima de payload.
+          allow create: if request.resource.data.keys().hasOnly([
+                          'eventId',
+                          'name',
+                          'phone',
+                          'email',
+                          'createdAt',
+                          'updatedAt'
+                        ]) &&
+                        request.resource.data.eventId == eventId &&
+                        request.resource.data.name is string &&
+                        request.resource.data.name.size() >= 2 &&
+                        request.resource.data.name.size() <= 120 &&
+                        request.resource.data.phone is string &&
+                        request.resource.data.phone.size() >= 8 &&
+                        request.resource.data.phone.size() <= 30 &&
+                        request.resource.data.email is string &&
+                        request.resource.data.email.size() >= 5 &&
+                        request.resource.data.email.size() <= 200 &&
+                        get(/databases/$(database)/documents/businesses/$(businessId)/events/$(eventId)).data.status == 'active' &&
+                        request.resource.data.createdAt is timestamp &&
+                        request.resource.data.updatedAt is timestamp;
+
+          allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+          allow update, delete: if isBusinessOwner(businessId) ||
+                                  hasPermission(businessId, 'manageBookings') ||
+                                  isPlatformAdmin();
+        }
+      }
+
       // Clinic: anamnese forms and responses (prontuário)
       match /anamnesis_forms/{formId} {
         allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
@@ -201,6 +284,20 @@ service cloud.firestore {
         allow write: if isBusinessOwner(businessId) ||
                        hasPermission(businessId, 'manageBookings') ||
                        isPlatformAdmin();
+      }
+
+      // Educação: tipos de mensalidade (planos)
+      // Escrita: dono, gestor (claim manager) ou permissão manageBookings no staff — evita bloquear gestores sem doc staff.
+      match /tuitionTypes/{tuitionTypeId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        // Alunos veem o catálogo da própria escola (nome/valor sugerido) para o fluxo de mensalidade no portal.
+        allow read: if isStudentOfBusiness(businessId);
+        allow write: if isPlatformAdmin() ||
+                       isBusinessOwner(businessId) ||
+                       (isBusinessUser() &&
+                         request.auth.token.businessRoles != null &&
+                         request.auth.token.businessRoles[businessId] == 'manager') ||
+                       hasPermission(businessId, 'manageBookings');
       }
 
       match /ledgerEntries/{entryId} {

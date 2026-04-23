@@ -15,21 +15,23 @@ import {
 } from '@/types/notifications';
 
 function normalizeNotification(data: any, id: string): BookingNotification {
+  const createdAt = data.createdAt?.toDate?.() || data.createdAt;
+  const scheduledRaw = data.scheduledDateTime?.toDate?.() || data.scheduledDateTime;
   return {
     id,
     businessId: data.businessId,
     bookingId: data.bookingId,
     recipientUserId: data.recipientUserId,
-    eventType: data.eventType as BookingNotificationEventType,
+    eventType: (data.eventType as BookingNotificationEventType) || 'booking.created',
 
     isRead: !!data.isRead,
     readAt: data.readAt ?? null,
-    createdAt: data.createdAt?.toDate?.() || data.createdAt,
+    createdAt,
 
     serviceName: data.serviceName || '',
     professionalName: data.professionalName || '',
     customerName: data.customerName || '',
-    scheduledDateTime: data.scheduledDateTime?.toDate?.() || data.scheduledDateTime,
+    scheduledDateTime: scheduledRaw || createdAt,
     bookingStatus: data.bookingStatus || data.status || '',
   };
 }

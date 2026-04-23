@@ -5,14 +5,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { NotificationsList } from '@/components/notifications/NotificationsList';
 import { useCustomers } from '@/lib/queries/customers';
-
-function isBirthdayToday(birthDate?: string): boolean {
-  if (!birthDate) return false;
-  const dt = new Date(`${birthDate}T00:00:00`);
-  if (Number.isNaN(dt.getTime())) return false;
-  const now = new Date();
-  return dt.getDate() === now.getDate() && dt.getMonth() === now.getMonth();
-}
+import { isBirthdayToday } from '@/lib/utils/birthdays';
 
 export default function AdminNotificationsPage() {
   const { business } = useBusiness();

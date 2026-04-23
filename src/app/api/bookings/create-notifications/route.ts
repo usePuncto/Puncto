@@ -5,43 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
-
-async function getRecipientUserIds(businessId: string, professionalId?: string): Promise<string[]> {
-  const staffRef = db.collection('businesses').doc(businessId).collection('staff');
-
-  const [adminSnap, businessDoc, proDoc] = await Promise.all([
-    staffRef.where('role', 'in', ['owner', 'manager']).get(),
-    db.collection('businesses').doc(businessId).get(),
-    professionalId
-      ? db
-          .collection('businesses')
-          .doc(businessId)
-          .collection('professionals')
-          .doc(professionalId)
-          .get()
-      : Promise.resolve(null),
-  ]);
-
-  const adminUserIds = adminSnap.docs.map((d) => d.id);
-
-  let professionalUserIds: string[] = [];
-  if (professionalId) {
-    const proSnap = await staffRef.where('professionalId', '==', professionalId).get();
-    professionalUserIds = proSnap.docs.map((d) => d.id);
-    // Fallback: professional may not have staff doc but has userId (e.g. owner as professional)
-    const proData = proDoc?.data() as { userId?: string } | undefined;
-    if (proData?.userId && !professionalUserIds.includes(proData.userId)) {
-      professionalUserIds.push(proData.userId);
-    }
-  }
-
-  const businessData = businessDoc.data() as { createdBy?: string } | undefined;
-  const createdByUserId = businessData?.createdBy;
-
-  return Array.from(
-    new Set([...(createdByUserId ? [createdByUserId] : []), ...adminUserIds, ...professionalUserIds])
-  );
-}
+import { getStaffNotificationRecipientUserIds } from '@/lib/server/staffNotificationRecipients';
 
 function buildCustomerName(customerData: { firstName?: string; lastName?: string } | undefined): string {
   const first = customerData?.firstName || '';
@@ -69,7 +33,10 @@ export async function POST(request: NextRequest) {
     }
 
     const booking = bookingSnap.data();
-    const recipientUserIds = await getRecipientUserIds(businessId, booking?.professionalId);
+    const recipientUserIds = await getStaffNotificationRecipientUserIds(
+      businessId,
+      booking?.professionalId,
+    );
 
     if (recipientUserIds.length === 0) {
       return NextResponse.json({ ok: true, message: 'No recipients to notify' });

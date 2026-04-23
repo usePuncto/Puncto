@@ -3,12 +3,21 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { format } from 'date-fns';
+import {
+  findNearestClassDate,
+  formatTurmaClassWeekdaysShort,
+  isClassDayForTurma,
+  stepClassDate,
+} from '@/lib/utils/turmaClassDays';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useProfessional } from '@/lib/contexts/ProfessionalContext';
 import { useProfessionals } from '@/lib/queries/professionals';
 import { useTurmas } from '@/lib/queries/turmas';
 import { useCustomers } from '@/lib/queries/customers';
 import { useAttendanceRollCallsByTurmaDate, useUpsertAttendanceRollCall } from '@/lib/queries/attendance';
+import { useLessonRescheduleRequestsForTurmaDate } from '@/lib/queries/lessonReschedules';
+import { buildRollCallRowsWithReplacementGuests } from '@/lib/education/rollCallStudents';
+import { RescheduleRequestsReviewPanel } from '@/components/education/RescheduleRequestsReviewPanel';
 import type { RollCallStatus } from '@/types/attendance';
 
 function ProfessionalAttendanceContent() {
@@ -49,13 +58,31 @@ function ProfessionalAttendanceContent() {
     return m;
   }, [rollCallRecords]);
 
+  const { data: rollCallDayRescheduleRequests = [] } = useLessonRescheduleRequestsForTurmaDate(
+    business?.id ?? '',
+    selectedTurma?.id ?? '',
+    rollCallDate,
+  );
+
+  const customerById = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
+
   const selectedStudents = useMemo(() => {
     if (!selectedTurma) return [];
-    const byId = new Map(customers.map((c) => [c.id, c]));
     return selectedTurma.studentIds
-      .map((studentId) => byId.get(studentId))
+      .map((studentId) => customerById.get(studentId))
       .filter((c): c is NonNullable<typeof c> => !!c);
-  }, [customers, selectedTurma]);
+  }, [customerById, selectedTurma]);
+
+  const rollCallDisplayRows = useMemo(() => {
+    if (!selectedTurma) return [];
+    return buildRollCallRowsWithReplacementGuests(
+      selectedTurma,
+      rollCallDate,
+      selectedStudents,
+      rollCallDayRescheduleRequests,
+      customerById,
+    );
+  }, [selectedTurma, rollCallDate, selectedStudents, rollCallDayRescheduleRequests, customerById]);
 
   useEffect(() => {
     const t = searchParams.get('t') || searchParams.get('turmaId');
@@ -69,6 +96,15 @@ function ProfessionalAttendanceContent() {
     if (myTurmas.length === 0) return;
     setSelectedTurmaId(myTurmas[0].id);
   }, [myTurmas, selectedTurmaId]);
+
+  useEffect(() => {
+    if (!selectedTurmaId) return;
+    const turma = myTurmas.find((x) => x.id === selectedTurmaId);
+    if (!turma?.schedules?.length) return;
+    setDateFilter((prev) =>
+      isClassDayForTurma(turma, prev) ? prev : findNearestClassDate(turma, prev) || prev,
+    );
+  }, [selectedTurmaId, myTurmas]);
 
   const markRollCall = async (studentId: string, status: RollCallStatus) => {
     if (!selectedTurma) return;
@@ -100,12 +136,13 @@ function ProfessionalAttendanceContent() {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Lista de chamada</h1>
           <p className="mt-1 text-neutral-600">
-            Registre presença das suas turmas por dia.
+            Registre presença das suas turmas. A data da chamada segue apenas os dias em que a turma tem aula na
+            grade (inclui datas passadas para consulta ou correção).
           </p>
         </div>
         {isOwnerProfessional && allProfessionals && allProfessionals.length > 1 && (
@@ -128,6 +165,13 @@ function ProfessionalAttendanceContent() {
           </div>
         )}
       </div>
+
+      <RescheduleRequestsReviewPanel
+        businessId={business.id}
+        professionalId={effectiveProId}
+        title="Solicitações de reposição"
+        description="Aprove ou reprovar pedidos das suas turmas."
+      />
 
       {myTurmas.length === 0 ? (
         <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center text-sm text-neutral-600">
@@ -166,7 +210,7 @@ function ProfessionalAttendanceContent() {
           </div>
 
           <div className="rounded-lg border border-neutral-200 bg-white lg:col-span-2">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-neutral-200 px-4 py-3">
+            <div className="flex flex-col gap-3 border-b border-neutral-200 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
               <div>
                 <h3 className="font-medium text-neutral-900">
                   {selectedTurma ? `Chamada — ${selectedTurma.name}` : 'Selecione uma turma'}
@@ -174,18 +218,56 @@ function ProfessionalAttendanceContent() {
                 <p className="text-xs text-neutral-500">
                   Data: {format(new Date(`${rollCallDate}T12:00:00`), 'dd/MM/yyyy')}
                 </p>
+                {selectedTurma && selectedTurma.schedules?.length ? (
+                  <p className="mt-1 text-xs text-neutral-500">
+                    Dias com aula: {formatTurmaClassWeekdaysShort(selectedTurma)}
+                  </p>
+                ) : null}
               </div>
-              <input
-                type="date"
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-              />
+              {selectedTurma && selectedTurma.schedules?.length ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const prev = stepClassDate(selectedTurma, dateFilter, -1);
+                      if (prev) setDateFilter(prev);
+                    }}
+                    className="rounded-lg border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-50"
+                  >
+                    Dia anterior
+                  </button>
+                  <input
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (!v || !selectedTurma) return;
+                      if (isClassDayForTurma(selectedTurma, v)) setDateFilter(v);
+                    }}
+                    className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = stepClassDate(selectedTurma, dateFilter, 1);
+                      if (next) setDateFilter(next);
+                    }}
+                    className="rounded-lg border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-50"
+                  >
+                    Próximo dia
+                  </button>
+                </div>
+              ) : null}
             </div>
 
             {!selectedTurma ? (
               <div className="p-8 text-center text-neutral-500">Escolha uma turma.</div>
-            ) : selectedStudents.length === 0 ? (
+            ) : !selectedTurma.schedules?.length ? (
+              <div className="p-8 text-center text-sm text-neutral-500">
+                Esta turma não tem horários na grade. Peça ao administrador para cadastrar os dias de aula em{' '}
+                <span className="font-medium text-neutral-700">Turmas</span>.
+              </div>
+            ) : rollCallDisplayRows.length === 0 ? (
               <div className="p-8 text-center text-neutral-500">
                 Esta turma ainda não possui alunos vinculados.
               </div>
@@ -203,7 +285,7 @@ function ProfessionalAttendanceContent() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200">
-                    {selectedStudents.map((student) => {
+                    {rollCallDisplayRows.map(({ student, isReplacementGuest }) => {
                       const status = rollCallStatusByStudentId.get(student.id) || 'pending';
                       const statusButton = (value: RollCallStatus, label: string, activeClass: string) => (
                         <button
@@ -222,7 +304,14 @@ function ProfessionalAttendanceContent() {
                       return (
                         <tr key={student.id}>
                           <td className="px-4 py-3 text-sm font-medium text-neutral-900">
-                            {student.firstName} {student.lastName}
+                            <span>
+                              {student.firstName} {student.lastName}
+                            </span>
+                            {isReplacementGuest && (
+                              <span className="ml-2 inline-block rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
+                                Remarcação
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap gap-2">

@@ -59,6 +59,11 @@ export function NotificationsList({
           serviceName: n.serviceName,
           professionalName: n.professionalName,
         });
+      case 'lesson_reschedule.pending':
+        return t('lessonReschedule.pending', {
+          turmaName: n.serviceName,
+          professionalName: n.professionalName || t('lessonReschedule.noProfessional'),
+        });
       default:
         return t('booking.created', { serviceName: n.serviceName, professionalName: n.professionalName });
     }

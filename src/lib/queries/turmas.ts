@@ -24,11 +24,16 @@ function mapTurmaDoc(docSnap: QueryDocumentSnapshot): Turma {
     typeof data.professionalId === 'string' && data.professionalId.trim() !== ''
       ? data.professionalId
       : undefined;
+  const maxStudents =
+    typeof data.maxStudents === 'number' && Number.isFinite(data.maxStudents) && data.maxStudents > 0
+      ? Math.floor(data.maxStudents)
+      : undefined;
   return {
     id: docSnap.id,
     businessId: (data.businessId as string) || '',
     name: (data.name as string) || '',
     description: typeof data.description === 'string' ? data.description : '',
+    maxStudents,
     professionalId,
     studentIds: Array.isArray(data.studentIds) ? (data.studentIds as string[]) : [],
     schedules,
@@ -61,15 +66,21 @@ export function useCreateTurma(businessId: string) {
       name: string;
       description?: string;
       schedules?: TurmaScheduleSlot[];
+      maxStudents?: number;
     }) => {
       const ref = collection(db, 'businesses', businessId, 'turmas');
       const now = Timestamp.now();
+      const normalizedMaxStudents =
+        typeof input.maxStudents === 'number' && Number.isFinite(input.maxStudents) && input.maxStudents > 0
+          ? Math.floor(input.maxStudents)
+          : undefined;
       const data = {
         businessId,
         name: input.name.trim(),
         description: (input.description || '').trim(),
         studentIds: [] as string[],
         schedules: input.schedules || [],
+        ...(normalizedMaxStudents ? { maxStudents: normalizedMaxStudents } : {}),
         createdAt: now,
         updatedAt: now,
       };
@@ -90,7 +101,9 @@ export function useUpdateTurma(businessId: string) {
       updates,
     }: {
       turmaId: string;
-      updates: Partial<Pick<Turma, 'name' | 'description' | 'studentIds' | 'schedules' | 'professionalId'>>;
+      updates: Partial<Pick<Turma, 'name' | 'description' | 'studentIds' | 'schedules' | 'professionalId'>> & {
+        maxStudents?: number | null;
+      };
     }) => {
       const ref = doc(db, 'businesses', businessId, 'turmas', turmaId);
       const payload: Record<string, unknown> = { updatedAt: Timestamp.now() };
@@ -98,6 +111,14 @@ export function useUpdateTurma(businessId: string) {
       if (updates.description !== undefined) payload.description = updates.description.trim();
       if (updates.studentIds !== undefined) payload.studentIds = updates.studentIds;
       if (updates.schedules !== undefined) payload.schedules = updates.schedules;
+      if (updates.maxStudents !== undefined) {
+        payload.maxStudents =
+          typeof updates.maxStudents === 'number' &&
+          Number.isFinite(updates.maxStudents) &&
+          updates.maxStudents > 0
+            ? Math.floor(updates.maxStudents)
+            : deleteField();
+      }
       if (updates.professionalId !== undefined) {
         payload.professionalId =
           updates.professionalId && updates.professionalId.trim() !== ''

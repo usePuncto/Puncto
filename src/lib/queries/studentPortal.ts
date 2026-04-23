@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { AttendanceRollCall } from '@/types/attendance';
 import type { Payment } from '@/types/payment';
@@ -71,6 +71,26 @@ export function useStudentPayments(businessId: string, studentCustomerId?: strin
         } as Payment;
       });
       return items.sort((a, b) => new Date(b.createdAt as Date).getTime() - new Date(a.createdAt as Date).getTime());
+    },
+  });
+}
+
+/** Perfil do cliente vinculado ao login do aluno (ex.: tipo de mensalidade). */
+export function useStudentCustomerProfile(businessId: string, studentCustomerId?: string) {
+  return useQuery({
+    queryKey: ['studentCustomerProfile', businessId, studentCustomerId],
+    enabled: !!businessId && !!studentCustomerId,
+    queryFn: async () => {
+      const ref = doc(db, 'businesses', businessId, 'customers', studentCustomerId as string);
+      const snapshot = await getDoc(ref);
+      if (!snapshot.exists()) return null;
+      const data = snapshot.data() as Record<string, unknown>;
+      return {
+        firstName: typeof data.firstName === 'string' ? data.firstName : undefined,
+        lastName: typeof data.lastName === 'string' ? data.lastName : undefined,
+        tuitionTypeId: typeof data.tuitionTypeId === 'string' ? data.tuitionTypeId : undefined,
+        email: typeof data.email === 'string' ? data.email : undefined,
+      };
     },
   });
 }

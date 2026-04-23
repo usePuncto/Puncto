@@ -13,6 +13,8 @@ export interface Turma {
   businessId: string;
   name: string;
   description: string;
+  /** Máximo de alunos permitidos na turma (opcional) */
+  maxStudents?: number;
   /** Professor vinculado (`businesses/{id}/professionals`) */
   professionalId?: string;
   /** IDs de documentos em `businesses/{id}/customers` */

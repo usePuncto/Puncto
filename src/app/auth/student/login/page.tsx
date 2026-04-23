@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
@@ -27,9 +27,13 @@ export default function StudentLoginPage() {
     return `${target}${hasQuery ? '&' : '?'}subdomain=${encodeURIComponent(subdomain)}`;
   };
 
-  const prepareTenantContext = async () => {
+  /**
+   * Em localhost/ngrok o layout do tenant precisa do cookie `x-business-slug` (ou ?subdomain=).
+   * Contas de aluno trazem `studentBusinessId` nas claims — usamos isso quando a URL não tem subdomain.
+   */
+  const prepareTenantContext = useCallback(async (): Promise<{ businessId: string } | null> => {
     const firebaseUser = auth.currentUser;
-    if (!firebaseUser) return;
+    if (!firebaseUser) return null;
     try {
       const idToken = await firebaseUser.getIdToken(true);
       await fetch('/api/auth/session', {
@@ -41,26 +45,54 @@ export default function StudentLoginPage() {
     } catch {
       // best effort
     }
-    if (subdomain) {
+
+    let businessId = subdomain?.trim() || '';
+    if (!businessId) {
       try {
-        await fetch('/api/tenant/set-context', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ businessId: subdomain }),
-          credentials: 'include',
-        });
+        const { claims } = await firebaseUser.getIdTokenResult();
+        const fromClaims = claims.studentBusinessId;
+        if (typeof fromClaims === 'string' && fromClaims.trim()) {
+          businessId = fromClaims.trim();
+        }
       } catch {
-        // best effort
+        // ignore
       }
     }
-  };
+
+    if (!businessId) return null;
+
+    try {
+      const res = await fetch('/api/tenant/set-context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId }),
+        credentials: 'include',
+      });
+      if (!res.ok) return null;
+    } catch {
+      return null;
+    }
+
+    return { businessId };
+  }, [subdomain]);
 
   useEffect(() => {
-    if (!loading && user?.type === 'student') {
+    if (loading || user?.type !== 'student') return;
+    let cancelled = false;
+    void (async () => {
+      const ctx = await prepareTenantContext();
+      if (cancelled) return;
+      if (!ctx?.businessId) {
+        setError('Não foi possível identificar a escola. Use o link enviado pela escola ou faça login com ?subdomain=ID_DA_ESCOLA na URL.');
+        return;
+      }
       const target = withSubdomainIfNeeded(returnUrl);
-      router.push(target);
-    }
-  }, [loading, user, router, returnUrl, subdomain]);
+      router.replace(target);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, user?.type, router, returnUrl, subdomain, prepareTenantContext]);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +100,13 @@ export default function StudentLoginPage() {
     setError(null);
     try {
       await login(email, password);
-      await prepareTenantContext();
+      const ctx = await prepareTenantContext();
+      if (!ctx?.businessId) {
+        setError(
+          'Conta sem vínculo com a escola ou escola não identificada. Confirme o convite ou abra o login com ?subdomain= (ID da escola) na URL.',
+        );
+        return;
+      }
       window.location.href = withSubdomainIfNeeded(returnUrl);
     } catch (err: any) {
       setError(err?.message || 'Falha no login');

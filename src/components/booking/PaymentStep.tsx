@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useCreateCheckoutSession } from '@/lib/queries/payments';
 import { loadStripe } from '@stripe/stripe-js';
-import { getStripePublishableKey } from '@/lib/stripe/client';
+import { getStripePublishableKey } from '@/lib/stripe/publishable';
 import type { Service } from '@/types';
 
 interface PaymentStepProps {

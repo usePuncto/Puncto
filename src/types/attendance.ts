@@ -9,6 +9,8 @@ export interface AttendanceRollCall {
   studentId: string;
   date: string; // yyyy-MM-dd
   status: RollCallStatus;
+  /** IDs de solicitações de reposição vinculadas a esta falta. */
+  replacementRequestIds?: string[];
   markedAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
 }

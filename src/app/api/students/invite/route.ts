@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { createUser } from '@/lib/auth/create-user';
+import { sendEmail } from '@/lib/messaging/email';
 
 async function canManageStudents(uid: string, businessId: string) {
   const user = await auth.getUser(uid);
@@ -11,6 +12,14 @@ async function canManageStudents(uid: string, businessId: string) {
   if (role === 'owner' || role === 'manager') return true;
   const staffSnap = await db.collection('businesses').doc(businessId).collection('staff').doc(uid).get();
   return Boolean((staffSnap.data()?.permissions as Record<string, boolean> | undefined)?.manageBookings);
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function passwordFromBirthDate(birthDate?: string): string | null {
@@ -90,10 +99,42 @@ export async function POST(request: NextRequest) {
       { merge: true }
     );
 
+    const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
+    const loginUrl = `${baseUrl}/auth/student/login?subdomain=${encodeURIComponent(businessId)}`;
+    const studentName = displayName || `${customerData?.firstName || ''}`.trim() || 'Aluno';
+
+    let emailSent = false;
+    try {
+      const result = await sendEmail({
+        to: email.trim().toLowerCase(),
+        toNames: studentName,
+        subject: 'Acesso ao portal do aluno — Puncto',
+        html: `
+          <p>Olá, ${escapeHtml(studentName)}!</p>
+          <p>Foi criado o seu acesso ao <strong>portal do aluno</strong> da instituição.</p>
+          <p><strong>Senha inicial:</strong> sua data de nascimento no formato <strong>DDMMAAAA</strong> (somente números).<br/>
+          Ex.: nascimento em 15/03/2010 → senha <code>15032010</code>.</p>
+          <p>Depois do primeiro acesso você pode alterar a senha nas configurações da conta, se disponível.</p>
+          <p><a href="${loginUrl}" style="display:inline-block;margin-top:12px;padding:10px 16px;background:#171717;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Abrir login do aluno</a></p>
+          <p style="font-size:13px;color:#555;">Ou copie o endereço: ${loginUrl}</p>
+          <p>— Equipe Puncto</p>
+        `,
+        text: `Olá, ${studentName}. Acesso ao portal do aluno criado. Senha inicial: data de nascimento em DDMMAAAA (ex.: 15032010). Login: ${loginUrl}`,
+      });
+      emailSent = Boolean(result.success);
+      if (!result.success && result.error) {
+        console.warn('[students/invite] Email:', result.error);
+      }
+    } catch (mailErr) {
+      console.warn('[students/invite] Falha ao enviar e-mail:', mailErr);
+    }
+
     return NextResponse.json({
       success: true,
       studentUserId: created.userId,
       temporaryPassword: tempPassword,
+      emailSent,
+      loginUrl,
     });
   } catch (error: any) {
     console.error('[students/invite] Error:', error);

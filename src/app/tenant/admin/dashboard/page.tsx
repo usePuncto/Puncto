@@ -12,14 +12,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { NotificationsPreview } from '@/components/notifications/NotificationsPreview';
 import { format, startOfMonth } from 'date-fns';
 import type { Customer } from '@/types/booking';
-
-function isBirthdayToday(birthDate?: string): boolean {
-  if (!birthDate) return false;
-  const dt = new Date(`${birthDate}T00:00:00`);
-  if (Number.isNaN(dt.getTime())) return false;
-  const now = new Date();
-  return dt.getDate() === now.getDate() && dt.getMonth() === now.getMonth();
-}
+import { isBirthdayToday } from '@/lib/utils/birthdays';
 
 function birthMonthDay(birthDate?: string): { month: number; day: number } | null {
   if (!birthDate) return null;
@@ -142,7 +135,9 @@ export default function AdminDashboardPage() {
       </div>
 
       <div
-        className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${isEducation ? 'lg:grid-cols-3' : 'lg:grid-cols-4'}`}
+        className={`grid gap-4 ${
+          isEducation ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3' : 'grid-cols-2 lg:grid-cols-4'
+        }`}
       >
         {stats.map((stat) => (
           <Link
@@ -160,6 +155,19 @@ export default function AdminDashboardPage() {
           </Link>
         ))}
       </div>
+
+      {isEducation && (
+        <p className="mt-4 text-sm text-neutral-600">
+          Solicitações de reposição de faltas aparecem em{' '}
+          <Link
+            href="/tenant/admin/bookings?tab=reschedules"
+            className="font-medium text-neutral-900 underline hover:text-neutral-700"
+          >
+            Calendário de aulas → aba Remarcações
+          </Link>
+          .
+        </p>
+      )}
 
       {isEducation && (
         <div className="mt-6 rounded-lg border border-neutral-200 bg-white p-6">

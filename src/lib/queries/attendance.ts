@@ -1,15 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   collection,
-  doc,
   getDocs,
   query,
-  setDoc,
-  Timestamp,
   where,
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import type { AttendanceRollCall, RollCallStatus } from '@/types/attendance';
 
 function mapDoc(docSnap: QueryDocumentSnapshot): AttendanceRollCall {
@@ -21,6 +18,9 @@ function mapDoc(docSnap: QueryDocumentSnapshot): AttendanceRollCall {
     studentId: (data.studentId as string) || '',
     date: (data.date as string) || '',
     status: (data.status as RollCallStatus) || 'pending',
+    replacementRequestIds: Array.isArray(data.replacementRequestIds)
+      ? (data.replacementRequestIds as string[])
+      : undefined,
     markedAt:
       (data.markedAt as { toDate?: () => Date })?.toDate?.() ||
       (data.markedAt as unknown as Date),
@@ -77,23 +77,28 @@ export function useUpsertAttendanceRollCall(businessId: string) {
       status: RollCallStatus;
     }) => {
       const { turmaId, studentId, date, status } = params;
-      const id = `${turmaId}_${date}_${studentId}`;
-      const ref = doc(db, 'businesses', businessId, 'attendanceRollCalls', id);
-      const now = Timestamp.now();
+      const token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+      if (!token) throw new Error('Sessao expirada. Faca login novamente.');
 
-      await setDoc(
-        ref,
-        {
+      const res = await fetch('/api/attendance/roll-call', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
           businessId,
           turmaId,
           studentId,
           date,
           status,
-          markedAt: now,
-          updatedAt: now,
-        },
-        { merge: true },
-      );
+        }),
+      });
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        throw new Error(data.error || 'Nao foi possivel registrar a chamada');
+      }
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({

@@ -12,7 +12,7 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { User } from '@/types/user';
+import { User, type CustomClaims } from '@/types/user';
 
 interface AuthContextType {
   user: User | null;
@@ -66,16 +66,49 @@ export function AuthProvider({ children, ignoreAuth }: { children: ReactNode; ig
           const userDoc = await getDoc(userDocRef);
 
           if (userDoc.exists()) {
-            const userData = { id: userDoc.id, ...userDoc.data() } as User;
-            setUser(userData);
+            let userData = { id: userDoc.id, ...userDoc.data() } as User;
 
-            // Parse custom claims from token - STRICT USER TYPE ENFORCEMENT
+            // Claims do JWT são a fonte de verdade para alunos (Firestore pode estar desatualizado).
+            await firebaseUser.getIdToken(true);
             const tokenResult = await firebaseUser.getIdTokenResult();
             const claims = tokenResult.claims;
 
-            // Validate user type matches Firestore document
+            const claimUserType = claims.userType as User['type'] | undefined;
+            const effectiveType = claimUserType || userData.type;
+
+            if (effectiveType === 'student') {
+              const fromClaim = (k: string) => (typeof claims[k] === 'string' ? (claims[k] as string) : undefined);
+              const sc =
+                fromClaim('studentCustomerId') ||
+                userData.studentCustomerId ||
+                (userData.customClaims as CustomClaims | undefined)?.studentCustomerId;
+              const sb =
+                fromClaim('studentBusinessId') ||
+                userData.studentBusinessId ||
+                (userData.customClaims as CustomClaims | undefined)?.studentBusinessId;
+              const prevClaims =
+                userData.customClaims && typeof userData.customClaims === 'object'
+                  ? (userData.customClaims as CustomClaims)
+                  : ({} as CustomClaims);
+              userData = {
+                ...userData,
+                type: 'student',
+                studentCustomerId: sc,
+                studentBusinessId: sb,
+                customClaims: {
+                  ...prevClaims,
+                  userType: 'student',
+                  ...(sc ? { studentCustomerId: sc } : {}),
+                  ...(sb ? { studentBusinessId: sb } : {}),
+                },
+              };
+            }
+
+            setUser(userData);
+
+            // Validate user type matches Firestore document (best-effort)
             const userType = claims.userType || userData.type;
-            if (userType !== userData.type) {
+            if (userType !== userData.type && userData.type !== 'student') {
               console.warn('[AuthContext] User type mismatch between JWT and Firestore:', {
                 jwt: userType,
                 firestore: userData.type,

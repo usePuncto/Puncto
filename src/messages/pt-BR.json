@@ -27,6 +27,7 @@
     "customers": "Clientes",
     "students": "Alunos",
     "preEnrollments": "Calendário de aulas",
+    "events": "Eventos",
     "turmas": "Turmas",
     "rollCall": "Lista de chamada",
     "patients": "Pacientes",
@@ -83,7 +84,7 @@
     "viewAll": "Ver todas",
 
     "previewTitle": "Últimas notificações",
-    "previewSubtitle": "Atualizações recentes sobre seus agendamentos",
+    "previewSubtitle": "Atualizações recentes sobre agendamentos e remarcações",
 
     "withCustomer": "Cliente: {customerName}",
 
@@ -101,6 +102,11 @@
       "created": "Novo agendamento: {serviceName} com {professionalName}",
       "confirmed": "Agendamento confirmado: {serviceName} com {professionalName}",
       "completed": "Agendamento concluído: {serviceName} com {professionalName}"
+    },
+
+    "lessonReschedule": {
+      "pending": "Nova solicitação de remarcação na turma «{turmaName}» — {professionalName}",
+      "noProfessional": "professor a definir"
     }
   },
   "business": {

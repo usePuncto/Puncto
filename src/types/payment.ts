@@ -27,6 +27,9 @@ export interface Payment {
   stripeCheckoutSessionId?: string;
   metadata?: Record<string, string>;
   description?: string;
+  /** Mensalidade escolar (webhook Connect) */
+  tuitionTypeId?: string;
+  tuitionTypeName?: string;
   refundedAmount?: number; // Amount refunded in cents
   refunds?: Refund[];
   createdAt: Timestamp | Date;

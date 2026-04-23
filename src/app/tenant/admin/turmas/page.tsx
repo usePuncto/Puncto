@@ -40,6 +40,14 @@ function pct(part: number, total: number) {
   return `${Math.round((part / total) * 100)}%`;
 }
 
+function parseMaxStudentsInput(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (!trimmed) return undefined;
+  const parsed = Number(trimmed);
+  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
+  return Math.floor(parsed);
+}
+
 export default function AdminTurmasPage() {
   const { business } = useBusiness();
   const isEducation = business?.industry === 'education';
@@ -66,6 +74,7 @@ export default function AdminTurmasPage() {
   const [createWeekday, setCreateWeekday] = useState<TurmaWeekday>(1);
   const [createStartTime, setCreateStartTime] = useState('08:00');
   const [createEndTime, setCreateEndTime] = useState('09:00');
+  const [createMaxStudents, setCreateMaxStudents] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
 
   const [manageTurma, setManageTurma] = useState<Turma | null>(null);
@@ -73,6 +82,7 @@ export default function AdminTurmasPage() {
   const [manageWeekday, setManageWeekday] = useState<TurmaWeekday>(1);
   const [manageStartTime, setManageStartTime] = useState('08:00');
   const [manageEndTime, setManageEndTime] = useState('09:00');
+  const [manageMaxStudentsInput, setManageMaxStudentsInput] = useState('');
   const [reportStartDate, setReportStartDate] = useState(
     new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10),
   );
@@ -88,6 +98,9 @@ export default function AdminTurmasPage() {
   );
 
   const loading = loadingTurmas || loadingCustomers;
+  const reachedManageCapacity = Boolean(
+    manageTurma?.maxStudents && manageTurma.studentIds.length >= manageTurma.maxStudents,
+  );
 
   const professionalById = useMemo(() => {
     const m = new Map(professionals.map((p) => [p.id, p]));
@@ -104,6 +117,10 @@ export default function AdminTurmasPage() {
     setAddStudentId('');
     router.replace('/tenant/admin/turmas', { scroll: false });
   }, [isEducation, searchParams, turmas, router]);
+
+  useEffect(() => {
+    setManageMaxStudentsInput(manageTurma?.maxStudents ? String(manageTurma.maxStudents) : '');
+  }, [manageTurma?.id, manageTurma?.maxStudents]);
 
   const reportByTurma = useMemo(() => {
     const byTurma = new Map<
@@ -287,16 +304,22 @@ export default function AdminTurmasPage() {
       setCreateError('Adicione pelo menos um dia e horário para a turma.');
       return;
     }
+    if (createMaxStudents.trim() !== '' && !parseMaxStudentsInput(createMaxStudents)) {
+      setCreateError('Máximo de alunos deve ser um número inteiro maior que zero.');
+      return;
+    }
     try {
       await createTurma.mutateAsync({
         name: createName,
         description: createDescription,
         schedules: createSchedules,
+        maxStudents: parseMaxStudentsInput(createMaxStudents),
       });
       setShowCreate(false);
       setCreateName('');
       setCreateDescription('');
       setCreateSchedules([]);
+      setCreateMaxStudents('');
     } catch (err: unknown) {
       setCreateError(err instanceof Error ? err.message : 'Erro ao criar turma.');
     }
@@ -336,6 +359,7 @@ export default function AdminTurmasPage() {
 
   const addStudent = async () => {
     if (!business?.id || !manageTurma || !addStudentId) return;
+    if (manageTurma.maxStudents && manageTurma.studentIds.length >= manageTurma.maxStudents) return;
     const next = [...new Set([...manageTurma.studentIds, addStudentId])];
     await updateTurma.mutateAsync({
       turmaId: manageTurma.id,
@@ -400,6 +424,17 @@ export default function AdminTurmasPage() {
     );
   };
 
+  const saveManageMaxStudents = async () => {
+    if (!manageTurma) return;
+    if (manageMaxStudentsInput.trim() !== '' && !parseMaxStudentsInput(manageMaxStudentsInput)) return;
+    const nextMaxStudents = parseMaxStudentsInput(manageMaxStudentsInput);
+    await updateTurma.mutateAsync({
+      turmaId: manageTurma.id,
+      updates: { maxStudents: nextMaxStudents ?? null },
+    });
+    setManageTurma((t) => (t ? { ...t, maxStudents: nextMaxStudents } : null));
+  };
+
   const handleDeleteTurma = async (t: Turma) => {
     if (!confirm(`Excluir a turma "${t.name}"? Os alunos não serão excluídos do sistema.`)) return;
     await deleteTurma.mutateAsync(t.id);
@@ -439,6 +474,7 @@ export default function AdminTurmasPage() {
             setCreateError(null);
             setShowCreate(true);
             setCreateSchedules([]);
+            setCreateMaxStudents('');
           }}
           className="rounded-xl bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
         >
@@ -618,6 +654,10 @@ export default function AdminTurmasPage() {
                 {t.studentIds.length} aluno{t.studentIds.length === 1 ? '' : 's'}
               </p>
               <p className="mt-1 text-sm text-neutral-500">
+                Limite:{' '}
+                {t.maxStudents && t.maxStudents > 0 ? `${t.maxStudents} aluno${t.maxStudents === 1 ? '' : 's'}` : 'Sem limite'}
+              </p>
+              <p className="mt-1 text-sm text-neutral-500">
                 {t.schedules?.length || 0} horário{(t.schedules?.length || 0) === 1 ? '' : 's'}
               </p>
               {t.professionalId ? (
@@ -644,6 +684,7 @@ export default function AdminTurmasPage() {
                   onClick={() => {
                     setManageTurma(t);
                     setAddStudentId('');
+                    setManageMaxStudentsInput(t.maxStudents ? String(t.maxStudents) : '');
                   }}
                   className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800"
                 >
@@ -702,6 +743,21 @@ export default function AdminTurmasPage() {
                   rows={3}
                   className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                   placeholder="Horário, nível, observações..."
+                />
+              </div>
+              <div>
+                <label htmlFor="turma-max-students" className="block text-sm font-medium text-neutral-700">
+                  Máximo de alunos (opcional)
+                </label>
+                <input
+                  id="turma-max-students"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={createMaxStudents}
+                  onChange={(e) => setCreateMaxStudents(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  placeholder="Ex.: 20"
                 />
               </div>
               <div className="space-y-2 rounded-lg border border-neutral-200 p-3">
@@ -822,6 +878,38 @@ export default function AdminTurmasPage() {
             </div>
 
             <div className="mt-4 rounded-lg border border-neutral-200 p-3">
+              <label htmlFor="turma-max-students-manage" className="text-sm font-medium text-neutral-700">
+                Máximo de alunos
+              </label>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  id="turma-max-students-manage"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={manageMaxStudentsInput}
+                  onChange={(e) => setManageMaxStudentsInput(e.target.value)}
+                  className="min-w-0 flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  placeholder="Deixe vazio para sem limite"
+                />
+                <button
+                  type="button"
+                  onClick={saveManageMaxStudents}
+                  disabled={
+                    updateTurma.isPending ||
+                    (manageMaxStudentsInput.trim() !== '' && !parseMaxStudentsInput(manageMaxStudentsInput))
+                  }
+                  className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                >
+                  Salvar limite
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-neutral-500">
+                Atual: {manageTurma.maxStudents ? `${manageTurma.maxStudents} alunos` : 'Sem limite'}
+              </p>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-neutral-200 p-3">
               <p className="text-sm font-medium text-neutral-700">Dias e horários</p>
               {manageTurma.schedules.length === 0 ? (
                 <p className="mt-2 text-sm text-neutral-500">Nenhum horário definido.</p>
@@ -912,6 +1000,11 @@ export default function AdminTurmasPage() {
 
             <div className="mt-6 border-t border-neutral-200 pt-4">
               <p className="text-sm font-medium text-neutral-700">Adicionar aluno</p>
+              {reachedManageCapacity && (
+                <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  Esta turma atingiu o limite máximo de alunos.
+                </p>
+              )}
               {customers.length === 0 ? (
                 <p className="mt-2 text-sm text-neutral-500">
                   Cadastre alunos na aba Alunos antes de vinculá-los aqui.
@@ -937,7 +1030,7 @@ export default function AdminTurmasPage() {
                   <button
                     type="button"
                     onClick={() => addStudent()}
-                    disabled={!addStudentId || updateTurma.isPending}
+                    disabled={!addStudentId || updateTurma.isPending || reachedManageCapacity}
                     className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Adicionar

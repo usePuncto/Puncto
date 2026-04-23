@@ -211,6 +211,14 @@
         { "fieldPath": "active", "order": "ASCENDING" },
         { "fieldPath": "displayOrder", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "lessonRescheduleRequests",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "turmaId", "order": "ASCENDING" },
+        { "fieldPath": "requestedDate", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

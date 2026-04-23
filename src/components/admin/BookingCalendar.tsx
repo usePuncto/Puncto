@@ -255,19 +255,19 @@ export function BookingCalendar({
   };
 
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-6">
-      <div className="mb-4 flex items-center justify-between">
+    <div className="rounded-lg border border-neutral-200 bg-white p-3 sm:p-6">
+      <div className="mb-4 flex items-center justify-between gap-2">
         <button
           onClick={() =>
             setCurrentMonth(
               new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1)
             )
           }
-          className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50"
+          className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50 sm:px-4 sm:py-2"
         >
           ←
         </button>
-        <h2 className="text-xl font-semibold">
+        <h2 className="text-base font-semibold capitalize sm:text-xl">
           {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
         </h2>
         <button
@@ -276,17 +276,18 @@ export function BookingCalendar({
               new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1)
             )
           }
-          className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50"
+          className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-50 sm:px-4 sm:py-2"
         >
           →
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
+      <div className="overflow-x-auto pb-1">
+      <div className="grid min-w-[680px] grid-cols-7 gap-2">
         {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
           <div
             key={day}
-            className="text-center text-sm font-medium text-neutral-600 py-2"
+            className="py-2 text-center text-xs font-medium text-neutral-600 sm:text-sm"
           >
             {day}
           </div>
@@ -303,7 +304,7 @@ export function BookingCalendar({
             <div
               key={idx}
               onClick={() => setSelectedDay(isSelected ? null : day)}
-              className={`min-h-[100px] border rounded-lg p-2 cursor-pointer transition-colors ${
+              className={`min-h-[90px] border rounded-lg p-1.5 cursor-pointer transition-colors sm:min-h-[100px] sm:p-2 ${
                 isSelected
                   ? 'border-neutral-900 ring-2 ring-neutral-900 ring-offset-1'
                   : 'border-neutral-200 hover:border-neutral-300'
@@ -369,6 +370,7 @@ export function BookingCalendar({
             </div>
           );
         })}
+      </div>
       </div>
 
       {selectedDay && (

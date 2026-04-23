@@ -97,13 +97,16 @@ export const acceptInvite = https.onCall<AcceptInviteRequest>(async (request) =>
     // Add business role to custom claims
     businessRoles[businessId] = inviteData.role;
 
-    const newClaims = {
-      ...currentClaims,
-      businessRoles,
-    };
+    const newClaims = { ...currentClaims, userType: 'business_user', businessRoles } as Record<
+      string,
+      unknown
+    >;
+    delete newClaims.studentBusinessId;
+    delete newClaims.studentCustomerId;
+    delete newClaims.customerId;
 
     // Set custom claims
-    await auth.setCustomUserClaims(userId, newClaims);
+    await auth.setCustomUserClaims(userId, newClaims as typeof currentClaims & { userType: string });
 
     // Update user document
     await db.collection('users').doc(userId).update({
