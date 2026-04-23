@@ -160,7 +160,7 @@ export default function AdminCustomersPage() {
           await queryClient.invalidateQueries({ queryKey: ['studentSubscriptions', 'admin', business.id] });
         } else if (!tuitionResult.ok) {
           window.alert(
-            `Aluno cadastrado. Não foi possível preparar a mensalidade no portal:\n\n${tuitionResult.error}\n\nConfira o valor sugerido (R$) no tipo em Pagamentos e o Stripe.`,
+            `Aluno cadastrado. Não foi possível preparar a mensalidade no portal:\n\n${tuitionResult.error}\n\nConfira o valor (R$) no tipo em Pagamentos e o Stripe.`,
           );
         }
       }
@@ -198,6 +198,7 @@ export default function AdminCustomersPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Falha ao criar acesso');
+      await queryClient.invalidateQueries({ queryKey: ['customers', business.id] });
       if (data.emailSent) {
         window.alert(
           `Convite enviado para ${customer.email}.\n\nA senha inicial é a data de nascimento no formato DDMMAAAA (ex.: ${data.temporaryPassword}).\n\nPeça ao aluno a verificar a caixa de entrada e o spam.`,
@@ -510,8 +511,12 @@ export default function AdminCustomersPage() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Nome</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Contato</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Agendamentos</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Total Gasto</th>
+                {!isEducation && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Agendamentos</th>
+                )}
+                {!isEducation && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Total Gasto</th>
+                )}
                 {isEducation && (
                   <th className="px-6 py-3 text-right text-xs font-medium text-neutral-500 uppercase">Ações aluno</th>
                 )}
@@ -531,35 +536,47 @@ export default function AdminCustomersPage() {
                     <div>{customer.email || '-'}</div>
                     {customer.phone && <div className="text-neutral-500">{customer.phone}</div>}
                   </td>
-                  <td className="px-6 py-4 text-sm">{customer.totalBookings}</td>
-                  <td className="px-6 py-4 text-sm font-medium">
-                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((customer.totalSpent || 0) / 100)}
-                  </td>
+                  {!isEducation && <td className="px-6 py-4 text-sm">{customer.totalBookings}</td>}
+                  {!isEducation && (
+                    <td className="px-6 py-4 text-sm font-medium">
+                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((customer.totalSpent || 0) / 100)}
+                    </td>
+                  )}
                   {isEducation && (
                     <td className="px-6 py-4 text-right text-sm">
                       <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleCreateStudentAccess(customer);
-                          }}
-                          disabled={
-                            !customer.email ||
-                            !customer.birthDate ||
-                            accessLoadingId === customer.id
-                          }
-                          title={
-                            !customer.email
-                              ? 'Cadastre o e-mail do aluno'
-                              : !customer.birthDate
-                                ? 'Informe a data de nascimento (a senha inicial será DDMMAAAA)'
-                                : undefined
-                          }
-                          className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-                        >
-                          Acesso
-                        </button>
+                        {customer.studentUserId || customer.studentAccessEnabled ? (
+                          <span
+                            role="status"
+                            onClick={(e) => e.stopPropagation()}
+                            className="inline-flex cursor-default select-none items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-400"
+                          >
+                            Criado
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCreateStudentAccess(customer);
+                            }}
+                            disabled={
+                              !customer.email ||
+                              !customer.birthDate ||
+                              accessLoadingId === customer.id
+                            }
+                            title={
+                              !customer.email
+                                ? 'Cadastre o e-mail do aluno'
+                                : !customer.birthDate
+                                  ? 'Informe a data de nascimento (a senha inicial será DDMMAAAA)'
+                                  : undefined
+                            }
+                            className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+                          >
+                            Acesso
+                          </button>
+                        )}
                         <button
                           type="button"
                           onClick={(e) => {

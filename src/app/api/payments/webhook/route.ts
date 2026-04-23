@@ -2,12 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { verifyWebhookSignature } from '@/lib/stripe/webhooks';
 import { stripe } from '@/lib/stripe/client';
 import { db } from '@/lib/firebaseAdmin';
+import { recordTuitionInvoicePaymentForConnect } from '@/lib/server/tuitionInvoicePaymentRecord';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
 
 /** Firestore rejects undefined in documents — strip before add/update. */
 function stripUndefined<T extends Record<string, unknown>>(obj: T): Record<string, unknown> {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Record<string, unknown>;
+}
+
+async function findBusinessIdByConnectedAccount(connectedAccountId: string): Promise<string | null> {
+  const snap = await db
+    .collection('businesses')
+    .where('stripeConnectAccountId', '==', connectedAccountId)
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  return snap.docs[0].id;
 }
 
 async function markPaymentLinkPaidInFirestore(
@@ -101,6 +112,25 @@ async function upsertStudentSubscriptionFromStripe(params: {
   return created.id;
 }
 
+/** Cobranças de assinatura (mensalidade) ligam o PI à fatura; não duplicar linha em `payments` com PI + invoice. */
+function getStripeInvoiceIdFromPaymentIntent(pi: Stripe.PaymentIntent): string | null {
+  const inv = (pi as Stripe.PaymentIntent & { invoice?: string | Stripe.Invoice | null }).invoice;
+  if (typeof inv === 'string' && inv.startsWith('in_')) return inv;
+  if (inv && typeof inv === 'object' && 'id' in inv && typeof (inv as Stripe.Invoice).id === 'string') {
+    return (inv as Stripe.Invoice).id;
+  }
+  return null;
+}
+
+function getStripeSubscriptionIdFromPaymentIntent(pi: Stripe.PaymentIntent): string | null {
+  const sub = (pi as Stripe.PaymentIntent & { subscription?: string | Stripe.Subscription | null }).subscription;
+  if (typeof sub === 'string' && sub.startsWith('sub_')) return sub;
+  if (sub && typeof sub === 'object' && 'id' in sub && typeof (sub as Stripe.Subscription).id === 'string') {
+    return (sub as Stripe.Subscription).id;
+  }
+  return null;
+}
+
 async function resolveBusinessIdFromCheckoutSession(
   session: Stripe.Checkout.Session,
   stripeAccount?: string
@@ -142,10 +172,16 @@ export async function POST(request: NextRequest) {
     const body = await request.text();
     const event = await verifyWebhookSignature(request, body);
     const stripeAccount = event.account;
+    console.log(`[webhook] Received ${event.type}${stripeAccount ? ` (account=${stripeAccount})` : ''}`);
 
     // Handle the event
     switch (event.type) {
       case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        await handleCheckoutSessionCompleted(session, stripeAccount);
+        break;
+      }
+      case 'checkout.session.async_payment_succeeded': {
         const session = event.data.object as Stripe.Checkout.Session;
         await handleCheckoutSessionCompleted(session, stripeAccount);
         break;
@@ -171,20 +207,20 @@ export async function POST(request: NextRequest) {
 
       case 'invoice.paid': {
         const invoice = event.data.object as Stripe.Invoice;
-        await handleInvoicePaid(invoice);
+        await handleInvoicePaid(invoice, stripeAccount);
         break;
       }
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
-        await handleInvoicePaymentFailed(invoice);
+        await handleInvoicePaymentFailed(invoice, stripeAccount);
         break;
       }
 
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
-        await handleStudentSubscriptionUpdated(subscription);
+        await handleStudentSubscriptionUpdated(subscription, stripeAccount);
         break;
       }
 
@@ -216,7 +252,10 @@ export async function POST(request: NextRequest) {
 async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, stripeAccount?: string) {
   const metadata = session.metadata || {};
   const bookingId = metadata.bookingId;
-  const businessId = (await resolveBusinessIdFromCheckoutSession(session, stripeAccount)) || metadata.businessId;
+  const businessId =
+    (await resolveBusinessIdFromCheckoutSession(session, stripeAccount)) ||
+    metadata.businessId ||
+    (stripeAccount ? await findBusinessIdByConnectedAccount(stripeAccount) : null);
 
   if (!businessId) {
     console.error('[webhook] Missing businessId (metadata + Payment Link resolution failed)');
@@ -354,6 +393,57 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent,
   let metadata = paymentIntent.metadata || {};
   let businessId = metadata.businessId;
   const bookingId = metadata.bookingId;
+  let checkoutSessionId: string | undefined;
+  let paymentLinkIdFromSession: string | undefined;
+  let customerEmailFromSession: string | undefined;
+  let customerNameFromSession: string | undefined;
+  let customerIdFromSession: string | undefined;
+
+  // Payment Links/Checkout flows (especially async methods like Pix) may not copy
+  // all metadata to PaymentIntent. Recover tenant/payment context from Checkout Session.
+  try {
+    const sessions = await stripe.checkout.sessions.list(
+      { payment_intent: paymentIntent.id, limit: 1 },
+      stripeAccount ? { stripeAccount } : undefined
+    );
+    const session = sessions.data[0];
+    if (session) {
+      checkoutSessionId = session.id;
+      customerEmailFromSession = session.customer_email || session.customer_details?.email || undefined;
+      customerNameFromSession = session.customer_details?.name || undefined;
+      customerIdFromSession =
+        typeof session.customer === 'string'
+          ? session.customer
+          : (session.customer as Stripe.Customer | null)?.id || undefined;
+
+      const paymentLinkId =
+        typeof session.payment_link === 'string'
+          ? session.payment_link
+          : session.payment_link && typeof session.payment_link === 'object'
+            ? (session.payment_link as Stripe.PaymentLink).id
+            : undefined;
+      paymentLinkIdFromSession = paymentLinkId;
+
+      const sessionBusinessId = await resolveBusinessIdFromCheckoutSession(session, stripeAccount);
+      if (!businessId && sessionBusinessId) {
+        businessId = sessionBusinessId;
+      }
+      if (paymentLinkId && !metadata.stripePaymentLinkStripeId) {
+        metadata = { ...metadata, stripePaymentLinkStripeId: paymentLinkId };
+      }
+      if (!metadata.businessId && sessionBusinessId) {
+        metadata = { ...metadata, businessId: sessionBusinessId };
+      }
+    }
+  } catch (e) {
+    console.warn('[webhook] Could not retrieve Checkout Session by payment_intent:', (e as Error)?.message);
+  }
+
+  if (!businessId) {
+    if (stripeAccount) {
+      businessId = (await findBusinessIdByConnectedAccount(stripeAccount)) || undefined;
+    }
+  }
 
   if (!businessId) {
     try {
@@ -430,6 +520,55 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent,
     return;
   }
 
+  // Assinatura / mensalidade: o mesmo pagamento dispara `payment_intent.succeeded` e `invoice.paid`.
+  // Evita duplicar no histórico — a linha canônica vem da fatura (invoice) + recordTuition quando aplicável.
+  let linkedInvoiceId = getStripeInvoiceIdFromPaymentIntent(paymentIntent);
+  if (!linkedInvoiceId && typeof (paymentIntent as Stripe.PaymentIntent & { invoice?: unknown }).invoice === 'string') {
+    const invId = (paymentIntent as Stripe.PaymentIntent & { invoice?: string }).invoice;
+    if (invId?.startsWith('in_')) linkedInvoiceId = invId;
+  }
+  if (!linkedInvoiceId && stripeAccount) {
+    try {
+      const full = await stripe.paymentIntents.retrieve(
+        paymentIntent.id,
+        { expand: ['invoice', 'subscription'] },
+        { stripeAccount }
+      );
+      linkedInvoiceId = getStripeInvoiceIdFromPaymentIntent(full);
+      if (!linkedInvoiceId && getStripeSubscriptionIdFromPaymentIntent(full)) {
+        console.log(
+          `[webhook] payment_intent.succeeded: Connect subscription PI ${paymentIntent.id} sem fatura no PI — histórico fica com invoice.paid`,
+        );
+        return;
+      }
+    } catch (e) {
+      console.warn('[webhook] PI retrieve for invoice link:', (e as Error)?.message);
+    }
+  }
+  if (linkedInvoiceId) {
+    const byInv = await paymentsRef.where('stripeInvoiceId', '==', linkedInvoiceId).limit(1).get();
+    if (!byInv.empty) {
+      await byInv.docs[0].ref.set(
+        stripUndefined({
+          stripePaymentIntentId: paymentIntent.id,
+          stripeChargeId:
+            typeof paymentIntent.latest_charge === 'string'
+              ? paymentIntent.latest_charge
+              : (paymentIntent.latest_charge as Stripe.Charge | null)?.id || undefined,
+          status: 'succeeded' as const,
+          succeededAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        }) as Record<string, unknown>,
+        { merge: true }
+      );
+      return;
+    }
+    console.log(
+      `[webhook] payment_intent.succeeded: subscription invoice ${linkedInvoiceId} — skipping duplicate row (invoice webhook will record)`
+    );
+    return;
+  }
+
   // Payment Link / checkout without booking: create record if checkout.session.completed has not run yet
   const methodTypes = (paymentIntent.payment_method_types || []) as string[];
   const paymentMethod: 'card' | 'pix' | 'other' = methodTypes.includes('pix')
@@ -444,20 +583,22 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent,
       : (paymentIntent.latest_charge as Stripe.Charge | null)?.id || undefined;
 
   const plFromMeta = metadata.stripePaymentLinkStripeId as string | undefined;
+  const plId = plFromMeta || paymentLinkIdFromSession;
 
   const newPayment = stripUndefined({
     businessId,
     bookingId: null,
-    customerId: (metadata.customerId as string | undefined) || undefined,
-    customerEmail: metadata.customerEmail || undefined,
-    customerName: metadata.customerName || undefined,
+    customerId: (metadata.customerId as string | undefined) || customerIdFromSession || undefined,
+    customerEmail: metadata.customerEmail || customerEmailFromSession || undefined,
+    customerName: metadata.customerName || customerNameFromSession || undefined,
     amount: paymentIntent.amount_received || paymentIntent.amount,
     currency: (paymentIntent.currency || 'brl').toLowerCase(),
     status: 'succeeded' as const,
     paymentMethod,
     stripePaymentIntentId: paymentIntent.id,
     stripeChargeId: chargeId,
-    stripePaymentLinkStripeId: plFromMeta,
+    stripePaymentLinkStripeId: plId,
+    stripeCheckoutSessionId: checkoutSessionId,
     metadata: { ...metadata, source: 'stripe_payment_intent' } as Record<string, string>,
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
@@ -465,7 +606,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent,
   });
 
   const added = await paymentsRef.add(newPayment);
-  await markPaymentLinkPaidInFirestore(businessId, plFromMeta, added.id);
+  await markPaymentLinkPaidInFirestore(businessId, plId, added.id);
   console.log(`[webhook] Payment created from payment_intent.succeeded: ${paymentIntent.id}`);
 }
 
@@ -566,9 +707,12 @@ async function handleChargeRefunded(charge: Stripe.Charge) {
   }
 }
 
-async function handleStudentSubscriptionUpdated(subscription: Stripe.Subscription) {
+async function handleStudentSubscriptionUpdated(subscription: Stripe.Subscription, stripeAccount?: string) {
   const meta = subscription.metadata || {};
-  const businessId = meta.businessId;
+  let businessId = meta.businessId;
+  if (!businessId && stripeAccount) {
+    businessId = await findBusinessIdByConnectedAccount(stripeAccount) || undefined;
+  }
   if (!businessId) return;
   const customerId = meta.customerId;
   await upsertStudentSubscriptionFromStripe({
@@ -583,9 +727,12 @@ async function handleStudentSubscriptionUpdated(subscription: Stripe.Subscriptio
   });
 }
 
-async function handleInvoicePaid(invoice: Stripe.Invoice) {
+async function handleInvoicePaid(invoice: Stripe.Invoice, stripeAccount?: string) {
   const inv = invoice as any;
-  const businessId = inv.metadata?.businessId;
+  let businessId = inv.metadata?.businessId;
+  if (!businessId && stripeAccount) {
+    businessId = await findBusinessIdByConnectedAccount(stripeAccount) || undefined;
+  }
   const customerId = inv.metadata?.customerId;
   const subscriptionId =
     typeof inv.subscription === 'string'
@@ -594,31 +741,46 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   if (!businessId || !subscriptionId) return;
 
   const paymentsRef = db.collection('businesses').doc(businessId).collection('payments');
-  const existing = await paymentsRef.where('stripeInvoiceId', '==', inv.id).limit(1).get();
-  if (existing.empty) {
-    const amountPaid = (inv.amount_paid as number | undefined) || (inv.amount_due as number | undefined) || 0;
-    const paymentIntentId =
-      typeof inv.payment_intent === 'string'
-        ? inv.payment_intent
-        : (inv.payment_intent as Stripe.PaymentIntent | null)?.id;
-    await paymentsRef.add(
-      stripUndefined({
+
+  // Connect: uma única gravação enriquecida e idempotente (evita linha “em branco” + duplicata de recordTuition).
+  if (stripeAccount) {
+    try {
+      await recordTuitionInvoicePaymentForConnect({
         businessId,
-        customerId: customerId || undefined,
-        customerEmail: inv.customer_email || undefined,
-        amount: amountPaid,
-        currency: (inv.currency || 'brl').toLowerCase(),
-        status: 'succeeded' as const,
-        paymentMethod: 'card' as const,
-        stripeInvoiceId: inv.id,
+        invoice,
         stripeSubscriptionId: subscriptionId,
-        stripePaymentIntentId: paymentIntentId,
-        metadata: { ...(inv.metadata || {}), source: 'stripe_invoice' },
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-        succeededAt: Timestamp.now(),
-      })
-    );
+        stripeAccount,
+      });
+    } catch (e) {
+      console.warn('[webhook] recordTuitionInvoicePaymentForConnect failed:', (e as Error)?.message);
+    }
+  } else {
+    const existing = await paymentsRef.where('stripeInvoiceId', '==', inv.id).limit(1).get();
+    if (existing.empty) {
+      const amountPaid = (inv.amount_paid as number | undefined) || (inv.amount_due as number | undefined) || 0;
+      const paymentIntentId =
+        typeof inv.payment_intent === 'string'
+          ? inv.payment_intent
+          : (inv.payment_intent as Stripe.PaymentIntent | null)?.id;
+      await paymentsRef.add(
+        stripUndefined({
+          businessId,
+          customerId: customerId || undefined,
+          customerEmail: inv.customer_email || undefined,
+          amount: amountPaid,
+          currency: (inv.currency || 'brl').toLowerCase(),
+          status: 'succeeded' as const,
+          paymentMethod: 'card' as const,
+          stripeInvoiceId: inv.id,
+          stripeSubscriptionId: subscriptionId,
+          stripePaymentIntentId: paymentIntentId,
+          metadata: { ...(inv.metadata || {}), source: 'stripe_invoice' },
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+          succeededAt: Timestamp.now(),
+        })
+      );
+    }
   }
 
   await upsertStudentSubscriptionFromStripe({
@@ -631,9 +793,12 @@ async function handleInvoicePaid(invoice: Stripe.Invoice) {
   });
 }
 
-async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
+async function handleInvoicePaymentFailed(invoice: Stripe.Invoice, stripeAccount?: string) {
   const inv = invoice as any;
-  const businessId = inv.metadata?.businessId;
+  let businessId = inv.metadata?.businessId;
+  if (!businessId && stripeAccount) {
+    businessId = await findBusinessIdByConnectedAccount(stripeAccount) || undefined;
+  }
   const customerId = inv.metadata?.customerId;
   const subscriptionId =
     typeof inv.subscription === 'string'

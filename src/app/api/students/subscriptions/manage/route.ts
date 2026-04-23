@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             error:
-              'Valor da mensalidade nao definido. Informe o valor sugerido (R$) no tipo em Pagamentos > Tipos de mensalidade.',
+              'Valor da mensalidade nao definido. Informe o valor (R$) no tipo em Pagamentos > Tipos de mensalidade.',
             code: 'amount_required',
           },
           { status: 400 },

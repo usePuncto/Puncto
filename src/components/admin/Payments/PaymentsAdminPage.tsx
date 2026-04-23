@@ -15,6 +15,60 @@ import type { StudentSubscription } from '@/types/studentSubscription';
 import { useAllStudentSubscriptionsForBusiness } from '@/lib/queries/studentSubscriptionsAdmin';
 import { useTuitionTypes, useTuitionTypeMutations } from '@/lib/queries/tuitionTypes';
 
+/** Mesma cobrança (fatura / PI) pode ter ficado com vários documentos por webhooks — exibe uma linha. */
+function dedupePaymentHistoryRows(rows: Payment[]): Payment[] {
+  const piToInvoice = new Map<string, string>();
+  const chargeToInvoice = new Map<string, string>();
+  for (const p of rows) {
+    if (p.stripeInvoiceId) {
+      if (p.stripePaymentIntentId) piToInvoice.set(p.stripePaymentIntentId, p.stripeInvoiceId);
+      if (p.stripeChargeId) chargeToInvoice.set(p.stripeChargeId, p.stripeInvoiceId);
+    }
+  }
+
+  const canonicalKey = (p: Payment): string => {
+    if (p.stripeInvoiceId) return `inv:${p.stripeInvoiceId}`;
+    const invFromPi = p.stripePaymentIntentId ? piToInvoice.get(p.stripePaymentIntentId) : undefined;
+    if (invFromPi) return `inv:${invFromPi}`;
+    const invFromCharge = p.stripeChargeId ? chargeToInvoice.get(p.stripeChargeId) : undefined;
+    if (invFromCharge) return `inv:${invFromCharge}`;
+    if (p.stripePaymentIntentId) return `pi:${p.stripePaymentIntentId}`;
+    if (p.stripeChargeId) return `ch:${p.stripeChargeId}`;
+    return `id:${p.id}`;
+  };
+
+  const rowScore = (p: Payment) => {
+    let n = 0;
+    if (p.customerId) n += 3;
+    if (p.customerName) n += 2;
+    if (p.customerEmail) n += 1;
+    if (p.tuitionTypeName) n += 2;
+    if (p.description) n += 1;
+    if (p.stripeInvoiceId) n += 3;
+    if (p.stripeChargeId) n += 1;
+    return n;
+  };
+
+  const eventMs = (p: Payment): number => {
+    if (p.succeededAt) {
+      if (p.succeededAt instanceof Date) return p.succeededAt.getTime();
+      const s = (p.succeededAt as { seconds?: number })?.seconds;
+      if (typeof s === 'number') return s * 1000;
+    }
+    if (p.createdAt instanceof Date) return p.createdAt.getTime();
+    const s = (p.createdAt as { seconds?: number })?.seconds;
+    return typeof s === 'number' ? s * 1000 : 0;
+  };
+
+  const byKey = new Map<string, Payment>();
+  for (const p of rows) {
+    const k = canonicalKey(p);
+    const prev = byKey.get(k);
+    if (!prev || rowScore(p) > rowScore(prev)) byKey.set(k, p);
+  }
+  return Array.from(byKey.values()).sort((a, b) => eventMs(b) - eventMs(a));
+}
+
 export default function PaymentsAdminPage() {
   const { business } = useBusiness();
   const { firebaseUser } = useAuth();
@@ -121,7 +175,7 @@ export default function PaymentsAdminPage() {
       }
 
       if (data?.onboardingUrl) {
-        window.location.href = data.onboardingUrl;
+        window.open(data.onboardingUrl, '_blank', 'noopener,noreferrer');
         return;
       }
 
@@ -159,14 +213,14 @@ export default function PaymentsAdminPage() {
       const data = await res.json();
       if (!res.ok) {
         if (res.status === 409 && data?.onboardingUrl) {
-          window.location.href = data.onboardingUrl;
+          window.open(data.onboardingUrl, '_blank', 'noopener,noreferrer');
           return;
         }
         throw new Error(data.error || 'Falha ao abrir dashboard do Stripe');
       }
 
       if (data?.url) {
-        window.location.href = data.url;
+        window.open(data.url, '_blank', 'noopener,noreferrer');
       } else {
         alert('A Stripe não retornou uma URL de login.');
       }
@@ -208,6 +262,15 @@ export default function PaymentsAdminPage() {
       canceled: 'Cancelado',
     };
     return map[status] || status;
+  };
+
+  const paymentMethodLabelPt = (method: string) => {
+    const map: Record<string, string> = {
+      card: 'Cartão',
+      pix: 'Pix',
+      other: 'Outro',
+    };
+    return map[method] || method;
   };
 
   const subscriptionStatusLabelPt = (status: string) => {
@@ -446,13 +509,15 @@ export default function PaymentsAdminPage() {
     }
   }, [linkListPage, linkListTotalPages, linkListTotal]);
 
+  const dedupedPayments = useMemo(() => dedupePaymentHistoryRows(payments ?? []), [payments]);
+
   const filteredPayments = useMemo(() => {
-    if (!payments?.length) return [];
+    if (!dedupedPayments.length) return [];
     const q = filterSearch.trim().toLowerCase();
     const fromMs = filterDateFrom ? new Date(filterDateFrom + 'T00:00:00').getTime() : null;
     const toMs = filterDateTo ? new Date(filterDateTo + 'T23:59:59.999').getTime() : null;
 
-    return payments.filter((p) => {
+    return dedupedPayments.filter((p) => {
       if (filterStatus && p.status !== filterStatus) return false;
       if (filterMethod && p.paymentMethod !== filterMethod) return false;
 
@@ -480,7 +545,7 @@ export default function PaymentsAdminPage() {
         .toLowerCase();
       return hay.includes(q);
     });
-  }, [payments, filterSearch, filterStatus, filterMethod, filterDateFrom, filterDateTo]);
+  }, [dedupedPayments, filterSearch, filterStatus, filterMethod, filterDateFrom, filterDateTo]);
 
   const hasSucceededPaymentByLinkId = useMemo(() => {
     const set = new Set<string>();
@@ -682,7 +747,7 @@ export default function PaymentsAdminPage() {
                 />
               </div>
               <div className="w-full min-w-[140px] sm:w-36">
-                <label className="block text-xs font-medium text-neutral-600 mb-1">Valor sugerido (R$)</label>
+                <label className="block text-xs font-medium text-neutral-600 mb-1">Valor (R$)</label>
                 <input
                   type="text"
                   inputMode="decimal"
@@ -750,7 +815,7 @@ export default function PaymentsAdminPage() {
               ) : studentSubscriptions.length === 0 ? (
                 <p className="py-10 text-center text-sm text-neutral-500 max-w-xl mx-auto">
                   Nenhuma assinatura ainda. Com tipo de mensalidade e <strong className="font-medium text-neutral-700">
-                    valor sugerido (R$)
+                    valor (R$)
                   </strong>{' '}
                   no tipo acima, ao salvar o aluno em <strong className="font-medium text-neutral-700">Clientes</strong>{' '}
                   (e-mail obrigatório) a mensalidade é preparada para o portal. Esta lista atualiza quando o aluno
@@ -1121,7 +1186,11 @@ export default function PaymentsAdminPage() {
             </div>
             <p className="text-xs text-neutral-500">
               Período: usa a data de pagamento quando existir; caso contrário, a data de registro. Mostrando{' '}
-              <strong>{filteredPayments.length}</strong> de <strong>{payments?.length ?? 0}</strong> pagamentos.
+              <strong>{filteredPayments.length}</strong> de <strong>{dedupedPayments.length}</strong> pagamentos
+              {payments && payments.length !== dedupedPayments.length ? (
+                <span className="text-neutral-400"> ({payments.length} no banco, deduplicados)</span>
+              ) : null}
+              .
             </p>
           </div>
 
@@ -1181,8 +1250,8 @@ export default function PaymentsAdminPage() {
                           {paymentStatusLabelPt(payment.status)}
                         </span>
                       </td>
-                      <td className="py-3.5 pr-3 align-middle capitalize text-neutral-600">
-                        {payment.paymentMethod}
+                      <td className="py-3.5 pr-3 align-middle text-neutral-600">
+                        {paymentMethodLabelPt(payment.paymentMethod)}
                       </td>
                       <td className="py-3.5 text-right align-middle">
                         <button

@@ -65,7 +65,7 @@ export default function ProfessionalDashboardPage() {
               Horários das turmas em {format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
             <Link
               href="/tenant/professional/attendance"
               className="text-sm font-medium text-neutral-700 hover:text-neutral-900 underline"
@@ -82,7 +82,7 @@ export default function ProfessionalDashboardPage() {
               <select
                 value={selectedProId ?? professional.id}
                 onChange={(e) => setSelectedProId(e.target.value || null)}
-                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm bg-white"
+                className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm sm:w-auto"
               >
                 <option value={professional.id}>{professional.name} (eu)</option>
                 {allProfessionals
@@ -133,28 +133,30 @@ export default function ProfessionalDashboardPage() {
             Agendamentos de {format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })}
           </p>
         </div>
-        <Link
-          href="/tenant/professional/bookings"
-          className="text-sm font-medium text-neutral-700 hover:text-neutral-900 underline"
-        >
-          Ver lista e gerenciar status →
-        </Link>
-        {isOwnerProfessional && allProfessionals && allProfessionals.length > 1 && (
-          <select
-            value={selectedProId ?? professional.id}
-            onChange={(e) => setSelectedProId(e.target.value || null)}
-            className="rounded-lg border border-neutral-300 px-4 py-2 text-sm bg-white"
+        <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
+          <Link
+            href="/tenant/professional/bookings"
+            className="text-sm font-medium text-neutral-700 hover:text-neutral-900 underline"
           >
-            <option value={professional.id}>{professional.name} (meu)</option>
-            {allProfessionals
-              ?.filter((p) => p.id !== professional.id)
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-          </select>
-        )}
+            Ver lista e gerenciar status →
+          </Link>
+          {isOwnerProfessional && allProfessionals && allProfessionals.length > 1 && (
+            <select
+              value={selectedProId ?? professional.id}
+              onChange={(e) => setSelectedProId(e.target.value || null)}
+              className="w-full rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm sm:w-auto"
+            >
+              <option value={professional.id}>{professional.name} (meu)</option>
+              {allProfessionals
+                ?.filter((p) => p.id !== professional.id)
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+            </select>
+          )}
+        </div>
       </div>
       <BookingCalendar
         bookings={bookings ?? []}

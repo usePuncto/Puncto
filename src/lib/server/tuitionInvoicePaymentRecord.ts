@@ -1,10 +1,50 @@
 import { db } from '@/lib/firebaseAdmin';
 import { stripe } from '@/lib/stripe/client';
-import { Timestamp } from 'firebase-admin/firestore';
+import { Timestamp, type CollectionReference, type QuerySnapshot } from 'firebase-admin/firestore';
 import type Stripe from 'stripe';
 
 function stripUndefined<T extends Record<string, unknown>>(obj: T): Record<string, unknown> {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Record<string, unknown>;
+}
+
+/** Remove linhas só com valor/PI criadas antes do registro canônico da fatura. */
+async function removeOrphanTuitionPaymentCopies(
+  paymentsRef: CollectionReference,
+  canonicalInvoiceId: string,
+  opts: { paymentIntentId?: string; stripeChargeId?: string },
+) {
+  const { paymentIntentId, stripeChargeId } = opts;
+  try {
+    const maybeDelete = async (snap: QuerySnapshot) => {
+      for (const d of snap.docs) {
+        const data = d.data() as { stripeInvoiceId?: string };
+        if (data.stripeInvoiceId === canonicalInvoiceId) continue;
+        if (!data.stripeInvoiceId) await d.ref.delete();
+      }
+    };
+    if (paymentIntentId) {
+      const snap = await paymentsRef.where('stripePaymentIntentId', '==', paymentIntentId).get();
+      await maybeDelete(snap);
+    }
+    if (stripeChargeId) {
+      const snap = await paymentsRef.where('stripeChargeId', '==', stripeChargeId).get();
+      await maybeDelete(snap);
+    }
+  } catch (e) {
+    console.warn('[tuitionInvoicePaymentRecord] removeOrphanTuitionPaymentCopies', e);
+  }
+}
+
+function tuitionPaymentRowScore(data: Record<string, unknown>): number {
+  let n = 0;
+  if (data.customerId) n += 4;
+  if (data.customerName) n += 2;
+  if (data.customerEmail) n += 1;
+  if (data.tuitionTypeName) n += 2;
+  if (data.description) n += 1;
+  if (data.stripeInvoiceId) n += 2;
+  if (data.stripePaymentIntentId) n += 1;
+  return n;
 }
 
 async function getStudentSubscriptionFirestoreData(
@@ -32,8 +72,6 @@ export async function recordTuitionInvoicePaymentForConnect(params: {
   const { businessId, invoice, stripeSubscriptionId, stripeAccount } = params;
 
   const paymentsRef = db.collection('businesses').doc(businessId).collection('payments');
-  const existing = await paymentsRef.where('stripeInvoiceId', '==', invoice.id).limit(1).get();
-  if (!existing.empty) return 'duplicate';
 
   let inv = invoice as Stripe.Invoice & {
     payment_intent?: string | Stripe.PaymentIntent | null;
@@ -111,6 +149,26 @@ export async function recordTuitionInvoicePaymentForConnect(params: {
     }
   }
 
+  let stripeChargeId: string | undefined;
+  const chField = (inv as Stripe.Invoice & { charge?: string | Stripe.Charge | null }).charge;
+  stripeChargeId =
+    typeof chField === 'string'
+      ? chField
+      : chField && typeof chField === 'object' && 'id' in chField
+        ? (chField as Stripe.Charge).id
+        : undefined;
+
+  if (!stripeChargeId && paymentIntentId) {
+    try {
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {}, { stripeAccount });
+      const lc = pi.latest_charge;
+      stripeChargeId =
+        typeof lc === 'string' ? lc : lc && typeof lc === 'object' && 'id' in lc ? (lc as Stripe.Charge).id : undefined;
+    } catch (e) {
+      console.warn('[tuitionInvoicePaymentRecord] PI latest_charge', e);
+    }
+  }
+
   const amountPaid =
     typeof inv.amount_paid === 'number' && inv.amount_paid > 0
       ? inv.amount_paid
@@ -127,32 +185,79 @@ export async function recordTuitionInvoicePaymentForConnect(params: {
 
   const description = tuitionTypeName ? `Mensalidade — ${tuitionTypeName}` : 'Mensalidade escolar';
 
-  await paymentsRef.add(
-    stripUndefined({
-      businessId,
-      customerId,
-      customerName,
-      customerEmail: customerEmail || (typeof inv.customer_email === 'string' ? inv.customer_email : undefined),
-      amount: amountPaid,
-      currency: (inv.currency || 'brl').toLowerCase(),
-      status: 'succeeded',
-      paymentMethod: 'card',
-      stripeInvoiceId: inv.id,
-      stripeSubscriptionId,
-      stripePaymentIntentId: paymentIntentId,
-      tuitionTypeId,
-      tuitionTypeName,
-      description,
-      metadata: {
-        source: 'stripe_invoice_tuition',
-        ...(tuitionTypeId ? { tuitionTypeId } : {}),
-        ...(tuitionTypeName ? { tuitionTypeName } : {}),
+  const payload = stripUndefined({
+    businessId,
+    customerId,
+    customerName,
+    customerEmail: customerEmail || (typeof inv.customer_email === 'string' ? inv.customer_email : undefined),
+    amount: amountPaid,
+    currency: (inv.currency || 'brl').toLowerCase(),
+    status: 'succeeded',
+    paymentMethod: 'card',
+    stripeInvoiceId: inv.id,
+    stripeSubscriptionId,
+    stripePaymentIntentId: paymentIntentId,
+    stripeChargeId,
+    tuitionTypeId,
+    tuitionTypeName,
+    description,
+    metadata: {
+      source: 'stripe_invoice_tuition',
+      ...(tuitionTypeId ? { tuitionTypeId } : {}),
+      ...(tuitionTypeName ? { tuitionTypeName } : {}),
+    },
+    updatedAt: Timestamp.now(),
+    succeededAt: Timestamp.now(),
+  });
+
+  const now = Timestamp.now();
+
+  const finish = async (out: 'created' | 'duplicate') => {
+    await removeOrphanTuitionPaymentCopies(paymentsRef, inv.id, {
+      paymentIntentId,
+      stripeChargeId,
+    });
+    return out;
+  };
+
+  const legacySnap = await paymentsRef.where('stripeInvoiceId', '==', inv.id).limit(25).get();
+  if (!legacySnap.empty) {
+    let best = legacySnap.docs[0];
+    let bestScore = tuitionPaymentRowScore(best.data() as Record<string, unknown>);
+    for (const d of legacySnap.docs.slice(1)) {
+      const s = tuitionPaymentRowScore(d.data() as Record<string, unknown>);
+      if (s > bestScore) {
+        best = d;
+        bestScore = s;
+      }
+    }
+    await best.ref.set({ ...payload, updatedAt: now, succeededAt: now }, { merge: true });
+    return finish('duplicate');
+  }
+
+  const canonicalRef = paymentsRef.doc(inv.id);
+  const canonicalSnap = await canonicalRef.get();
+  if (canonicalSnap.exists) {
+    await canonicalRef.set(
+      {
+        ...payload,
+        updatedAt: now,
+        succeededAt: now,
       },
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-      succeededAt: Timestamp.now(),
-    }),
+      { merge: true },
+    );
+    return finish('duplicate');
+  }
+
+  await canonicalRef.set(
+    {
+      ...payload,
+      createdAt: now,
+      updatedAt: now,
+      succeededAt: now,
+    },
+    { merge: true },
   );
 
-  return 'created';
+  return finish('created');
 }

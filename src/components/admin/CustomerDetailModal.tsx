@@ -722,7 +722,7 @@ export function CustomerDetailModal({
           });
         } else if (!tuitionResult.ok) {
           window.alert(
-            `Dados salvos. Não foi possível preparar a mensalidade no portal do aluno:\n\n${tuitionResult.error}\n\nConfira o valor sugerido (R$) no tipo em Pagamentos e se o Stripe está conectado.`,
+            `Dados salvos. Não foi possível preparar a mensalidade no portal do aluno:\n\n${tuitionResult.error}\n\nConfira o valor (R$) no tipo em Pagamentos e se o Stripe está conectado.`,
           );
         }
       }
@@ -974,7 +974,7 @@ export function CustomerDetailModal({
                     ))}
                   </select>
                   <p className="mt-1 text-xs text-neutral-500">
-                    O aluno precisa de e-mail. Com tipo e valor sugerido (R$) no tipo, ao salvar abrimos a mensalidade
+                    O aluno precisa de e-mail. Com tipo e valor (R$) no tipo, ao salvar abrimos a mensalidade
                     no portal para ele pagar e ativar a recorrência. Tipos em Pagamentos.
                   </p>
                 </div>
