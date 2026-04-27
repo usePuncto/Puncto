@@ -17,6 +17,13 @@ export default function StudentLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const setClientAuthFallbackCookie = (idToken: string) => {
+    if (typeof document === 'undefined' || !idToken) return;
+    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+    // Middleware already supports firebaseIdToken as auth source.
+    document.cookie = `firebaseIdToken=${encodeURIComponent(idToken)}; Path=/; Max-Age=3600; SameSite=Lax${secure}`;
+  };
+
   const withSubdomainIfNeeded = (target: string) => {
     const hasQuery = target.includes('?');
     const isLocalLike =
@@ -34,16 +41,21 @@ export default function StudentLoginPage() {
   const prepareTenantContext = useCallback(async (): Promise<{ businessId: string } | null> => {
     const firebaseUser = auth.currentUser;
     if (!firebaseUser) return null;
+    let idToken = '';
     try {
-      const idToken = await firebaseUser.getIdToken(true);
-      await fetch('/api/auth/session', {
+      idToken = await firebaseUser.getIdToken(true);
+      const sessionRes = await fetch('/api/auth/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ idToken }),
         credentials: 'include',
       });
+      if (!sessionRes.ok) {
+        setClientAuthFallbackCookie(idToken);
+      }
     } catch {
-      // best effort
+      // best effort fallback for middleware auth detection
+      if (idToken) setClientAuthFallbackCookie(idToken);
     }
 
     let businessId = subdomain?.trim() || '';
