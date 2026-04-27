@@ -6,14 +6,67 @@ import {
   hasBusinessAccess,
 } from '@/lib/auth/middleware-utils';
 
+function stripHostPort(host: string): string {
+  return host.split(':')[0];
+}
+
+/**
+ * Opção A (Cloudflare → origem canônica na Vercel): o browser usa `{slug}.puncto.com.br`,
+ * mas o `Host` que chega na Vercel pode ser `www.puncto.com.br` ou `*.vercel.app`.
+ * A Cloudflare envia o host original em `X-Forwarded-Host`.
+ *
+ * Só confiamos nesse header quando há evidência de passagem pela Cloudflare (`cf-ray`)
+ * e o `Host` direto é a nossa origem canônica — evita spoofing em acessos diretos à Vercel.
+ */
+function getRoutingHostNoPort(request: NextRequest, directHostNoPort: string): string {
+  if (
+    !directHostNoPort ||
+    directHostNoPort.includes('localhost') ||
+    directHostNoPort.includes('127.0.0.1') ||
+    directHostNoPort.includes('ngrok') ||
+    directHostNoPort.includes('ngrok-free.app') ||
+    directHostNoPort.includes('ngrok.io')
+  ) {
+    return directHostNoPort;
+  }
+
+  const rawForwarded = request.headers.get('x-forwarded-host') || '';
+  const forwarded = stripHostPort(rawForwarded.split(',')[0]?.trim() || '');
+  if (!forwarded || forwarded === directHostNoPort) return directHostNoPort;
+
+  const isPunctoHost =
+    forwarded === 'puncto.com.br' ||
+    forwarded.endsWith('.puncto.com.br') ||
+    forwarded.endsWith('.puncto.local');
+
+  if (!isPunctoHost) return directHostNoPort;
+
+  const originLooksCanonical =
+    directHostNoPort === 'www.puncto.com.br' ||
+    directHostNoPort === 'puncto.com.br' ||
+    directHostNoPort === 'puncto.local' ||
+    directHostNoPort === 'www.puncto.local' ||
+    directHostNoPort.endsWith('.vercel.app');
+
+  const viaCloudflare = Boolean(request.headers.get('cf-ray'));
+
+  if (originLooksCanonical && viaCloudflare) return forwarded;
+  return directHostNoPort;
+}
+
 export async function middleware(request: NextRequest) {
-  const hostname = request.headers.get('host') || '';
-  const hostNoPort = hostname.split(':')[0];
+  const directHostRaw = request.headers.get('host') || '';
+  const directHostNoPort = stripHostPort(directHostRaw);
   const url = request.nextUrl;
 
-  const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
-  const isNgrok = hostname.includes('ngrok') || hostname.includes('ngrok-free.app') || hostname.includes('ngrok.io');
+  const isLocalhost =
+    directHostRaw.includes('localhost') || directHostRaw.includes('127.0.0.1');
+  const isNgrok =
+    directHostNoPort.includes('ngrok') ||
+    directHostNoPort.includes('ngrok-free.app') ||
+    directHostNoPort.includes('ngrok.io');
   const useQuerySubdomain = isLocalhost || isNgrok;
+  const hostNoPort = useQuerySubdomain ? directHostNoPort : getRoutingHostNoPort(request, directHostNoPort);
   const rawUrl = request.url;
 
   // Extract subdomain and isGestaoApp (handle localhost, ngrok, and production)
