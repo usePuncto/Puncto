@@ -208,6 +208,13 @@ export function AuthProvider({ children, ignoreAuth }: { children: ReactNode; ig
     setLoading(true);
     setError(null);
     try {
+      if (typeof window !== 'undefined') {
+        try {
+          await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+        } catch {
+          // ignore — still attempt Firebase sign-out
+        }
+      }
       await signOut(auth);
       // State updates handled by onAuthStateChanged
     } catch (err: any) {

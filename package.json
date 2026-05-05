@@ -12,7 +12,8 @@
     "set-admin": "tsx scripts/set-admin.ts",
     "create-admin": "tsx scripts/create-platform-admin.ts",
     "upgrade-admin": "tsx scripts/upgrade-to-admin.ts",
-    "mobile-admin": "cd apps/mobile-admin && npm install && npm run start"
+    "mobile-admin": "cd apps/mobile-admin && npm install --legacy-peer-deps && npm run start",
+    "mobile-admin:tunnel": "cd apps/mobile-admin && npm install --legacy-peer-deps && npm run start:tunnel"
   },
   "dependencies": {
     "@apollo/server": "^5.2.0",

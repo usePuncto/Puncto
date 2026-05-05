@@ -1,102 +1,93 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../../App';
-import { loginWithEmailPassword } from '../api/client';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+} from 'react-native';
+import { useMobileAuth } from '../context/MobileAuthContext';
 
-type Props = NativeStackScreenProps<RootStackParamList, 'Login'>;
-
-export const LoginScreen: React.FC<Props> = ({ navigation }) => {
+export const LoginScreen: React.FC = () => {
+  const { signIn } = useMobileAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Missing information', 'Please enter email and password.');
+  const onSubmit = async () => {
+    if (!email.trim() || !password) {
+      Alert.alert('Campos obrigatórios', 'Informe e-mail e senha.');
       return;
     }
-
     try {
-      setLoading(true);
-      const result = await loginWithEmailPassword(email, password);
-      // In a real implementation you would persist tokens and business metadata here.
-      navigation.replace('Dashboard');
-    } catch (error: any) {
-      Alert.alert('Login failed', error.message ?? 'Unable to login. Please try again.');
+      setBusy(true);
+      await signIn(email, password);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Falha no login';
+      Alert.alert('Login', msg);
     } finally {
-      setLoading(false);
+      setBusy(false);
     }
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Puncto Admin</Text>
-      <Text style={styles.subtitle}>Access your business dashboard</Text>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <View style={styles.inner}>
+        <Text style={styles.title}>Puncto Admin</Text>
+        <Text style={styles.subtitle}>Entre com a mesma conta do painel web</Text>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={setEmail}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="E-mail"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Senha"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
-
-      <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-        {loading ? <ActivityIndicator color="#ffffff" /> : <Text style={styles.buttonText}>Login</Text>}
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity style={styles.button} onPress={onSubmit} disabled={busy}>
+          {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Entrar</Text>}
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 8,
-    color: '#111827',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 32,
-  },
+  flex: { flex: 1, backgroundColor: '#fff' },
+  inner: { flex: 1, justifyContent: 'center', paddingHorizontal: 24 },
+  title: { fontSize: 28, fontWeight: '700', color: '#111827', marginBottom: 8 },
+  subtitle: { fontSize: 14, color: '#6B7280', marginBottom: 28 },
   input: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 16,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 16,
+    marginBottom: 14,
     backgroundColor: '#F9FAFB',
   },
   button: {
     backgroundColor: '#111827',
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 999,
     alignItems: 'center',
     marginTop: 8,
   },
-  buttonText: {
-    color: '#ffffff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
+  buttonText: { color: '#fff', fontWeight: '600', fontSize: 16 },
 });
-
