@@ -69,8 +69,13 @@ function dedupePaymentHistoryRows(rows: Payment[]): Payment[] {
   return Array.from(byKey.values()).sort((a, b) => eventMs(b) - eventMs(a));
 }
 
+function apiErrorMessage(data: Record<string, unknown>, fallback: string): string {
+  const e = data.error;
+  return typeof e === 'string' && e.trim() ? e : fallback;
+}
+
 /** Evita `res.json()` quando o servidor devolve HTML (404/502, WAF, proxy, página de login). */
-async function readApiJsonResponse<T extends Record<string, unknown>>(res: Response): Promise<T> {
+async function readApiJsonResponse(res: Response): Promise<Record<string, unknown>> {
   const text = await res.text();
   const trimmed = text.trimStart();
   if (trimmed.startsWith('<')) {
@@ -88,7 +93,7 @@ async function readApiJsonResponse<T extends Record<string, unknown>>(res: Respo
     throw new Error(`${hint} (HTTP ${status})`);
   }
   try {
-    return JSON.parse(text) as T;
+    return JSON.parse(text) as Record<string, unknown>;
   } catch {
     throw new Error(`Resposta inválida do servidor (HTTP ${res.status}).`);
   }
@@ -194,17 +199,17 @@ export default function PaymentsAdminPage() {
         }),
       });
 
-      const data = await readApiJsonResponse<Record<string, unknown>>(res);
+      const data = await readApiJsonResponse(res);
       if (!res.ok) {
-        throw new Error(data.error || 'Falha ao conectar Stripe');
+        throw new Error(apiErrorMessage(data, 'Falha ao conectar Stripe'));
       }
 
-      if (data?.onboardingUrl) {
+      if (typeof data.onboardingUrl === 'string' && data.onboardingUrl) {
         window.open(data.onboardingUrl, '_blank', 'noopener,noreferrer');
         return;
       }
 
-      if (data?.onboardingComplete) {
+      if (data.onboardingComplete === true) {
         // Onboarding already completed server-side; reload so BusinessContext reflects it.
         window.location.reload();
         return;
@@ -235,16 +240,16 @@ export default function PaymentsAdminPage() {
         }),
       });
 
-      const data = await readApiJsonResponse<Record<string, unknown>>(res);
+      const data = await readApiJsonResponse(res);
       if (!res.ok) {
-        if (res.status === 409 && data?.onboardingUrl) {
+        if (res.status === 409 && typeof data.onboardingUrl === 'string' && data.onboardingUrl) {
           window.open(data.onboardingUrl, '_blank', 'noopener,noreferrer');
           return;
         }
-        throw new Error(data.error || 'Falha ao abrir dashboard do Stripe');
+        throw new Error(apiErrorMessage(data, 'Falha ao abrir dashboard do Stripe'));
       }
 
-      if (data?.url) {
+      if (typeof data.url === 'string' && data.url) {
         window.open(data.url, '_blank', 'noopener,noreferrer');
       } else {
         alert('A Stripe não retornou uma URL de login.');
