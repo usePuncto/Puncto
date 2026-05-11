@@ -69,6 +69,31 @@ function dedupePaymentHistoryRows(rows: Payment[]): Payment[] {
   return Array.from(byKey.values()).sort((a, b) => eventMs(b) - eventMs(a));
 }
 
+/** Evita `res.json()` quando o servidor devolve HTML (404/502, WAF, proxy, página de login). */
+async function readApiJsonResponse<T extends Record<string, unknown>>(res: Response): Promise<T> {
+  const text = await res.text();
+  const trimmed = text.trimStart();
+  if (trimmed.startsWith('<')) {
+    const status = res.status;
+    let hint =
+      'O servidor devolveu uma página HTML em vez de dados. Isso costuma ser rede corporativa, antivírus, extensão do navegador ou bloqueio na borda (ex.: Cloudflare).';
+    if (status === 401 || status === 403) {
+      hint = 'Sessão expirada ou sem permissão. Faça login de novo e tente outra vez.';
+    } else if (status === 404) {
+      hint =
+        'A rota da API não foi encontrada neste domínio. Use o painel pelo subdomínio de gestão (ex.: seu-negocio.gestao.puncto.com.br) em vez de www, ou confira se o deploy está atualizado.';
+    } else if (status >= 500) {
+      hint = 'Erro no servidor ou no gateway; a página devolvida não é JSON. Tente de novo em alguns minutos.';
+    }
+    throw new Error(`${hint} (HTTP ${status})`);
+  }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new Error(`Resposta inválida do servidor (HTTP ${res.status}).`);
+  }
+}
+
 export default function PaymentsAdminPage() {
   const { business } = useBusiness();
   const { firebaseUser } = useAuth();
@@ -169,7 +194,7 @@ export default function PaymentsAdminPage() {
         }),
       });
 
-      const data = await res.json();
+      const data = await readApiJsonResponse<Record<string, unknown>>(res);
       if (!res.ok) {
         throw new Error(data.error || 'Falha ao conectar Stripe');
       }
@@ -210,7 +235,7 @@ export default function PaymentsAdminPage() {
         }),
       });
 
-      const data = await res.json();
+      const data = await readApiJsonResponse<Record<string, unknown>>(res);
       if (!res.ok) {
         if (res.status === 409 && data?.onboardingUrl) {
           window.open(data.onboardingUrl, '_blank', 'noopener,noreferrer');

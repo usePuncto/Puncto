@@ -315,10 +315,18 @@ export default function CheckoutPage() {
 
             <button
               type="submit"
-              disabled
-              className="w-full cursor-not-allowed rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white opacity-50"
+              disabled={
+                isSubmitting ||
+                !displayName.trim() ||
+                !email.trim() ||
+                !password ||
+                !confirmPassword ||
+                !termsAccepted ||
+                !privacyAccepted
+              }
+              className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white transition-opacity hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Criar conta e continuar
+              {isSubmitting ? 'Criando conta...' : 'Criar conta e continuar'}
             </button>
           </form>
 

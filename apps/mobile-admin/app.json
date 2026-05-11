@@ -21,6 +21,9 @@
         "backgroundColor": "#ffffff"
       }
     },
-    "web": {}
+    "web": {},
+    "extra": {
+      "webAppUrl": ""
+    }
   }
 }

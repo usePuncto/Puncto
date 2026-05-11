@@ -77,6 +77,16 @@ export default function AdminTurmasPage() {
   const [createMaxStudents, setCreateMaxStudents] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
 
+  const [editTurma, setEditTurma] = useState<Turma | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editMaxStudents, setEditMaxStudents] = useState('');
+  const [editSchedules, setEditSchedules] = useState<TurmaScheduleSlot[]>([]);
+  const [editWeekday, setEditWeekday] = useState<TurmaWeekday>(1);
+  const [editStartTime, setEditStartTime] = useState('08:00');
+  const [editEndTime, setEditEndTime] = useState('09:00');
+  const [editError, setEditError] = useState<string | null>(null);
+
   const [manageTurma, setManageTurma] = useState<Turma | null>(null);
   const [addStudentId, setAddStudentId] = useState('');
   const [manageWeekday, setManageWeekday] = useState<TurmaWeekday>(1);
@@ -322,6 +332,84 @@ export default function AdminTurmasPage() {
       setCreateMaxStudents('');
     } catch (err: unknown) {
       setCreateError(err instanceof Error ? err.message : 'Erro ao criar turma.');
+    }
+  };
+
+  const openEditTurma = (t: Turma) => {
+    setEditError(null);
+    setEditTurma(t);
+    setEditName(t.name);
+    setEditDescription(t.description || '');
+    setEditMaxStudents(t.maxStudents ? String(t.maxStudents) : '');
+    setEditSchedules(t.schedules?.length ? [...t.schedules] : []);
+    setEditWeekday(1);
+    setEditStartTime('08:00');
+    setEditEndTime('09:00');
+  };
+
+  const addEditSchedule = () => {
+    if (editStartTime >= editEndTime) {
+      setEditError('Horário inicial deve ser menor que o horário final.');
+      return;
+    }
+    const next: TurmaScheduleSlot = {
+      weekday: editWeekday,
+      startTime: editStartTime,
+      endTime: editEndTime,
+    };
+    setEditSchedules((prev) => {
+      const exists = prev.some(
+        (s) =>
+          s.weekday === next.weekday &&
+          s.startTime === next.startTime &&
+          s.endTime === next.endTime,
+      );
+      return exists ? prev : [...prev, next];
+    });
+    setEditError(null);
+  };
+
+  const removeEditSchedule = (index: number) => {
+    setEditSchedules((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleEditTurma = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEditError(null);
+    if (!editTurma) return;
+    if (!editName.trim()) {
+      setEditError('Informe o nome da turma.');
+      return;
+    }
+    if (editMaxStudents.trim() !== '' && !parseMaxStudentsInput(editMaxStudents)) {
+      setEditError('Máximo de alunos deve ser um número inteiro maior que zero.');
+      return;
+    }
+    const nextMax = parseMaxStudentsInput(editMaxStudents);
+    try {
+      await updateTurma.mutateAsync({
+        turmaId: editTurma.id,
+        updates: {
+          name: editName,
+          description: editDescription,
+          schedules: editSchedules,
+          maxStudents: nextMax ?? null,
+        },
+      });
+      setManageTurma((m) =>
+        m?.id === editTurma.id
+          ? {
+              ...m,
+              name: editName.trim(),
+              description: editDescription.trim(),
+              schedules: editSchedules,
+              maxStudents: nextMax,
+            }
+          : m,
+      );
+      setEditTurma(null);
+    } catch (err: unknown) {
+      setEditError(err instanceof Error ? err.message : 'Erro ao salvar alterações.');
     }
   };
 
@@ -692,6 +780,13 @@ export default function AdminTurmasPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={() => openEditTurma(t)}
+                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  Editar
+                </button>
+                <button
+                  type="button"
                   onClick={() => handleDeleteTurma(t)}
                   className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50"
                 >
@@ -700,6 +795,140 @@ export default function AdminTurmasPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {editTurma && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setEditTurma(null)}
+          role="presentation"
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-xl"
+            role="dialog"
+            aria-labelledby="turma-edit-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="turma-edit-title" className="text-lg font-semibold text-neutral-900">
+              Editar turma
+            </h2>
+            <form onSubmit={handleEditTurma} className="mt-4 space-y-4">
+              <div>
+                <label htmlFor="turma-edit-name" className="block text-sm font-medium text-neutral-700">
+                  Nome da turma *
+                </label>
+                <input
+                  id="turma-edit-name"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label htmlFor="turma-edit-desc" className="block text-sm font-medium text-neutral-700">
+                  Descrição (opcional)
+                </label>
+                <textarea
+                  id="turma-edit-desc"
+                  value={editDescription}
+                  onChange={(e) => setEditDescription(e.target.value)}
+                  rows={3}
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  placeholder="Horário, nível, observações..."
+                />
+              </div>
+              <div>
+                <label htmlFor="turma-edit-max-students" className="block text-sm font-medium text-neutral-700">
+                  Máximo de alunos (opcional)
+                </label>
+                <input
+                  id="turma-edit-max-students"
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={editMaxStudents}
+                  onChange={(e) => setEditMaxStudents(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                  placeholder="Deixe vazio para sem limite"
+                />
+              </div>
+              <div className="space-y-2 rounded-lg border border-neutral-200 p-3">
+                <p className="text-sm font-medium text-neutral-700">Dias e horários da turma</p>
+                {editSchedules.length === 0 ? (
+                  <p className="text-xs text-neutral-500">Nenhum horário adicionado.</p>
+                ) : (
+                  <ul className="space-y-1">
+                    {editSchedules.map((slot, idx) => (
+                      <li
+                        key={`${slot.weekday}-${slot.startTime}-${slot.endTime}-${idx}`}
+                        className="flex items-center justify-between rounded border border-neutral-200 px-2 py-1 text-xs"
+                      >
+                        <span>{scheduleLabel(slot)}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeEditSchedule(idx)}
+                          className="font-medium text-red-600 hover:text-red-700"
+                        >
+                          Remover
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-4">
+                  <select
+                    value={editWeekday}
+                    onChange={(e) => setEditWeekday(Number(e.target.value) as TurmaWeekday)}
+                    className="rounded-lg border border-neutral-300 px-2 py-2 text-sm"
+                  >
+                    {WEEKDAY_OPTIONS.map((d) => (
+                      <option key={d.value} value={d.value}>
+                        {d.label}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="time"
+                    value={editStartTime}
+                    onChange={(e) => setEditStartTime(e.target.value)}
+                    className="rounded-lg border border-neutral-300 px-2 py-2 text-sm"
+                  />
+                  <input
+                    type="time"
+                    value={editEndTime}
+                    onChange={(e) => setEditEndTime(e.target.value)}
+                    className="rounded-lg border border-neutral-300 px-2 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={addEditSchedule}
+                    className="rounded-lg border border-neutral-300 px-2 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                  >
+                    Adicionar
+                  </button>
+                </div>
+              </div>
+              {editError && <p className="text-sm text-red-600">{editError}</p>}
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditTurma(null)}
+                  className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateTurma.isPending}
+                  className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                >
+                  {updateTurma.isPending ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
