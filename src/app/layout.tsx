@@ -1,6 +1,7 @@
 import './globals.css';
 import { headers } from 'next/headers';
 import { NextIntlClientProvider } from 'next-intl';
+import { Toaster } from 'sonner';
 import { AuthProvider } from '@/lib/contexts/AuthContext';
 import { QueryProvider } from '@/components/providers/QueryProvider';
 import ptBR from '@/messages/pt-BR.json';
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </AuthProvider>
           </QueryProvider>
         </NextIntlClientProvider>
+        <Toaster richColors position="top-center" closeButton />
       </body>
     </html>
   );

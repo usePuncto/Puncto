@@ -20,6 +20,7 @@ import type { InventoryItem } from '@/types/inventory';
 import type { RollCallStatus } from '@/types/attendance';
 import { addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isSameMonth, startOfMonth, startOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { toast } from 'sonner';
 import {
   findNearestClassDate,
   formatTurmaClassWeekdaysShort,
@@ -101,6 +102,8 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
   const [selectedRollCallTurmaId, setSelectedRollCallTurmaId] = useState<string | null>(null);
   /** Lista de chamada (variant rollCall): só dias em que a turma tem aula na grade. */
   const [rollCallListDate, setRollCallListDate] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  /** Evita desabilitar todos os alunos durante um save (rede lenta parecia "nada acontece"). */
+  const [rollCallSavingStudentIds, setRollCallSavingStudentIds] = useState(() => new Set<string>());
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [inventoryByBookingId, setInventoryByBookingId] = useState<Record<string, BookingInventoryInput>>({});
   const [inventoryErrorByBookingId, setInventoryErrorByBookingId] = useState<Record<string, string>>({});
@@ -578,12 +581,23 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
 
   const markRollCall = async (studentId: string, status: RollCallStatus) => {
     if (!selectedRollCallTurma) return;
-    await upsertRollCall.mutateAsync({
-      turmaId: selectedRollCallTurma.id,
-      studentId,
-      date: rollCallDate,
-      status,
-    });
+    setRollCallSavingStudentIds((prev) => new Set(prev).add(studentId));
+    try {
+      await upsertRollCall.mutateAsync({
+        turmaId: selectedRollCallTurma.id,
+        studentId,
+        date: rollCallDate,
+        status,
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Não foi possível registrar a chamada.');
+    } finally {
+      setRollCallSavingStudentIds((prev) => {
+        const next = new Set(prev);
+        next.delete(studentId);
+        return next;
+      });
+    }
   };
 
   const turmaScheduleCalendar = (
@@ -1167,12 +1181,13 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
                   <tbody className="divide-y divide-neutral-200">
                     {rollCallDisplayRows.map(({ student, isReplacementGuest }) => {
                       const status = rollCallStatusByStudentId.get(student.id) || 'pending';
+                      const rowSaving = rollCallSavingStudentIds.has(student.id);
                       const statusButton = (value: RollCallStatus, label: string, activeClass: string) => (
                         <button
                           type="button"
                           onClick={() => markRollCall(student.id, value)}
-                          disabled={upsertRollCall.isPending}
-                          className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                          disabled={rowSaving}
+                          className={`touch-manipulation rounded-full border px-3 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                             status === value ? activeClass : 'border-neutral-300 text-neutral-600 hover:bg-neutral-50'
                           }`}
                         >
@@ -1181,7 +1196,7 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
                       );
 
                       return (
-                        <tr key={student.id}>
+                        <tr key={student.id} aria-busy={rowSaving}>
                           <td className="px-4 py-3 text-sm font-medium text-neutral-900">
                             <span>
                               {student.firstName} {student.lastName}
