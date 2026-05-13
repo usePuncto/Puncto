@@ -10,6 +10,30 @@ function stripHostPort(host: string): string {
   return host.split(':')[0];
 }
 
+/** Middleware (Edge): resolve slug/id do host para checar `businessRoles` (chaves = id Firestore). */
+async function resolveBusinessHostKey(
+  request: NextRequest,
+  hostLabel: string,
+): Promise<{ id: string; slug: string } | null> {
+  try {
+    const u = new URL('/api/tenant/resolve-host', request.url);
+    u.searchParams.set('key', hostLabel);
+    const res = await fetch(u.toString(), {
+      method: 'GET',
+      headers: { 'x-middleware-resolve': '1' },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { id?: string; slug?: string };
+    if (typeof data.id !== 'string') return null;
+    const slug =
+      typeof data.slug === 'string' && data.slug.trim() ? data.slug.trim() : hostLabel;
+    return { id: data.id, slug };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Opção A (Cloudflare → origem canônica na Vercel): o browser usa `{slug}.puncto.com.br`,
  * mas o `Host` que chega na Vercel pode ser `www.puncto.com.br` ou `*.vercel.app`.
@@ -220,19 +244,31 @@ export async function middleware(request: NextRequest) {
     }
 
     if (hasAuthCookie && customClaims) {
-      const hasAccess = hasBusinessAccess(customClaims, subdomain);
+      let resolvedFirestoreId: string | null = null;
+      if (
+        customClaims.userType === 'business_user' &&
+        !isPlatformAdmin(customClaims) &&
+        !customClaims.businessRoles?.[subdomain]
+      ) {
+        const resolved = await resolveBusinessHostKey(request, subdomain);
+        resolvedFirestoreId = resolved?.id ?? null;
+      }
+
+      const hasAccess = hasBusinessAccess(customClaims, subdomain, resolvedFirestoreId);
       if (!hasAccess) {
         if (customClaims.userType === 'customer' || customClaims.userType === 'student') {
           return NextResponse.redirect(new URL('/unauthorized?reason=business_admin_required', request.url));
         }
         if (customClaims.userType === 'business_user' && customClaims.primaryBusinessId) {
+          const primary = await resolveBusinessHostKey(request, customClaims.primaryBusinessId);
+          const gestaoHost = primary?.slug || customClaims.primaryBusinessId;
           if (useQuerySubdomain) {
             const redirectUrl = new URL(request.url);
-            redirectUrl.searchParams.set('subdomain', customClaims.primaryBusinessId);
+            redirectUrl.searchParams.set('subdomain', gestaoHost);
             redirectUrl.searchParams.set('app', 'gestao');
             return NextResponse.redirect(redirectUrl);
           }
-          return NextResponse.redirect(new URL(`https://${customClaims.primaryBusinessId}.gestao.puncto.com.br/`, request.url));
+          return NextResponse.redirect(new URL(`https://${gestaoHost}.gestao.puncto.com.br/`, request.url));
         }
         return NextResponse.redirect(new URL('/auth/login', request.url));
       }

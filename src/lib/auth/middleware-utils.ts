@@ -95,10 +95,14 @@ export function isPlatformAdmin(claims: CustomClaims | null): boolean {
 
 /**
  * Check if user has access to a specific business
+ *
+ * @param businessHostLabel - Subdomínio do host (ex.: slug `minha-escola`) ou, em casos raros, o id Firestore.
+ * @param resolvedFirestoreBusinessId - Quando o host é slug, id do negócio resolvido no Firestore (chaves de `businessRoles` costumam ser este id).
  */
 export function hasBusinessAccess(
   claims: CustomClaims | null,
-  businessId: string
+  businessHostLabel: string,
+  resolvedFirestoreBusinessId?: string | null,
 ): boolean {
   if (!claims) return false;
 
@@ -107,7 +111,9 @@ export function hasBusinessAccess(
 
   // Business users must have a role in the specific business
   if (claims.userType === 'business_user') {
-    return !!claims.businessRoles?.[businessId];
+    if (claims.businessRoles?.[businessHostLabel]) return true;
+    if (resolvedFirestoreBusinessId && claims.businessRoles?.[resolvedFirestoreBusinessId]) return true;
+    return false;
   }
 
   return false;
