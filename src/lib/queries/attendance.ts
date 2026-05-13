@@ -100,7 +100,11 @@ export function useUpsertAttendanceRollCall(businessId: string) {
         let message: string | undefined;
         try {
           const data = JSON.parse(text) as { error?: string; message?: string };
-          message = (typeof data.error === 'string' && data.error) || (typeof data.message === 'string' && data.message);
+          if (typeof data.error === 'string' && data.error) {
+            message = data.error;
+          } else if (typeof data.message === 'string' && data.message) {
+            message = data.message;
+          }
         } catch {
           message = text.trim() ? text.trim().slice(0, 240) : undefined;
         }
