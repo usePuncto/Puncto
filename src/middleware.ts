@@ -210,6 +210,15 @@ export async function middleware(request: NextRequest) {
 
   // Business Admin (.gestao) - same as main domain: allow through, let ProtectedRoute handle auth (no cookie required)
   if (isGestaoApp) {
+    // Rotas /api/* não devem ser reescritas para /tenant/admin/api/* (isso devolve HTML e quebra fetch JSON).
+    if (url.pathname.startsWith('/api')) {
+      const apiRes = NextResponse.next({ request: { headers: requestHeaders } });
+      apiRes.headers.set('x-business-slug', subdomain);
+      apiRes.headers.set('x-middleware-request-url', request.url);
+      apiRes.cookies.set('x-business-slug', subdomain, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 });
+      return apiRes;
+    }
+
     if (hasAuthCookie && customClaims) {
       const hasAccess = hasBusinessAccess(customClaims, subdomain);
       if (!hasAccess) {

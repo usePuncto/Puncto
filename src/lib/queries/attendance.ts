@@ -106,7 +106,15 @@ export function useUpsertAttendanceRollCall(businessId: string) {
             message = data.message;
           }
         } catch {
-          message = text.trim() ? text.trim().slice(0, 240) : undefined;
+          const t = text.trim();
+          if (t.startsWith('<!DOCTYPE') || t.startsWith('<html')) {
+            message = undefined;
+          } else {
+            message = t ? t.slice(0, 240) : undefined;
+          }
+        }
+        if (message && /<\s*!?\s*DOCTYPE|<\s*html[\s>]/i.test(message)) {
+          message = undefined;
         }
         throw new Error(
           message ||
