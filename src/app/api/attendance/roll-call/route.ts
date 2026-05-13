@@ -33,9 +33,13 @@ async function getActor(request: NextRequest): Promise<DecodedActor | null> {
 }
 
 /**
- * Professora não precisa ser admin: basta ser a profissional vinculada à turma (`turmas.professionalId`).
- * Resolve papel e `professionalId` a partir dos claims e, se faltar algo, do documento `staff`
- * (token às vezes não traz claims atualizados até o próximo refresh).
+ * Quem pode marcar chamada nesta turma:
+ * - **Owner** ou **manager** do negócio (claims ou documento `staff` — os dois contam).
+ * - **Professional** cujo `professionalId` (claims ou `staff`) é o mesmo de `turmas.professionalId`
+ *   para esta turma (só a professora vinculada à turma).
+ *
+ * Claims e `staff` são combinados porque o token pode estar defasado em relação ao Firestore
+ * (ex.: promoção a manager ainda não refletida nos custom claims).
  */
 async function canManageAttendance(uid: string, businessId: string, turmaId: string) {
   const user = await auth.getUser(uid);
@@ -59,15 +63,16 @@ async function canManageAttendance(uid: string, businessId: string, turmaId: str
   if (staff?.active === false) return false;
 
   const roleFromStaff = staff?.role;
-  const role = roleFromClaims || roleFromStaff;
-  if (role === 'owner' || role === 'manager') return true;
+  /** Staff pode estar à frente dos custom claims (promoção / token antigo). */
+  if (roleFromStaff === 'owner' || roleFromStaff === 'manager') return true;
 
   const professionalId =
     (typeof claims.professionalId === 'string' && claims.professionalId) ||
     (typeof staff?.professionalId === 'string' && staff.professionalId) ||
     undefined;
 
-  if (role === 'professional' && professionalId) {
+  const isProfessionalRole = roleFromClaims === 'professional' || roleFromStaff === 'professional';
+  if (isProfessionalRole && professionalId) {
     const turmaSnap = await db.collection('businesses').doc(businessId).collection('turmas').doc(turmaId).get();
     if (!turmaSnap.exists) return false;
     const turmaData = turmaSnap.data() as { professionalId?: string };
@@ -80,7 +85,9 @@ async function canManageAttendance(uid: string, businessId: string, turmaId: str
 export async function POST(request: NextRequest) {
   try {
     const actor = await getActor(request);
-    if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!actor) {
+      return NextResponse.json({ error: 'Sessão inválida ou expirada. Faça login novamente.' }, { status: 401 });
+    }
 
     const body = (await request.json()) as UpsertAttendanceBody;
     const { businessId, turmaId, studentId, date, status } = body;
@@ -102,7 +109,13 @@ export async function POST(request: NextRequest) {
 
     const allowed = await canManageAttendance(actor.uid, businessId, turmaId);
     if (!allowed) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      return NextResponse.json(
+        {
+          error:
+            'Sem permissão para registrar chamada nesta turma. Se você foi promovida(o) recentemente, saia e entre de novo no painel.',
+        },
+        { status: 403 },
+      );
     }
 
     const recordId = `${turmaId}_${date}_${studentId}`;

@@ -96,8 +96,18 @@ export function useUpsertAttendanceRollCall(businessId: string) {
       });
 
       if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(data.error || 'Nao foi possivel registrar a chamada');
+        const text = await res.text();
+        let message: string | undefined;
+        try {
+          const data = JSON.parse(text) as { error?: string; message?: string };
+          message = (typeof data.error === 'string' && data.error) || (typeof data.message === 'string' && data.message);
+        } catch {
+          message = text.trim() ? text.trim().slice(0, 240) : undefined;
+        }
+        throw new Error(
+          message ||
+            `Não foi possível registrar a chamada (código ${res.status}). Tente de novo ou atualize a página.`,
+        );
       }
     },
     onSuccess: (_data, variables) => {
