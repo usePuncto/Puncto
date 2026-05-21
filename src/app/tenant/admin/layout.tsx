@@ -12,6 +12,9 @@ import { getIncludedFeaturesForPlanAndIndustry } from '@/lib/features/businessTy
 import type { FeatureId } from '@/lib/features/businessTypeFeatures';
 import { getBusinessRole } from '@/lib/permissions';
 import { NotificationsBell } from '@/components/notifications/NotificationsBell';
+import { isSubscriptionAccessBlocked } from '@/lib/business/subscription-access';
+import { signOutAndClearSession } from '@/lib/business/check-subscription-client';
+import { supportsElectronicSignatureTab } from '@/lib/features/electronicSignature';
 
 interface AdminLayoutProps {
   children: ReactNode;
@@ -31,7 +34,7 @@ type NavItem = {
   href: string;
   key: string;
   icon: string;
-  feature: FeatureId | 'always' | 'enterprise';
+  feature: FeatureId | 'always' | 'enterprise' | 'electronicSignature';
 };
 
 /** Default nav (most industries) */
@@ -52,6 +55,7 @@ const adminNavItems: NavItem[] = [
   { href: '/tenant/admin/time-clock', key: 'timeClock', icon: '⏰', feature: 'timeClock' },
   { href: '/tenant/admin/loyalty', key: 'loyalty', icon: '🎁', feature: 'loyaltyPrograms' },
   { href: '/tenant/admin/whatsapp', key: 'whatsapp', icon: '💬', feature: 'always' },
+  { href: '/tenant/admin/electronic-signature', key: 'electronicSignature', icon: '✍️', feature: 'electronicSignature' },
   { href: '/tenant/admin/franchise', key: 'franchise', icon: '🏢', feature: 'enterprise' },
   { href: '/tenant/admin/settings', key: 'settings', icon: '⚙️', feature: 'always' },
 ];
@@ -90,6 +94,16 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }, [role, router]);
 
   useEffect(() => {
+    if (!business || !isSubscriptionAccessBlocked(business.subscription?.status)) return;
+    const params = new URLSearchParams({ subscriptionEnded: '1' });
+    if (business.slug) params.set('subdomain', business.slug);
+    params.set('app', 'gestao');
+    void signOutAndClearSession().then(() => {
+      window.location.href = `/auth/login?${params.toString()}`;
+    });
+  }, [business?.id, business?.subscription?.status, business?.slug]);
+
+  useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
@@ -104,6 +118,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     return items.filter((item) => {
       if (item.feature === 'always') return true;
       if (item.feature === 'enterprise') return planId === 'enterprise';
+      if (item.feature === 'electronicSignature') return supportsElectronicSignatureTab(industry);
       return includedFeatures.has(item.feature as FeatureId);
     });
   }, [business?.subscription?.tier, business?.industry]);

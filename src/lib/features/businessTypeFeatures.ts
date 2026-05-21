@@ -16,6 +16,8 @@ export type BusinessType =
   | 'bakery'          // Bakeries, confectioneries (custom orders)
   | 'event'           // Event spaces, venues
   | 'general'         // General service businesses
+  | 'empresas'        // Industrial / administrative operations (empresas segment)
+  | 'corporativo'     // Corporate back-office (corporativo segment)
   | 'education';      // Education (schools, courses, training)
 
 /**
@@ -108,6 +110,24 @@ export const INDUSTRY_FEATURE_MAP: Record<BusinessType, FeatureId[]> = {
     'crm',
     'analytics',
   ],
+  empresas: [
+    'scheduling',
+    'payments',
+    'crm',
+    'analytics',
+    'inventoryManagement',
+    'purchaseOrders',
+    'timeClock',
+    'attendanceReports',
+  ],
+  corporativo: [
+    'scheduling',
+    'payments',
+    'crm',
+    'analytics',
+    'timeClock',
+    'attendanceReports',
+  ],
   education: [
     // Education uses the same "service/business scheduling + CRM" core as general services.
     'scheduling',
@@ -159,6 +179,7 @@ export const INDUSTRY_TO_KEY: Record<string, string> = {
   bakery: 'comercio',
   corporate: 'empresas',
   empresas: 'empresas',
+  corporativo: 'corporativo',
   saude: 'saude',
   health: 'saude',
   corporativo: 'corporativo',
@@ -304,6 +325,8 @@ export function getBusinessTypeLabel(type: string): string {
     bakery: 'Padaria',
     event: 'Eventos',
     general: 'Serviços Gerais',
+    empresas: 'Gestão Administrativa',
+    corporativo: 'Gestão Corporativa',
     education: 'Educação',
   };
   return labels[type as BusinessType] || type;
@@ -313,5 +336,5 @@ export function getBusinessTypeLabel(type: string): string {
  * Check if a business type is valid
  */
 export function isValidBusinessType(type: string): type is BusinessType {
-  return ['salon', 'clinic', 'restaurant', 'bakery', 'event', 'general', 'education'].includes(type);
+  return ['salon', 'clinic', 'restaurant', 'bakery', 'event', 'general', 'empresas', 'corporativo', 'education'].includes(type);
 }

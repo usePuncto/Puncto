@@ -11,6 +11,8 @@ const INDUSTRIES = [
   { value: 'bakery', label: 'Padaria/Confeitaria' },
   { value: 'event', label: 'Eventos' },
   { value: 'general', label: 'Outro' },
+  { value: 'empresas', label: 'Gestão Administrativa / Indústria' },
+  { value: 'corporativo', label: 'Gestão Corporativa' },
   { value: 'education', label: 'Educação' },
 ];
 
@@ -18,9 +20,9 @@ const INDUSTRIES = [
 const INDUSTRY_SLUG_TO_VALUE: Record<string, string> = {
   servicos: 'salon',
   varejo: 'restaurant',
-  empresas: 'general',
+  empresas: 'empresas',
   saude: 'clinic',
-  corporativo: 'general',
+  corporativo: 'corporativo',
   educacao: 'education',
 };
 

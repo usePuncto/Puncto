@@ -10,9 +10,31 @@ interface User {
   name?: string;
   displayName?: string;
   platformAdmin?: boolean;
+  userType?: string;
   businessRoles?: Record<string, 'owner' | 'manager' | 'professional'>;
-  businesses?: Array<{ id: string; role: string }>;
+  businesses?: Array<{ id: string; role: string; displayName?: string | null }>;
   createdAt?: string;
+}
+
+function roleLabel(role: string): string {
+  if (role === 'owner') return 'Proprietário';
+  if (role === 'manager') return 'Gerente';
+  if (role === 'professional') return 'Profissional';
+  if (role === 'customer') return 'Cliente';
+  return role;
+}
+
+function userRoleLabels(user: User): string[] {
+  if (user.businesses && user.businesses.length > 0) {
+    return Array.from(new Set(user.businesses.map((b) => b.role)));
+  }
+  if (user.businessRoles && Object.keys(user.businessRoles).length > 0) {
+    return Array.from(new Set(Object.values(user.businessRoles)));
+  }
+  if (user.userType === 'student' || user.userType === 'customer') {
+    return ['customer'];
+  }
+  return [];
 }
 
 export default function PlatformUsersPage() {
@@ -106,6 +128,7 @@ export default function PlatformUsersPage() {
               <option value="owner">Proprietário</option>
               <option value="manager">Gerente</option>
               <option value="professional">Profissional</option>
+              <option value="customer">Cliente</option>
             </select>
           </div>
 
@@ -170,18 +193,19 @@ export default function PlatformUsersPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {user.businessRoles && Object.values(user.businessRoles).length > 0 ? (
+                    {userRoleLabels(user).length > 0 ? (
                       <div className="flex flex-wrap gap-1">
-                        {Array.from(new Set(Object.values(user.businessRoles))).map((role) => (
+                        {userRoleLabels(user).map((role) => (
                           <span
                             key={role}
                             className={`px-2 py-1 text-xs font-semibold rounded-full ${
                               role === 'owner' ? 'bg-blue-100 text-blue-800' :
                               role === 'manager' ? 'bg-green-100 text-green-800' :
+                              role === 'customer' ? 'bg-amber-100 text-amber-800' :
                               'bg-gray-100 text-gray-800'
                             }`}
                           >
-                            {role === 'owner' ? 'Proprietário' : role === 'manager' ? 'Gerente' : role === 'professional' ? 'Profissional' : role}
+                            {roleLabel(role)}
                           </span>
                         ))}
                       </div>
@@ -198,10 +222,11 @@ export default function PlatformUsersPage() {
                               <Link
                                 href={`/platform/businesses/${business.id}`}
                                 className="text-blue-600 hover:text-blue-800 text-xs"
+                                title={business.id}
                               >
-                                {business.id.slice(0, 8)}...
+                                {business.displayName || business.id}
                               </Link>
-                              <span className="text-xs text-gray-500">({business.role === 'owner' ? 'Proprietário' : business.role === 'manager' ? 'Gerente' : business.role === 'professional' ? 'Profissional' : business.role})</span>
+                              <span className="text-xs text-gray-500">({roleLabel(business.role)})</span>
                             </div>
                           ))}
                           {user.businesses.length > 3 && (

@@ -63,36 +63,36 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const skip = (page - 1) * limit;
 
-    let query = db.collection('businesses').where('deletedAt', '==', null);
+    let query: FirebaseFirestore.Query = db.collection('businesses');
 
     // Apply filters
     if (status === 'active') {
-      query = query.where('subscription.status', '==', 'active') as any;
+      query = query.where('subscription.status', '==', 'active');
     } else if (status === 'suspended') {
-      query = query.where('subscription.status', '==', 'suspended') as any;
+      query = query.where('subscription.status', '==', 'suspended');
     }
 
     if (tier) {
-      query = query.where('subscription.tier', '==', tier) as any;
+      query = query.where('subscription.tier', '==', tier);
     }
 
     if (industry) {
-      query = query.where('industry', '==', industry) as any;
+      query = query.where('industry', '==', industry);
     }
 
-    // Note: Firestore doesn't support text search natively
-    // In production, use Algolia or similar for search
-    const snapshot = await query.limit(limit).offset(skip).get();
+    const snapshot = await query.get();
 
-    let businesses = snapshot.docs.map((doc) => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
-        updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
-      };
-    });
+    let businesses = snapshot.docs
+      .filter((doc) => !doc.data().deletedAt)
+      .map((doc) => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+        };
+      });
 
     // Apply text search filter (client-side, basic)
     if (search) {
@@ -104,9 +104,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get total count (approximate for pagination)
-    const totalSnapshot = await db.collection('businesses').where('deletedAt', '==', null).count().get();
-    const total = totalSnapshot.data().count;
+    const total = businesses.length;
+    businesses = businesses.slice(skip, skip + limit);
 
     return NextResponse.json({
       businesses,
@@ -157,9 +156,9 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate business type (industry) - required for feature access control
-    if (!industry || !['salon', 'clinic', 'restaurant', 'bakery', 'event', 'general', 'education'].includes(industry)) {
+    if (!industry || !['salon', 'clinic', 'restaurant', 'bakery', 'event', 'general', 'empresas', 'corporativo', 'education'].includes(industry)) {
       return NextResponse.json(
-        { error: 'Valid industry is required. Must be one of: salon, clinic, restaurant, bakery, event, general, education' },
+        { error: 'Valid industry is required. Must be one of: salon, clinic, restaurant, bakery, event, general, empresas, corporativo, education' },
         { status: 400 }
       );
     }
@@ -223,6 +222,7 @@ export async function POST(request: NextRequest) {
       createdBy: admin.uid,
       dataRetentionDays: 365,
       consentVersion: '1.0',
+      deletedAt: null,
     };
 
     const businessRef = await db.collection('businesses').add(businessData);

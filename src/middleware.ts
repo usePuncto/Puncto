@@ -5,6 +5,7 @@ import {
   isPlatformAdmin,
   hasBusinessAccess,
 } from '@/lib/auth/middleware-utils';
+import { isSubscriptionAccessBlocked } from '@/lib/business/subscription-access';
 
 function stripHostPort(host: string): string {
   return host.split(':')[0];
@@ -14,7 +15,7 @@ function stripHostPort(host: string): string {
 async function resolveBusinessHostKey(
   request: NextRequest,
   hostLabel: string,
-): Promise<{ id: string; slug: string } | null> {
+): Promise<{ id: string; slug: string; subscriptionStatus?: string | null } | null> {
   try {
     const u = new URL('/api/tenant/resolve-host', request.url);
     u.searchParams.set('key', hostLabel);
@@ -24,14 +25,41 @@ async function resolveBusinessHostKey(
       cache: 'no-store',
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as { id?: string; slug?: string };
+    const data = (await res.json()) as {
+      id?: string;
+      slug?: string;
+      subscriptionStatus?: string | null;
+    };
     if (typeof data.id !== 'string') return null;
     const slug =
       typeof data.slug === 'string' && data.slug.trim() ? data.slug.trim() : hostLabel;
-    return { id: data.id, slug };
+    return { id: data.id, slug, subscriptionStatus: data.subscriptionStatus ?? null };
   } catch {
     return null;
   }
+}
+
+function subscriptionEndedLoginUrl(request: NextRequest, slug: string, appGestao = false): URL {
+  const loginUrl = new URL('/auth/login', request.url);
+  loginUrl.searchParams.set('subdomain', slug);
+  loginUrl.searchParams.set('subscriptionEnded', '1');
+  if (appGestao) loginUrl.searchParams.set('app', 'gestao');
+  return loginUrl;
+}
+
+async function redirectIfBusinessSubscriptionBlocked(
+  request: NextRequest,
+  hostLabel: string,
+  appGestao = false,
+): Promise<NextResponse | null> {
+  if (!hostLabel || hostLabel === 'primazia' || hostLabel === 'admin' || hostLabel === 'demo') {
+    return null;
+  }
+  const resolved = await resolveBusinessHostKey(request, hostLabel);
+  if (!resolved || !isSubscriptionAccessBlocked(resolved.subscriptionStatus)) {
+    return null;
+  }
+  return NextResponse.redirect(subscriptionEndedLoginUrl(request, resolved.slug, appGestao));
 }
 
 /**
@@ -234,6 +262,11 @@ export async function middleware(request: NextRequest) {
 
   // Business Admin (.gestao) - same as main domain: allow through, let ProtectedRoute handle auth (no cookie required)
   if (isGestaoApp) {
+    if (!url.pathname.startsWith('/auth/')) {
+      const blockedRedirect = await redirectIfBusinessSubscriptionBlocked(request, subdomain, true);
+      if (blockedRedirect) return blockedRedirect;
+    }
+
     // Rotas /api/* não devem ser reescritas para /tenant/admin/api/* (isso devolve HTML e quebra fetch JSON).
     if (url.pathname.startsWith('/api')) {
       const apiRes = NextResponse.next({ request: { headers: requestHeaders } });
@@ -392,6 +425,20 @@ export async function middleware(request: NextRequest) {
   }
 
   if (url.pathname.startsWith('/tenant')) {
+    const isStaffTenantPath =
+      url.pathname.startsWith('/tenant/admin') ||
+      url.pathname.startsWith('/tenant/professional') ||
+      /^\/tenant\/[^/]+\/admin(\/|$)/.test(url.pathname);
+
+    if (isStaffTenantPath && subdomain && !url.pathname.startsWith('/auth/')) {
+      const blockedRedirect = await redirectIfBusinessSubscriptionBlocked(
+        request,
+        subdomain,
+        url.searchParams.get('app') === 'gestao',
+      );
+      if (blockedRedirect) return blockedRedirect;
+    }
+
     const response = NextResponse.next({ request: { headers: requestHeaders } });
     response.headers.set('x-business-slug', subdomain);
     response.headers.set('x-middleware-request-url', request.url);
