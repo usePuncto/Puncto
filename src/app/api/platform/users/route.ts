@@ -65,6 +65,8 @@ export async function GET(request: NextRequest) {
           name: data.name,
           displayName: data.displayName,
           createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+          userType: data.type as string | undefined,
+          studentBusinessId: data.studentBusinessId as string | undefined,
         };
 
         // Get user's token to check claims
@@ -73,7 +75,10 @@ export async function GET(request: NextRequest) {
           const customClaims = userRecord.customClaims || {};
           
           userData.platformAdmin = customClaims.platformAdmin === true;
+          userData.userType = (customClaims.userType as string) || userData.userType;
           userData.businessRoles = customClaims.businessRoles || {};
+          userData.studentBusinessId =
+            (customClaims.studentBusinessId as string) || userData.studentBusinessId;
 
           // Get businesses user belongs to
           const businessRoles = customClaims.businessRoles || {};
@@ -85,21 +90,43 @@ export async function GET(request: NextRequest) {
           console.error('Error getting user claims:', error);
         }
 
+        if (userData.userType === 'student' && userData.studentBusinessId) {
+          const existing = userData.businesses || [];
+          const alreadyLinked = existing.some(
+            (b: { id: string }) => b.id === userData.studentBusinessId
+          );
+          if (!alreadyLinked) {
+            userData.businesses = [
+              { id: userData.studentBusinessId, role: 'customer' },
+              ...existing,
+            ];
+          }
+        }
+
         return userData;
       })
     );
 
     // Apply filters (client-side)
     if (businessId) {
-      users = users.filter((u) => 
-        u.businessRoles?.[businessId] || u.businesses?.some((b: any) => b.id === businessId)
+      users = users.filter((u) =>
+        u.businessRoles?.[businessId] ||
+        u.businesses?.some((b: { id: string }) => b.id === businessId) ||
+        u.studentBusinessId === businessId
       );
     }
 
     if (role) {
-      users = users.filter((u) =>
-        Object.values(u.businessRoles || {}).includes(role)
-      );
+      users = users.filter((u) => {
+        if (role === 'customer') {
+          return (
+            u.userType === 'student' ||
+            u.userType === 'customer' ||
+            u.businesses?.some((b: { role: string }) => b.role === 'customer')
+          );
+        }
+        return Object.values(u.businessRoles || {}).includes(role);
+      });
     }
 
     if (search) {
@@ -110,6 +137,35 @@ export async function GET(request: NextRequest) {
         u.displayName?.toLowerCase().includes(searchLower)
       );
     }
+
+    const businessIds = new Set<string>();
+    for (const u of users) {
+      for (const b of u.businesses || []) {
+        businessIds.add(b.id);
+      }
+    }
+
+    const businessNames = new Map<string, string>();
+    const ids = Array.from(businessIds);
+    for (let i = 0; i < ids.length; i += 10) {
+      const chunk = ids.slice(i, i + 10);
+      const refs = chunk.map((id) => db.collection('businesses').doc(id));
+      const docs = await db.getAll(...refs);
+      for (const doc of docs) {
+        if (doc.exists) {
+          const data = doc.data();
+          businessNames.set(doc.id, data?.displayName || data?.legalName || doc.id);
+        }
+      }
+    }
+
+    users = users.map((u) => ({
+      ...u,
+      businesses: (u.businesses || []).map((b: { id: string; role: string }) => ({
+        ...b,
+        displayName: businessNames.get(b.id) ?? null,
+      })),
+    }));
 
     // Get total count
     const totalSnapshot = await db.collection('users').count().get();

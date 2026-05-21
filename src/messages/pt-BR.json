@@ -42,6 +42,7 @@
     "loyalty": "Fidelidade",
     "campaigns": "Campanhas",
     "whatsapp": "WhatsApp",
+    "electronicSignature": "Assinatura eletrônica",
     "franchise": "Franquia",
     "settings": "Configurações",
     "adminPanel": "Painel Administrativo",
@@ -110,8 +111,8 @@
     }
   },
   "business": {
-    "suspendedAccount": "Conta Suspensa",
-    "suspendedMessage": "Esta conta está atualmente suspensa. Entre em contato com o suporte para mais informações."
+    "suspendedAccount": "Assinatura encerrada",
+    "suspendedMessage": "A assinatura deste negócio foi encerrada. Entre em contato com o suporte da Puncto para reativar o acesso."
   },
   "locale": {
     "switch": "Idioma",
@@ -206,5 +207,35 @@
     "bookingConfirmationsTitle": "Confirmações de agendamento",
     "bookingConfirmationsDesc": "Ao criar um agendamento, envie confirmação automaticamente por:",
     "sendViaWhatsApp": "Enviar por WhatsApp"
+  },
+  "electronicSignature": {
+    "title": "Assinatura eletrônica",
+    "subtitle": "Assinaturas com validade jurídica para pacientes, profissionais e documentos administrativos.",
+    "unavailable": "Assinatura eletrônica não está disponível para o segmento deste negócio.",
+    "health": {
+      "patientTitle": "Consentimento do paciente (LGPD)",
+      "patientDescription": "Colete a assinatura eletrônica do paciente no tablet ou celular da recepção, com registro de auditoria (IP, data e hora).",
+      "patientBullet1": "Termo de consentimento para tratamento de dados pessoais e sensíveis.",
+      "patientBullet2": "Assinatura desenhada na tela com hash do texto aceito.",
+      "patientBullet3": "Histórico vinculado ao cadastro do paciente.",
+      "openPatients": "Ir para pacientes",
+      "professionalTitle": "Assinatura do profissional (ICP-Brasil)",
+      "professionalDescription": "Ao finalizar um prontuário, o profissional assina com certificado digital ICP-Brasil (integração Lacuna Web PKI).",
+      "professionalNote": "A integração completa com certificado A1/A3 em nuvem será habilitada nesta área. Hoje, o fluxo de prontuário já prepara o hash e a assinatura simulada para testes."
+    },
+    "admin": {
+      "documentsTitle": "Documentos e contratos",
+      "documentsDescription": "Assine contratos, termos e documentos internos com certificado digital da empresa.",
+      "documentsBullet1": "Vínculo com gestão de contratos e fluxos administrativos.",
+      "documentsBullet2": "Trilha de auditoria para compliance e arquivo.",
+      "documentsBullet3": "Compatível com certificados ICP-Brasil (e-CPF / e-CNPJ).",
+      "certificateTitle": "Certificado digital",
+      "certificateDescription": "Configure o certificado usado pela equipe para assinar documentos neste painel.",
+      "certificateNote": "Em breve você poderá conectar o certificado A1 ou A3 em nuvem diretamente aqui. Entre em contato com o suporte se precisar ativar antes."
+    },
+    "compliance": {
+      "title": "Conformidade",
+      "description": "As assinaturas seguem a LGPD e a MP 2.200-2/2001 (ICP-Brasil) quando aplicável. Mantenha os certificados válidos e restrinja o acesso a usuários autorizados."
+    }
   }
 }

@@ -25,6 +25,8 @@ const INDUSTRY_DISPLAY: Record<string, string> = {
   bakery: 'Padaria',
   event: 'Eventos',
   general: 'Serviços Gerais',
+  empresas: 'Gestão Administrativa',
+  corporativo: 'Gestão Corporativa',
   education: 'Educação',
 };
 

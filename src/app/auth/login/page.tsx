@@ -7,6 +7,14 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { auth } from '@/lib/firebase';
+import {
+  SUBSCRIPTION_ENDED_MESSAGE,
+  SUBSCRIPTION_ENDED_SUPPORT_HINT,
+} from '@/lib/business/subscription-access';
+import {
+  fetchBusinessAccessBlocked,
+  signOutAndClearSession,
+} from '@/lib/business/check-subscription-client';
 
 function getRedirectUrl(
   user: { type?: string; primaryBusinessId?: string; businessId?: string; customClaims?: { primaryBusinessId?: string } } | null,
@@ -36,6 +44,7 @@ export default function LoginPage() {
   const subdomain = searchParams.get('subdomain');
   const returnUrlParam = searchParams.get('returnUrl');
   const appParam = searchParams.get('app');
+  const subscriptionEnded = searchParams.get('subscriptionEnded') === '1';
   const returnUrl =
     returnUrlParam ||
     (subdomain ? `/tenant/admin/dashboard?subdomain=${subdomain}${appParam === 'gestao' ? '&app=gestao' : ''}` : '/tenant/admin/dashboard');
@@ -46,6 +55,36 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const hasRedirected = useRef(false);
+
+  function resolveBusinessKey(
+    u: { primaryBusinessId?: string; businessId?: string; customClaims?: { primaryBusinessId?: string } } | null,
+    hostSubdomain: string | null
+  ): string | null {
+    return (
+      hostSubdomain ||
+      u?.primaryBusinessId ||
+      u?.businessId ||
+      u?.customClaims?.primaryBusinessId ||
+      null
+    );
+  }
+
+  async function blockIfSubscriptionEnded(businessKey: string | null): Promise<boolean> {
+    if (!businessKey) return false;
+    const blocked = await fetchBusinessAccessBlocked(businessKey);
+    if (!blocked) return false;
+    await signOutAndClearSession();
+    setError(SUBSCRIPTION_ENDED_MESSAGE);
+    return true;
+  }
+
+  useEffect(() => {
+    if (!subscriptionEnded) return;
+    setError(SUBSCRIPTION_ENDED_MESSAGE);
+    if (user && !loading) {
+      signOutAndClearSession();
+    }
+  }, [subscriptionEnded, user, loading]);
 
   // Guest option only for customers (booking flow), not for business admins/employees
   const isCustomerContext =
@@ -102,10 +141,10 @@ export default function LoginPage() {
 
     // Use user.type (from Firestore) - customClaims may not be on user object
     if (user.type === 'business_user') {
-      const businessId =
-        subdomain ||
-        (user as { primaryBusinessId?: string; businessId?: string }).primaryBusinessId ||
-        (user as { primaryBusinessId?: string; businessId?: string }).businessId;
+      const businessId = resolveBusinessKey(
+        user as { primaryBusinessId?: string; businessId?: string; customClaims?: { primaryBusinessId?: string } },
+        subdomain
+      );
 
       if (!businessId) {
         hasRedirected.current = true;
@@ -113,32 +152,43 @@ export default function LoginPage() {
         return;
       }
 
-      const role = getBusinessRole(businessId);
-      const isProfessional = role === 'professional';
-      const targetUrl =
-        isProfessional && (returnUrl.startsWith('/tenant/admin') || returnUrl === '/tenant/admin/dashboard')
-          ? '/tenant/professional'
-          : returnUrl;
+      void blockIfSubscriptionEnded(businessId).then((blocked) => {
+        if (blocked) return;
 
-      // When subdomain or app=gestao: use redirectToTenant (full page load) so cookie is set and subdomain works
-      // This fixes returnUrl="/" where router.push would fail on gestao subdomains
-      const isTenantContext = subdomain || appParam === 'gestao' || (typeof window !== 'undefined' && window.location.hostname.includes('.gestao.'));
-      const effectiveTarget = (targetUrl.startsWith('/tenant') || returnUrl === '/' || returnUrl === '')
-        ? (isProfessional ? '/tenant/professional' : '/tenant/admin/dashboard')
-        : targetUrl;
+        const role = getBusinessRole(businessId);
+        const isProfessional = role === 'professional';
+        const targetUrl =
+          isProfessional && (returnUrl.startsWith('/tenant/admin') || returnUrl === '/tenant/admin/dashboard')
+            ? '/tenant/professional'
+            : returnUrl;
 
-      if (isTenantContext && effectiveTarget.startsWith('/tenant')) {
-        redirectToTenant(effectiveTarget, businessId);
-        return;
-      }
+        const isTenantContext =
+          subdomain ||
+          appParam === 'gestao' ||
+          (typeof window !== 'undefined' && window.location.hostname.includes('.gestao.'));
+        const effectiveTarget =
+          targetUrl.startsWith('/tenant') || returnUrl === '/' || returnUrl === ''
+            ? isProfessional
+              ? '/tenant/professional'
+              : '/tenant/admin/dashboard'
+            : targetUrl;
 
-      if ((returnUrl.startsWith('/tenant') || returnUrl.includes('subdomain=')) && targetUrl.startsWith('/tenant')) {
-        redirectToTenant(targetUrl, businessId);
-        return;
-      }
+        if (isTenantContext && effectiveTarget.startsWith('/tenant')) {
+          redirectToTenant(effectiveTarget, businessId);
+          return;
+        }
 
-      hasRedirected.current = true;
-      router.push(returnUrl);
+        if (
+          (returnUrl.startsWith('/tenant') || returnUrl.includes('subdomain=')) &&
+          targetUrl.startsWith('/tenant')
+        ) {
+          redirectToTenant(targetUrl, businessId);
+          return;
+        }
+
+        hasRedirected.current = true;
+        router.push(returnUrl);
+      });
       return;
     }
 
@@ -185,10 +235,22 @@ export default function LoginPage() {
     try {
       await login(email, password);
 
-      // Set session cookie immediately (like platform login) so middleware sees auth on redirect.
-      // Must happen in handleSubmit, before useEffect redirect, to avoid race/loop.
       const firebaseUser = auth.currentUser;
       if (firebaseUser) {
+        const tokenResult = await firebaseUser.getIdTokenResult();
+        const claims = tokenResult.claims as {
+          primaryBusinessId?: string;
+          businessRoles?: Record<string, string>;
+        };
+        const businessKey =
+          subdomain ||
+          claims.primaryBusinessId ||
+          (claims.businessRoles ? Object.keys(claims.businessRoles)[0] : null);
+
+        if (await blockIfSubscriptionEnded(businessKey)) {
+          return;
+        }
+
         try {
           const idToken = await firebaseUser.getIdToken(true);
           const sessionRes = await fetch('/api/auth/session', {
@@ -309,7 +371,15 @@ export default function LoginPage() {
             {/* Error Message */}
             {error && (
               <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
-                {error}
+                <p>{error}</p>
+                {error === SUBSCRIPTION_ENDED_MESSAGE && (
+                  <p className="mt-2 text-red-700">
+                    Suporte:{' '}
+                    <a href={`mailto:${SUBSCRIPTION_ENDED_SUPPORT_HINT}`} className="font-medium underline">
+                      {SUBSCRIPTION_ENDED_SUPPORT_HINT}
+                    </a>
+                  </p>
+                )}
               </div>
             )}
 

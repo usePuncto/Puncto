@@ -4,6 +4,12 @@ import { notFound } from 'next/navigation';
 import { getCurrentBusiness, serializeBusinessForClient } from '@/lib/tenant';
 import { BusinessProvider } from '@/lib/contexts/BusinessContext';
 import { BrandingWrapper } from '@/components/branding/BrandingWrapper';
+import {
+  isSubscriptionAccessBlocked,
+  SUBSCRIPTION_ENDED_MESSAGE,
+  SUBSCRIPTION_ENDED_TITLE,
+  SUBSCRIPTION_ENDED_SUPPORT_HINT,
+} from '@/lib/business/subscription-access';
 
 export async function generateMetadata(): Promise<Metadata> {
   const business = await getCurrentBusiness();
@@ -31,31 +37,20 @@ export default async function TenantLayout({
   }
 
   // Check if business is active
-  if (business.subscription.status === 'suspended' || business.subscription.status === 'cancelled') {
+  if (isSubscriptionAccessBlocked(business.subscription?.status)) {
     // Note: Using hardcoded strings here for now as this is a server component
     // In a production app, you'd use getServerTranslations here
-    const suspendedMessages: Record<string, { title: string; message: string }> = {
-      'pt-BR': {
-        title: 'Conta Suspensa',
-        message: 'Esta conta está atualmente suspensa. Entre em contato com o suporte para mais informações.',
-      },
-      'en-US': {
-        title: 'Suspended Account',
-        message: 'This account is currently suspended. Please contact support for more information.',
-      },
-      'es-ES': {
-        title: 'Cuenta Suspendida',
-        message: 'Esta cuenta está actualmente suspendida. Por favor, contacte con soporte para más información.',
-      },
-    };
-    const locale = business.settings?.locale || 'pt-BR';
-    const messages = suspendedMessages[locale] || suspendedMessages['pt-BR'];
-
     return (
-      <div className="flex min-h-screen items-center justify-center bg-neutral-50">
+      <div className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
         <div className="rounded-2xl bg-white p-8 shadow-lg text-center max-w-md">
-          <h1 className="text-2xl font-semibold text-neutral-900">{messages.title}</h1>
-          <p className="mt-4 text-neutral-600">{messages.message}</p>
+          <h1 className="text-2xl font-semibold text-neutral-900">{SUBSCRIPTION_ENDED_TITLE}</h1>
+          <p className="mt-4 text-neutral-600">{SUBSCRIPTION_ENDED_MESSAGE}</p>
+          <p className="mt-4 text-sm text-neutral-500">
+            Suporte:{' '}
+            <a href={`mailto:${SUBSCRIPTION_ENDED_SUPPORT_HINT}`} className="text-blue-600 hover:underline">
+              {SUBSCRIPTION_ENDED_SUPPORT_HINT}
+            </a>
+          </p>
         </div>
       </div>
     );

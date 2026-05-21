@@ -51,9 +51,10 @@ export default function PaymentGuard({ children, businessId }: PaymentGuardProps
           return;
         }
 
-        // Redirect if subscription is suspended
-        if (subscriptionStatus === 'suspended') {
-          router.push(`/suspended?businessId=${businessId}`);
+        if (subscriptionStatus === 'suspended' || subscriptionStatus === 'cancelled') {
+          const params = new URLSearchParams({ subscriptionEnded: '1', subdomain: businessId });
+          params.set('app', 'gestao');
+          router.push(`/auth/login?${params.toString()}`);
           return;
         }
 

@@ -40,11 +40,10 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const businessesSnapshot = await db.collection('businesses')
-      .where('deletedAt', '==', null)
-      .get();
+    const businessesSnapshot = await db.collection('businesses').get();
+    const activeDocs = businessesSnapshot.docs.filter((doc) => !doc.data().deletedAt);
 
-    const totalBusinesses = businessesSnapshot.size;
+    const totalBusinesses = activeDocs.length;
 
     // Active = not suspended
     let activeBusinesses = 0;
@@ -54,7 +53,7 @@ export async function GET(request: NextRequest) {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    businessesSnapshot.docs.forEach((doc) => {
+    activeDocs.forEach((doc) => {
       const data = doc.data();
       const sub = data.subscription;
       if (!sub || sub.status !== 'suspended') activeBusinesses++;
@@ -72,7 +71,7 @@ export async function GET(request: NextRequest) {
     const usersCount = await db.collection('users').count().get();
     const totalUsers = usersCount.data().count;
 
-    const recentBusinesses = businessesSnapshot.docs
+    const recentBusinesses = activeDocs
       .sort((a, b) => {
         const aDate = a.data().createdAt?.toDate?.() || a.data().createdAt;
         const bDate = b.data().createdAt?.toDate?.() || b.data().createdAt;

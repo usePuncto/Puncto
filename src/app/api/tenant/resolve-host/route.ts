@@ -22,9 +22,13 @@ export async function GET(request: NextRequest) {
       if (!doc.exists) {
         return NextResponse.json({ error: 'not found' }, { status: 404 });
       }
-      const data = doc.data() as { slug?: string };
+      const data = doc.data() as { slug?: string; subscription?: { status?: string } };
       const slug = (typeof data.slug === 'string' && data.slug.trim()) || key;
-      return NextResponse.json({ id: doc.id, slug });
+      return NextResponse.json({
+        id: doc.id,
+        slug,
+        subscriptionStatus: data.subscription?.status ?? null,
+      });
     }
 
     const snap = await db.collection('businesses').where('slug', '==', key).limit(1).get();
@@ -32,9 +36,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'not found' }, { status: 404 });
     }
     const doc = snap.docs[0];
-    const data = doc.data() as { slug?: string };
+    const data = doc.data() as { slug?: string; subscription?: { status?: string } };
     const slug = (typeof data.slug === 'string' && data.slug.trim()) || key;
-    return NextResponse.json({ id: doc.id, slug });
+    return NextResponse.json({
+      id: doc.id,
+      slug,
+      subscriptionStatus: data.subscription?.status ?? null,
+    });
   } catch (e) {
     console.error('[api/tenant/resolve-host]', e);
     return NextResponse.json({ error: 'server error' }, { status: 500 });
