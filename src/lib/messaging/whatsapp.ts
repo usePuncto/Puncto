@@ -1,58 +1,81 @@
 /**
- * WhatsApp Business API client
- * Uses Meta Cloud API (WhatsApp Business Platform)
- *
- * Per-business credentials (Embedded Signup): when businessId is provided,
- * fetches phone_number_id and access_token from Firestore (business_whatsapp_credentials).
- *
- * Fallback: env vars WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_ACCESS_TOKEN (single-tenant / Puncto support).
+ * WhatsApp messaging: Evolution API (Baileys) per business, optional Meta Cloud API fallback.
  */
 
 import { getWhatsAppCredentials } from '@/lib/whatsapp/credentials';
+import {
+  getConnectionState,
+  isEvolutionConfigured,
+  sendEvolutionText,
+} from '@/lib/whatsapp/evolution';
+import { templateParamsToText } from '@/lib/whatsapp/messageText';
 
 export interface WhatsAppOptions {
-  to: string; // Phone number in E.164 format (e.g., +5511999999999)
-  template?: string; // Template name
-  templateParams?: string[]; // Template parameters
-  text?: string; // Plain text message (if not using template)
+  to: string;
+  template?: string;
+  templateParams?: string[];
+  text?: string;
   businessAccountId?: string;
-  /** When set, uses this business's WhatsApp (Embedded Signup). Otherwise uses env vars. */
   businessId?: string;
 }
 
-/**
- * Send WhatsApp message via Meta Cloud API
- * Uses per-business credentials when businessId is provided (Embedded Signup)
- */
 export async function sendWhatsApp(
   options: WhatsAppOptions
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  let phoneNumberId: string;
-  let accessToken: string;
-
   if (options.businessId) {
     const creds = await getWhatsAppCredentials(options.businessId);
     if (!creds) {
       return {
         success: false,
-        error: 'WhatsApp not connected for this business. Connect in Settings > WhatsApp.',
+        error: 'WhatsApp não conectado. Conecte em Admin > WhatsApp.',
       };
     }
-    phoneNumberId = creds.phoneNumberId;
-    accessToken = creds.accessToken;
-  } else {
-    phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
-    accessToken = process.env.WHATSAPP_ACCESS_TOKEN || '';
-    if (!phoneNumberId || !accessToken) {
-      return {
-        success: false,
-        error: 'WhatsApp not configured. Set env vars or connect business via Embedded Signup.',
-      };
+
+    if (creds.provider === 'evolution' || (!creds.phoneNumberId && creds.instanceName)) {
+      if (!isEvolutionConfigured()) {
+        return { success: false, error: 'Evolution API não configurada no servidor.' };
+      }
+      const { state } = await getConnectionState(options.businessId);
+      if (state !== 'open') {
+        return {
+          success: false,
+          error: 'WhatsApp desconectado. Escaneie o QR code em Admin > WhatsApp.',
+        };
+      }
+
+      let text = options.text;
+      if (!text && options.template) {
+        text = templateParamsToText(options.template, options.templateParams);
+      }
+      if (!text) {
+        return { success: false, error: 'Mensagem de texto obrigatória para envio automático.' };
+      }
+
+      const to = formatPhoneNumber(options.to);
+      return sendEvolutionText(options.businessId, to, text);
     }
+
+    return sendViaMetaCloud(creds.phoneNumberId!, creds.accessToken!, options);
   }
 
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || '';
+  if (!phoneNumberId || !accessToken) {
+    return {
+      success: false,
+      error: 'WhatsApp não configurado no servidor.',
+    };
+  }
+  return sendViaMetaCloud(phoneNumberId, accessToken, options);
+}
+
+async function sendViaMetaCloud(
+  phoneNumberId: string,
+  accessToken: string,
+  options: WhatsAppOptions
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
   try {
-    let payload: any;
+    let payload: Record<string, unknown>;
 
     if (options.template) {
       payload = {
@@ -103,15 +126,13 @@ export async function sendWhatsApp(
     }
 
     return { success: true, messageId: data.messages[0]?.id };
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
     console.error('[WhatsApp] Error sending message:', error);
-    return { success: false, error: error.message };
+    return { success: false, error: msg };
   }
 }
 
-/**
- * Format phone number to E.164 format
- */
 export function formatPhoneNumber(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   const withoutLeadingZero = digits.startsWith('0') ? digits.slice(1) : digits;

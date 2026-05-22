@@ -255,7 +255,7 @@ async function sendProfessionalBookingCreatedEmails({
   });
 
   const result = await sendZeptoEmail({
-    to: emails,
+    to: emails.filter((e): e is string => Boolean(e)),
     subject: template.subject,
     html: template.html,
     text: template.text,

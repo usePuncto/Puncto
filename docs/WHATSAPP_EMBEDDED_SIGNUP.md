@@ -1,3 +1,7 @@
+# Configuração do Cadastro Incorporado do WhatsApp (Meta) — legado
+
+> **Padrão atual do Puncto:** [WHATSAPP_EVOLUTION.md](./WHATSAPP_EVOLUTION.md) (Evolution API + QR Code). Use este documento apenas se for manter integração Meta Cloud API.
+
 # Configuração do Cadastro Incorporado do WhatsApp (Meta)
 
 Cada negócio conecta seu próprio número de WhatsApp para que as mensagens automatizadas sejam enviadas do número deles para seus clientes. Todas as credenciais são armazenadas apenas no servidor.
@@ -18,8 +22,12 @@ Cada negócio conecta seu próprio número de WhatsApp para que as mensagens aut
    Candidate-se em [Meta for Developers](https://developers.facebook.com/docs/whatsapp/solution-providers/get-started-for-tech-providers/).
 
 2. **Criar um App Meta**  
-   - Adicione o produto WhatsApp
-   - Configure o Cadastro Incorporado e crie um **config_id**
+   - Adicione o produto **WhatsApp**
+   - Adicione o produto **Facebook Login for Business** (não basta só “Facebook Login” genérico)
+   - Em **Facebook Login for Business → Configurações**, ative Client OAuth, Web OAuth, HTTPS, Embedded Browser OAuth, Strict Mode e **Login with the JavaScript SDK**
+   - Em **Facebook Login for Business → Configurações**, coloque o domínio ngrok em **Allowed domains** e nas **Valid OAuth Redirect URIs**
+   - Em **Facebook Login for Business → Configurações (Configurations)**, crie uma config a partir do template *WhatsApp Embedded Signup* e copie o **Configuration ID** → `NEXT_PUBLIC_META_WHATSAPP_CONFIG_ID`
+   - Doc oficial: [Embedded Signup – Implementation](https://developers.facebook.com/docs/whatsapp/embedded-signup/implementation)
 
 ## Variáveis de Ambiente
 

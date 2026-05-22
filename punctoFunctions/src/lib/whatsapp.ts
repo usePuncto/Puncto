@@ -1,9 +1,9 @@
 /**
- * WhatsApp send for Firebase Functions
- * Uses per-business credentials from Firestore (business_whatsapp_credentials)
- * or env vars WHATSAPP_PHONE_NUMBER_ID + WHATSAPP_ACCESS_TOKEN as fallback.
+ * WhatsApp send for Firebase Functions (Evolution API or Meta Cloud API).
  */
 import { getFirestore } from 'firebase-admin/firestore';
+import { isEvolutionConfigured, getConnectionState, sendEvolutionText } from './evolution';
+import { templateParamsToText } from './messageText';
 
 const CREDENTIALS_COLLECTION = 'business_whatsapp_credentials';
 
@@ -27,32 +27,55 @@ export interface SendWhatsAppOptions {
 export async function sendWhatsApp(
   options: SendWhatsAppOptions
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  let phoneNumberId: string;
-  let accessToken: string;
-
   if (options.businessId) {
     const db = getFirestore();
     const credsDoc = await db.collection(CREDENTIALS_COLLECTION).doc(options.businessId).get();
     if (!credsDoc.exists) {
-      return {
-        success: false,
-        error: 'WhatsApp not connected for this business',
-      };
+      return { success: false, error: 'WhatsApp not connected for this business' };
     }
     const data = credsDoc.data()!;
-    phoneNumberId = data.phoneNumberId;
-    accessToken = data.accessToken;
-  } else {
-    phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
-    accessToken = process.env.WHATSAPP_ACCESS_TOKEN || '';
-    if (!phoneNumberId || !accessToken) {
-      return {
-        success: false,
-        error: 'WhatsApp credentials not configured',
-      };
+    const isEvolution =
+      data.provider === 'evolution' || (!data.phoneNumberId && data.instanceName);
+
+    if (isEvolution && isEvolutionConfigured()) {
+      const { state } = await getConnectionState(options.businessId);
+      if (state !== 'open') {
+        return { success: false, error: 'WhatsApp disconnected — scan QR in admin' };
+      }
+
+      let text = options.text;
+      if (!text && options.template) {
+        text = templateParamsToText(options.template, options.templateParams);
+      }
+      if (!text) {
+        return { success: false, error: 'Text message required for Evolution send' };
+      }
+
+      const to = formatPhoneToE164(options.to);
+      return sendEvolutionText(options.businessId, to, text);
     }
+
+    const phoneNumberId = data.phoneNumberId as string;
+    const accessToken = data.accessToken as string;
+    if (!phoneNumberId || !accessToken) {
+      return { success: false, error: 'WhatsApp credentials incomplete' };
+    }
+    return sendViaMeta(phoneNumberId, accessToken, options);
   }
 
+  const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID || '';
+  const accessToken = process.env.WHATSAPP_ACCESS_TOKEN || '';
+  if (!phoneNumberId || !accessToken) {
+    return { success: false, error: 'WhatsApp credentials not configured' };
+  }
+  return sendViaMeta(phoneNumberId, accessToken, options);
+}
+
+async function sendViaMeta(
+  phoneNumberId: string,
+  accessToken: string,
+  options: SendWhatsAppOptions
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const to = formatPhoneToE164(options.to);
 
   let payload: Record<string, unknown>;
@@ -101,10 +124,7 @@ export async function sendWhatsApp(
     const data = (await res.json()) as { messages?: { id: string }[]; error?: { message?: string } };
 
     if (!res.ok) {
-      return {
-        success: false,
-        error: data.error?.message || 'WhatsApp API error',
-      };
+      return { success: false, error: data.error?.message || 'WhatsApp API error' };
     }
 
     return { success: true, messageId: data.messages?.[0]?.id };

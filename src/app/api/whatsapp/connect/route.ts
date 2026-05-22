@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
 
     await saveWhatsAppCredentials({
       businessId,
+      provider: 'meta',
       phoneNumberId: phone.id,
       accessToken,
       wabaId: waba.id,

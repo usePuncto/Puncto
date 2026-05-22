@@ -1,0 +1,49 @@
+# Evolution API v2 — WhatsApp via Baileys (uso local / staging)
+# Docs: https://doc.evolution-api.com/v2/pt/install/docker
+#
+# IMPORTANTE: use evoapicloud/evolution-api:v2.3.7 (atendai/evolution-api:v2.1.1 retorna QR vazio { count: 0 })
+#
+# Subir: docker compose -f docker-compose.evolution.yml up -d
+# Manager (QR alternativo): http://localhost:8080/manager
+
+services:
+  evolution-api:
+    image: evoapicloud/evolution-api:v2.3.7
+    container_name: puncto-evolution-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_URL: http://localhost:8080
+      AUTHENTICATION_API_KEY: change-me-to-a-strong-secret
+      AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES: "true"
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: postgresql
+      DATABASE_CONNECTION_URI: postgresql://evolution:evolution@postgres:5432/evolution
+      CACHE_REDIS_ENABLED: "false"
+      WEBHOOK_GLOBAL_ENABLED: "false"
+      # QR Code (recomendado para Baileys / v2.3+)
+      QRCODE_LIMIT: "30"
+      QRCODE_COLOR: "#198754"
+      CONFIG_SESSION_PHONE_VERSION: "2.3000.1030831524"
+      CONFIG_SESSION_PHONE_CLIENT: Chrome
+      CONFIG_SESSION_PHONE_NAME: Chrome
+    depends_on:
+      - postgres
+    volumes:
+      - evolution_instances:/evolution/instances
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: puncto-evolution-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: evolution
+      POSTGRES_DB: evolution
+    volumes:
+      - evolution_pg:/var/lib/postgresql/data
+
+volumes:
+  evolution_instances:
+  evolution_pg:

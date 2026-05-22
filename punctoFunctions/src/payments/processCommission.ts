@@ -58,14 +58,15 @@ export const processCommission = onDocumentCreated(
           return;
         }
 
-        professionalId = booking.professionalId;
+        const bookingProfessionalId = booking.professionalId as string;
+        professionalId = bookingProfessionalId;
 
         // Get professional to check commission rate
         const professionalRef = db
           .collection("businesses")
           .doc(businessId)
           .collection("professionals")
-          .doc(professionalId);
+          .doc(bookingProfessionalId);
 
         const professionalDoc = await professionalRef.get();
         if (!professionalDoc.exists) {

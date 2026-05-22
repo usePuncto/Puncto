@@ -60,11 +60,11 @@ export const onClockIn = onDocumentCreated(
       if (clockIn.type === 'in') {
         // Create new shift if no active shift exists
         if (activeShiftsSnapshot.empty) {
-          const newShift: Omit<Shift, 'id'> = {
+          const newShift = {
             businessId,
             userId: clockIn.userId,
             startTime: clockIn.timestamp as Timestamp,
-            status: 'active',
+            status: 'active' as const,
             clockIns: [clockInId],
             createdAt: clockIn.timestamp as Timestamp,
           };

@@ -2,14 +2,22 @@
 
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import type { WhatsAppConfig, WhatsAppMessageTemplate, ConfirmationChannel } from '@/types/business';
 import { useCustomers } from '@/lib/queries/customers';
 import { Customer } from '@/types/booking';
 import { buildWhatsAppUrl } from '@/lib/utils/whatsappUrl';
+
+type WhatsAppStatusResponse = {
+  connected: boolean;
+  phoneNumber: string | null;
+  provider?: string | null;
+  state?: string;
+  qrCodeBase64?: string;
+  evolutionConfigured?: boolean;
+};
 
 const TIER_TO_PLAN: Record<string, string> = {
   free: 'gratis',
@@ -55,6 +63,8 @@ export default function AdminWhatsAppPage() {
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [contactSearch, setContactSearch] = useState('');
   const [activeTab, setActiveTab] = useState<'send' | 'config'>('send');
+  const [qrImage, setQrImage] = useState<string | null>(null);
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
 
   const { data: customers = [] } = useCustomers(business?.id ?? '');
 
@@ -196,6 +206,82 @@ export default function AdminWhatsAppPage() {
     });
   };
 
+  const { data: status, refetch: refetchStatus } = useQuery({
+    queryKey: ['whatsapp-status', business?.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/whatsapp/status?businessId=${business?.id}`);
+      if (!res.ok) throw new Error('Failed to fetch');
+      return res.json() as Promise<WhatsAppStatusResponse>;
+    },
+    enabled: !!business?.id && isAutomated,
+    refetchInterval: (query) => {
+      const d = query.state.data;
+      if (!d || d.connected) return false;
+      return 4000;
+    },
+  });
+
+  const connectMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/whatsapp/evolution/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId: business?.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to connect');
+      }
+      return res.json() as Promise<{
+        phoneNumber?: string;
+        qrCodeBase64?: string;
+        pairingCode?: string;
+        error?: string;
+      }>;
+    },
+    onSuccess: (data) => {
+      if (data.qrCodeBase64) setQrImage(data.qrCodeBase64);
+      if (data.pairingCode) setPairingCode(data.pairingCode);
+      void refetchStatus();
+      if (data.phoneNumber) {
+        setFormData((prev) => ({ ...prev, number: data.phoneNumber || prev.number }));
+      }
+    },
+  });
+
+  const disconnectMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch('/api/whatsapp/evolution/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId: business?.id }),
+      });
+      if (!res.ok) throw new Error('Failed to disconnect');
+      return res.json();
+    },
+    onSuccess: () => {
+      setQrImage(null);
+      setPairingCode(null);
+      refetchStatus();
+      queryClient.invalidateQueries({ queryKey: ['business', business?.id] });
+    },
+  });
+
+  const whatsappConnected = status?.connected ?? false;
+  const qrBase64 = qrImage || status?.qrCodeBase64 || connectMutation.data?.qrCodeBase64;
+  const displayPairingCode = pairingCode || connectMutation.data?.pairingCode;
+  const evolutionConfigured = status?.evolutionConfigured !== false;
+
+  useEffect(() => {
+    if (status?.qrCodeBase64 && !qrImage) {
+      setQrImage(status.qrCodeBase64);
+    }
+    if (whatsappConnected) {
+      setQrImage(null);
+      setPairingCode(null);
+    }
+  }, [status?.qrCodeBase64, whatsappConnected, qrImage]);
+
   const filteredCustomers = customers.filter((c) => {
     const q = contactSearch.toLowerCase().trim();
     if (!q) return true;
@@ -214,8 +300,82 @@ export default function AdminWhatsAppPage() {
     <div>
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-neutral-900">{t('title')}</h1>
-        <p className="text-neutral-600 mt-2">{t('manualSubtitle')}</p>
+        <p className="text-neutral-600 mt-2">
+          {isAutomated ? t('subtitleEvolution') : t('manualSubtitle')}
+        </p>
       </div>
+
+      {isAutomated && (
+        <div className="mb-6 rounded-lg border border-neutral-200 bg-white p-6">
+          <h2 className="text-lg font-semibold mb-2">{t('connectTitle')}</h2>
+          {!evolutionConfigured ? (
+            <p className="text-sm text-amber-700">{t('evolutionNotConfigured')}</p>
+          ) : whatsappConnected ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 text-green-700">
+                <span>✓</span>
+                <span>
+                  {t('connected')} {status?.phoneNumber && `(${status.phoneNumber})`}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => disconnectMutation.mutate()}
+                disabled={disconnectMutation.isPending}
+                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                {disconnectMutation.isPending ? t('disconnecting') : t('disconnect')}
+              </button>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm text-neutral-600 mb-3">{t('connectDescEvolution')}</p>
+              <ol className="list-decimal list-inside text-sm text-neutral-600 mb-4 space-y-1">
+                <li>{t('evolutionStep1')}</li>
+                <li>{t('evolutionStep2')}</li>
+                <li>{t('evolutionStep3')}</li>
+              </ol>
+              <button
+                type="button"
+                onClick={() => connectMutation.mutate()}
+                disabled={connectMutation.isPending}
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                {connectMutation.isPending ? t('connecting') : t('showQrCode')}
+              </button>
+              {connectMutation.isError && (
+                <p className="mt-2 text-sm text-red-600">{connectMutation.error?.message}</p>
+              )}
+              {displayPairingCode && !qrBase64 && (
+                <p className="mt-3 text-sm text-neutral-700">
+                  {t('pairingCode')}:{' '}
+                  <span className="font-mono font-semibold">{displayPairingCode}</span>
+                </p>
+              )}
+              {qrBase64 ? (
+                <div className="mt-4 flex flex-col items-start gap-2">
+                  <p className="text-sm font-medium text-neutral-700">{t('scanQr')}</p>
+                  <img
+                    src={
+                      qrBase64.startsWith('data:')
+                        ? qrBase64
+                        : `data:image/png;base64,${qrBase64}`
+                    }
+                    alt="WhatsApp QR Code"
+                    className="w-56 h-56 rounded-lg border border-neutral-200 bg-white"
+                  />
+                  <p className="text-xs text-neutral-500">{t('waitingConnection')}</p>
+                </div>
+              ) : (
+                connectMutation.isSuccess &&
+                !connectMutation.isPending && (
+                  <p className="mt-3 text-sm text-amber-700">{t('qrNotReturned')}</p>
+                )
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="border-b border-neutral-200 mb-6">
@@ -512,7 +672,7 @@ export default function AdminWhatsAppPage() {
             </div>
           )}
 
-          {isAutomated && sendConfirmationsViaWhatsApp && (
+          {isAutomated && whatsappConnected && (
             <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
               <h3 className="font-medium text-neutral-900 mb-2">{t('bookingConfirmationsTitle')}</h3>
               <p className="text-sm text-neutral-600 mb-3">{t('bookingConfirmationsDesc')}</p>

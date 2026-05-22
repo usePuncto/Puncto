@@ -1,124 +1,145 @@
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { logger } from 'firebase-functions';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { sendZeptoEmail } from '../lib/zeptomail';
-// Customer type definition (inline for Firebase Functions)
+import { sendWhatsApp } from '../lib/whatsapp';
+import { isBirthdayToday, resolveCustomerBirthDate } from '../lib/birthdays';
+import { buildBirthdayMessage } from '../lib/messageText';
+
 interface Customer {
   id: string;
   firstName: string;
-  lastName: string;
+  lastName?: string;
   email?: string;
   phone?: string;
-  customFields?: {
-    birthday?: string;
-  };
+  birthDate?: string;
+  customFields?: { birthday?: string };
+  lastBirthdayReminderYear?: number;
 }
 
-// Placeholder functions
-function getUpcomingBirthdays(customers: Customer[], days: number = 0): Customer[] {
-  const today = new Date();
-  return customers.filter((customer) => {
-    if (!customer.customFields?.birthday) return false;
-    const birthday = new Date(customer.customFields.birthday);
-    return (
-      birthday.getMonth() === today.getMonth() &&
-      birthday.getDate() === today.getDate()
-    );
-  });
+function isBirthdayCampaignEnabled(business: {
+  settings?: { birthdayCampaignsEnabled?: boolean };
+  features?: { birthdayReminders?: boolean };
+}): boolean {
+  if (business.settings?.birthdayCampaignsEnabled === false) return false;
+  if (business.features?.birthdayReminders === false) return false;
+  return true;
 }
 
-async function sendWhatsAppMessage(phone: string, message: string) {
-  logger.info(`[WhatsApp] Would send to ${phone}: ${message}`);
-}
-
-async function sendEmail(recipientEmail: string, subject: string, body: string) {
-  const result = await sendZeptoEmail({
-    to: recipientEmail,
-    subject,
-    html: body,
-    text: body.replace(/<br\s*\/?>/gi, '\n'),
-  });
-  if (!result.success) {
-    throw new Error(result.error || 'Failed to send email');
-  }
+function whatsappChannelEnabled(business: { settings?: { confirmationChannels?: string[] } }): boolean {
+  const channels = business.settings?.confirmationChannels || ['email'];
+  return channels.includes('whatsapp');
 }
 
 /**
- * Scheduled function that runs daily to check for customer birthdays
- * and send birthday campaigns
+ * Daily check for customer birthdays (cliente/paciente/aluno) and sends WhatsApp + email.
  */
 export const sendBirthdayReminders = onSchedule(
   {
-    schedule: '0 8 * * *', // Daily at 8 AM
+    schedule: '0 8 * * *',
     timeZone: 'America/Sao_Paulo',
   },
-  async (event) => {
+  async () => {
     logger.info('[sendBirthdayReminders] Starting birthday check');
 
     try {
       const db = getFirestore();
+      const year = new Date().getFullYear();
       const businessesSnapshot = await db.collection('businesses').get();
 
       for (const businessDoc of businessesSnapshot.docs) {
         const businessId = businessDoc.id;
         const business = businessDoc.data();
 
-        // Check if birthday campaigns are enabled
-        if (!business.settings?.birthdayCampaignsEnabled) {
+        if (!isBirthdayCampaignEnabled(business)) {
           continue;
         }
 
-        // Get all customers
         const customersSnapshot = await db
           .collection('businesses')
           .doc(businessId)
           .collection('customers')
           .get();
 
-        const customers = customersSnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Customer[];
-
-        // Get customers with birthdays today
-        const birthdayCustomers = getUpcomingBirthdays(customers, 0);
+        const birthdayCustomers = customersSnapshot.docs
+          .map((doc) => ({ id: doc.id, ...doc.data() }) as Customer)
+          .filter((customer) => {
+            const birthDate = resolveCustomerBirthDate(customer);
+            return isBirthdayToday(birthDate) && customer.lastBirthdayReminderYear !== year;
+          });
 
         if (birthdayCustomers.length === 0) {
           continue;
         }
 
-        logger.info(`[sendBirthdayReminders] Found ${birthdayCustomers.length} birthdays for business ${businessId}`);
+        logger.info(
+          `[sendBirthdayReminders] Found ${birthdayCustomers.length} birthdays for business ${businessId}`
+        );
 
-        // Send birthday messages
+        const businessName = (business.displayName as string) || 'nosso estabelecimento';
+        const sendWhatsAppBirthday = whatsappChannelEnabled(business);
+
         for (const customer of birthdayCustomers) {
-          const message = `🎉 Feliz Aniversário, ${customer.firstName}!\n\n` +
-            `A ${business.displayName} deseja um dia especial para você!\n\n` +
-            `Aproveite nosso desconto especial de aniversário!`;
+          const customerName = customer.firstName || 'Cliente';
+          const message = buildBirthdayMessage({ customerName, businessName });
+          let sent = false;
 
-          if (customer.phone && business.settings?.whatsapp) {
+          if (sendWhatsAppBirthday && customer.phone) {
             try {
-              await sendWhatsAppMessage(customer.phone, message);
+              const wResult = await sendWhatsApp({
+                businessId,
+                to: customer.phone,
+                text: message,
+              });
+              if (wResult.success) {
+                sent = true;
+                logger.info(`[sendBirthdayReminders] WhatsApp sent to customer ${customer.id}`);
+              } else {
+                logger.warn(
+                  `[sendBirthdayReminders] WhatsApp failed for ${customer.id}: ${wResult.error}`
+                );
+              }
             } catch (error) {
-              logger.error(`[sendBirthdayReminders] Failed to send WhatsApp to ${customer.id}:`, error);
+              logger.error(`[sendBirthdayReminders] WhatsApp error for ${customer.id}:`, error);
             }
           }
 
           if (customer.email) {
             try {
-              await sendEmail(
-                customer.email,
-                `Feliz Aniversário, ${customer.firstName}!`,
-                message.replace(/\n/g, '<br>')
-              );
+              const result = await sendZeptoEmail({
+                to: customer.email,
+                subject: `Feliz Aniversário, ${customerName}!`,
+                html: message.replace(/\n/g, '<br>'),
+                text: message,
+              });
+              if (result.success) {
+                sent = true;
+              } else {
+                logger.warn(
+                  `[sendBirthdayReminders] Email failed for ${customer.id}: ${result.error}`
+                );
+              }
             } catch (error) {
-              logger.error(`[sendBirthdayReminders] Failed to send email to ${customer.id}:`, error);
+              logger.error(`[sendBirthdayReminders] Email error for ${customer.id}:`, error);
             }
+          }
+
+          if (sent) {
+            await db
+              .collection('businesses')
+              .doc(businessId)
+              .collection('customers')
+              .doc(customer.id)
+              .update({
+                lastBirthdayReminderYear: year,
+                updatedAt: Timestamp.now(),
+              });
           }
         }
       }
 
       logger.info('[sendBirthdayReminders] Birthday reminders completed');
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('[sendBirthdayReminders] Error:', error);
     }
   }

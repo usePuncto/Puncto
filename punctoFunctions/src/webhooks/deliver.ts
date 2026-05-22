@@ -90,7 +90,7 @@ export const onWebhookDeliveryCreated = onDocumentCreated(
       const webhook = {
         id: webhookDoc.id,
         ...webhookDoc.data(),
-      };
+      } as { id: string; active?: boolean };
 
       if (!webhook.active) {
         logger.info(

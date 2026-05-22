@@ -139,6 +139,8 @@ export interface Settings {
   whatsapp?: WhatsAppConfig;
   /** Channels for sending booking confirmations (email, whatsapp) */
   confirmationChannels?: ConfirmationChannel[];
+  /** When false, disables automated birthday messages (WhatsApp/email). Default: enabled. */
+  birthdayCampaignsEnabled?: boolean;
   /** Manual unavailability blocks configured by admin/owner */
   unavailability?: Array<{
     id: string;
