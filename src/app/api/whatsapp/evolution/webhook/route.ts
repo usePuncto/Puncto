@@ -57,12 +57,17 @@ export async function POST(request: NextRequest) {
 
       for (const item of messages) {
         const msg = item as Record<string, unknown>;
-        const key = msg.key as { fromMe?: boolean; remoteJid?: string; id?: string } | undefined;
+        const key = msg.key as {
+          fromMe?: boolean;
+          remoteJid?: string;
+          remoteJidAlt?: string;
+          id?: string;
+        } | undefined;
 
         const remoteJid = key?.remoteJid || '';
         if (!remoteJid || remoteJid.includes('@g.us')) continue;
 
-        const keyAlt = key?.remoteJidAlt as string | undefined;
+        const keyAlt = key?.remoteJidAlt;
         const peerPhone = keyAlt
           ? keyAlt.replace(/@.*$/, '').replace(/\D/g, '')
           : remoteJid.replace(/@.*$/, '').replace(/\D/g, '');

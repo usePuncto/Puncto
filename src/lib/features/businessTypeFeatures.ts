@@ -182,7 +182,6 @@ export const INDUSTRY_TO_KEY: Record<string, string> = {
   corporativo: 'corporativo',
   saude: 'saude',
   health: 'saude',
-  corporativo: 'corporativo',
 };
 
 /** Features included per (industry, plan) - based on planFeaturesByBusinessType */

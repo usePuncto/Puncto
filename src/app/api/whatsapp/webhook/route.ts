@@ -4,7 +4,7 @@
  * Configure this URL in Meta App Dashboard: Webhooks > WhatsApp > Callback URL
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { saveInboundMessage } from '@/lib/whatsapp/messages';
+import { saveLegacyInboundMessage } from '@/lib/whatsapp/messages';
 
 const VERIFY_TOKEN = process.env.WHATSAPP_VERIFY_TOKEN;
 
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
           }
 
           try {
-            await saveInboundMessage({
+            await saveLegacyInboundMessage({
               senderPhone,
               text: messageText,
               messageId: msgId,
