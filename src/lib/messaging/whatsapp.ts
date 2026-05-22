@@ -9,6 +9,7 @@ import {
   sendEvolutionText,
 } from '@/lib/whatsapp/evolution';
 import { templateParamsToText } from '@/lib/whatsapp/messageText';
+import { saveOutboundMessage } from '@/lib/whatsapp/messages';
 
 export interface WhatsAppOptions {
   to: string;
@@ -52,7 +53,21 @@ export async function sendWhatsApp(
       }
 
       const to = formatPhoneNumber(options.to);
-      return sendEvolutionText(options.businessId, to, text);
+      const result = await sendEvolutionText(options.businessId, to, text);
+      if (result.success && options.businessId) {
+        try {
+          await saveOutboundMessage({
+            businessId: options.businessId,
+            toPhone: to,
+            text,
+            messageId: result.messageId || `out-${Date.now()}`,
+            timestamp: new Date(),
+          });
+        } catch (err) {
+          console.error('[sendWhatsApp] Failed to persist outbound message:', err);
+        }
+      }
+      return result;
     }
 
     return sendViaMetaCloud(creds.phoneNumberId!, creds.accessToken!, options);

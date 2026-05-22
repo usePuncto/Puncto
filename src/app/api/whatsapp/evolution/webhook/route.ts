@@ -4,19 +4,10 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { saveEvolutionCredentials } from '@/lib/whatsapp/credentials';
-import { saveInboundMessage } from '@/lib/whatsapp/messages';
+import { saveInboundMessage, saveOutboundMessage } from '@/lib/whatsapp/messages';
 import { businessIdFromEvolutionInstance } from '@/lib/whatsapp/instanceName';
 
-function extractTextFromMessage(msg: Record<string, unknown>): string {
-  const message = msg.message as Record<string, unknown> | undefined;
-  if (!message) return '';
-  if (typeof message.conversation === 'string') return message.conversation;
-  const ext = message.extendedTextMessage as { text?: string } | undefined;
-  if (ext?.text) return ext.text;
-  const img = message.imageMessage as { caption?: string } | undefined;
-  if (img?.caption) return img.caption;
-  return '';
-}
+import { extractTextFromEvolutionRecord } from '@/lib/whatsapp/messageContent';
 
 export async function POST(request: NextRequest) {
   try {
@@ -67,24 +58,43 @@ export async function POST(request: NextRequest) {
       for (const item of messages) {
         const msg = item as Record<string, unknown>;
         const key = msg.key as { fromMe?: boolean; remoteJid?: string; id?: string } | undefined;
-        if (key?.fromMe) continue;
 
         const remoteJid = key?.remoteJid || '';
         if (!remoteJid || remoteJid.includes('@g.us')) continue;
 
-        const senderPhone = remoteJid.replace(/@.*$/, '');
-        const text = extractTextFromMessage(msg);
+        const keyAlt = key?.remoteJidAlt as string | undefined;
+        const peerPhone = keyAlt
+          ? keyAlt.replace(/@.*$/, '').replace(/\D/g, '')
+          : remoteJid.replace(/@.*$/, '').replace(/\D/g, '');
+        const text = extractTextFromEvolutionRecord(msg);
         if (!text) continue;
 
-        const messageId = key?.id || `in-${Date.now()}`;
-        const ts = (msg.messageTimestamp as number) || Date.now() / 1000;
+        const messageId = key?.id || `${key?.fromMe ? 'out' : 'in'}-${Date.now()}`;
+        const rawTs = msg.messageTimestamp as number | undefined;
+        const ts =
+          typeof rawTs === 'number'
+            ? rawTs > 1e12
+              ? rawTs
+              : rawTs * 1000
+            : Date.now();
 
-        await saveInboundMessage({
-          senderPhone,
-          text,
-          messageId,
-          timestamp: new Date(ts * 1000),
-        });
+        if (key?.fromMe) {
+          await saveOutboundMessage({
+            businessId,
+            toPhone: peerPhone,
+            text,
+            messageId,
+            timestamp: new Date(ts),
+          });
+        } else {
+          await saveInboundMessage({
+            businessId,
+            senderPhone: peerPhone,
+            text,
+            messageId,
+            timestamp: new Date(ts),
+          });
+        }
       }
     }
 

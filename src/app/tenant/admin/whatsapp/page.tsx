@@ -9,6 +9,7 @@ import type { WhatsAppConfig, WhatsAppMessageTemplate, ConfirmationChannel } fro
 import { useCustomers } from '@/lib/queries/customers';
 import { Customer } from '@/types/booking';
 import { buildWhatsAppUrl } from '@/lib/utils/whatsappUrl';
+import { WhatsAppConversationsTab } from '@/components/whatsapp/WhatsAppConversationsTab';
 
 type WhatsAppStatusResponse = {
   connected: boolean;
@@ -62,7 +63,7 @@ export default function AdminWhatsAppPage() {
   const [selectedContactIds, setSelectedContactIds] = useState<Set<string>>(new Set());
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
   const [contactSearch, setContactSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<'send' | 'config'>('send');
+  const [activeTab, setActiveTab] = useState<'send' | 'conversations' | 'config'>('send');
   const [qrImage, setQrImage] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<string | null>(null);
 
@@ -393,6 +394,17 @@ export default function AdminWhatsAppPage() {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('conversations')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === 'conversations'
+                ? 'border-neutral-900 text-neutral-900'
+                : 'border-transparent text-neutral-600 hover:text-neutral-900'
+            }`}
+          >
+            {t('tabConversations')}
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('config')}
             className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
               activeTab === 'config'
@@ -536,6 +548,15 @@ export default function AdminWhatsAppPage() {
             </ol>
           </div>
         </>
+      )}
+
+      {activeTab === 'conversations' && business?.id && (
+        <WhatsAppConversationsTab
+          businessId={business.id}
+          whatsappConnected={whatsappConnected}
+          isAutomated={isAutomated}
+          customers={customers}
+        />
       )}
 
       {activeTab === 'config' && (

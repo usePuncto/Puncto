@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/firebaseAdmin';
 import { sendWhatsApp, formatPhoneNumber } from '@/lib/messaging/whatsapp';
-import { saveOutboundMessage } from '@/lib/whatsapp/messages';
+import { saveLegacyOutboundMessage } from '@/lib/whatsapp/messages';
 
 async function verifyPlatformAdmin(request: NextRequest): Promise<boolean> {
   try {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     const messageId = result.messageId || `out-${Date.now()}`;
     try {
-      await saveOutboundMessage({
+      await saveLegacyOutboundMessage({
         toPhone: normalizedTo,
         text: text.trim(),
         messageId,

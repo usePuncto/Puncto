@@ -129,6 +129,16 @@ export function useCreateBooking(businessId: string) {
         // Non-blocking
       }
 
+      try {
+        await fetch('/api/bookings/send-confirmation-public', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ businessId, bookingId: docRef.id }),
+        });
+      } catch {
+        // Non-blocking
+      }
+
       return { id: docRef.id, ...data };
     },
     onSuccess: () => {

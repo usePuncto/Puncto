@@ -261,6 +261,17 @@ export default function PublicBusinessPage() {
         // Non-blocking: notifications may also be created by Cloud Function
       }
 
+      // Confirmação WhatsApp/e-mail imediata (Next.js → Evolution local em dev)
+      try {
+        await fetch('/api/bookings/send-confirmation-public', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ businessId: business!.id, bookingId: docRef.id }),
+        });
+      } catch {
+        // Non-blocking: Cloud Function também tenta enviar em produção
+      }
+
       setStep(5);
     } catch (error) {
       console.error('Error creating booking:', error);

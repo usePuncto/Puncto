@@ -3,7 +3,13 @@
  * @see https://doc.evolution-api.com/v2/pt/get-started/introduction
  */
 
+import { formatDisplayPhone, phoneToId } from '@/lib/utils/phone';
 import { evolutionInstanceName } from '@/lib/whatsapp/instanceName';
+import {
+  extractEvolutionMessageRecords,
+  extractEvolutionMessagesMeta,
+  extractTextFromEvolutionRecord,
+} from '@/lib/whatsapp/messageContent';
 
 export type EvolutionConnectionState = 'open' | 'close' | 'connecting' | string;
 
@@ -235,6 +241,208 @@ export async function sendEvolutionText(
 
   const messageId = data.key?.id || data.message?.key?.id || `evo-${Date.now()}`;
   return { success: true, messageId };
+}
+
+export type EvolutionChatSummary = {
+  phone: string;
+  phoneId: string;
+  remoteJid: string;
+  lastMessagePreview: string;
+  lastMessageAt: Date;
+  contactName?: string;
+};
+
+function parseEvolutionTimestamp(value: unknown): Date {
+  if (typeof value === 'number') {
+    return new Date(value > 1e12 ? value : value * 1000);
+  }
+  if (typeof value === 'string') {
+    const n = Number(value);
+    if (!Number.isNaN(n)) return new Date(n > 1e12 ? n : n * 1000);
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return new Date(0);
+}
+
+function jidToPhone(jid: string): string | null {
+  if (!jid || jid.includes('@g.us') || jid.includes('@lid')) return null;
+  const digits = jid.replace(/@.*$/, '').replace(/\D/g, '');
+  if (digits.length < 10) return null;
+  return digits.startsWith('55') ? digits : `55${digits}`;
+}
+
+/** Resolve display phone + stable id from chat row (supports @lid + remoteJidAlt). */
+function resolveChatIdentity(item: Record<string, unknown>): {
+  remoteJid: string;
+  phoneId: string;
+  phone: string;
+} | null {
+  const remoteJid =
+    (item.remoteJid as string) ||
+    ((item.lastMessage as { key?: { remoteJid?: string } } | undefined)?.key?.remoteJid ?? '');
+
+  if (!remoteJid || remoteJid.includes('@g.us')) return null;
+
+  const lastKey = (item.lastMessage as { key?: Record<string, unknown> } | undefined)?.key;
+  const remoteJidAlt =
+    (lastKey?.remoteJidAlt as string) ||
+    (item.remoteJidAlt as string) ||
+    undefined;
+
+  const altPhoneId = remoteJidAlt ? jidToPhone(remoteJidAlt) : null;
+  if (altPhoneId) {
+    return {
+      remoteJid,
+      phoneId: altPhoneId,
+      phone: formatDisplayPhone(altPhoneId),
+    };
+  }
+
+  const directPhoneId = jidToPhone(remoteJid);
+  if (directPhoneId) {
+    return {
+      remoteJid,
+      phoneId: directPhoneId,
+      phone: formatDisplayPhone(directPhoneId),
+    };
+  }
+
+  const lidId = remoteJid.replace(/@.*$/, '');
+  return {
+    remoteJid,
+    phoneId: `lid_${lidId}`,
+    phone: (item.pushName as string) || remoteJid,
+  };
+}
+
+export async function findEvolutionChats(businessId: string): Promise<EvolutionChatSummary[]> {
+  const instanceName = evolutionInstanceName(businessId);
+  const { ok, data } = await evolutionFetch<unknown>(
+    `/chat/findChats/${encodeURIComponent(instanceName)}`,
+    { method: 'POST', body: JSON.stringify({}) }
+  );
+
+  if (!ok) return [];
+
+  const rows = Array.isArray(data) ? data : [];
+  const chats: EvolutionChatSummary[] = [];
+
+  for (const row of rows) {
+    const item = row as Record<string, unknown>;
+    const identity = resolveChatIdentity(item);
+    if (!identity) continue;
+
+    const lastMsg = item.lastMessage as Record<string, unknown> | undefined;
+    const preview =
+      (typeof item.lastMessagePreview === 'string' && item.lastMessagePreview) ||
+      (typeof lastMsg?.message === 'string' && lastMsg.message) ||
+      (lastMsg ? extractTextFromEvolutionRecord(lastMsg) : '') ||
+      '';
+
+    const updatedAt =
+      parseEvolutionTimestamp(item.updatedAt) ||
+      parseEvolutionTimestamp(item.lastMessageAt) ||
+      parseEvolutionTimestamp(lastMsg?.messageTimestamp);
+
+    chats.push({
+      phone: identity.phone,
+      phoneId: identity.phoneId,
+      remoteJid: identity.remoteJid,
+      lastMessagePreview: preview,
+      lastMessageAt: updatedAt,
+      contactName:
+        (typeof item.name === 'string' && item.name) ||
+        (typeof item.pushName === 'string' && item.pushName) ||
+        undefined,
+    });
+  }
+
+  return chats.sort((a, b) => b.lastMessageAt.getTime() - a.lastMessageAt.getTime());
+}
+
+export type EvolutionMessageRow = {
+  id: string;
+  text: string;
+  direction: 'inbound' | 'outbound';
+  timestamp: Date;
+};
+
+function parseEvolutionMessageRow(item: Record<string, unknown>): EvolutionMessageRow | null {
+  const key = item.key as { fromMe?: boolean; id?: string; remoteJid?: string } | undefined;
+  const text = extractTextFromEvolutionRecord(item);
+  if (!text) return null;
+  const ts = parseEvolutionTimestamp(item.messageTimestamp ?? item.timestamp);
+  return {
+    id: key?.id || `evo-${ts.getTime()}-${key?.fromMe ? 'out' : 'in'}`,
+    text,
+    direction: key?.fromMe ? 'outbound' : 'inbound',
+    timestamp: ts,
+  };
+}
+
+export type EvolutionMessagesPage = {
+  messages: EvolutionMessageRow[];
+  page: number;
+  totalPages: number;
+  total: number;
+  hasMore: boolean;
+};
+
+const DEFAULT_MESSAGES_PAGE_SIZE = 25;
+
+export async function fetchEvolutionMessagesPage(
+  businessId: string,
+  remoteJid: string,
+  page: number,
+  pageSize: number = DEFAULT_MESSAGES_PAGE_SIZE
+): Promise<EvolutionMessagesPage> {
+  const instanceName = evolutionInstanceName(businessId);
+
+  const { ok, data } = await evolutionFetch<unknown>(
+    `/chat/findMessages/${encodeURIComponent(instanceName)}`,
+    {
+      method: 'POST',
+      body: JSON.stringify({
+        where: { key: { remoteJid } },
+        page: Math.max(1, page),
+        offset: pageSize,
+      }),
+    }
+  );
+
+  if (!ok) {
+    return { messages: [], page: 1, totalPages: 1, total: 0, hasMore: false };
+  }
+
+  const meta = extractEvolutionMessagesMeta(data);
+  const records = extractEvolutionMessageRecords(data);
+  const messages = records
+    .map((row) => parseEvolutionMessageRow(row as Record<string, unknown>))
+    .filter((m): m is EvolutionMessageRow => m !== null)
+    .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+  const totalPages = meta.pages > 0 ? meta.pages : 1;
+
+  return {
+    messages,
+    page: meta.currentPage,
+    totalPages,
+    total: meta.total,
+    hasMore: meta.currentPage < totalPages,
+  };
+}
+
+/** Resolve remoteJid from phone when only number is known (legacy / Firestore). */
+export async function resolveRemoteJidForPhone(
+  businessId: string,
+  phone: string
+): Promise<string | null> {
+  const phoneId = phoneToId(phone);
+  const chats = await findEvolutionChats(businessId);
+  const match = chats.find((c) => c.phoneId === phoneId || c.phone.replace(/\D/g, '') === phoneId);
+  if (match?.remoteJid) return match.remoteJid;
+  return `${phoneId}@s.whatsapp.net`;
 }
 
 export async function logoutInstance(businessId: string): Promise<void> {
