@@ -222,7 +222,6 @@ export async function POST(request: NextRequest) {
       createdBy: admin.uid,
       dataRetentionDays: 365,
       consentVersion: '1.0',
-      deletedAt: null,
     };
 
     const businessRef = await db.collection('businesses').add(businessData);
