@@ -92,11 +92,10 @@ export async function POST(request: NextRequest) {
     // Stripe Payment Links (API 2025-12-15) does not accept expires_at.
     // We keep expiration as internal metadata in Firestore and enforce it in the app.
 
+    // Payment Links API does not accept payment_method_options (e.g. boleto expires_after_days).
+    // Boleto expiry follows the connected account / Dashboard defaults.
     let paymentLink: Awaited<ReturnType<typeof createStripePaymentLinkWithBrlMethods>>;
     if (currency.toLowerCase() === 'brl') {
-      paymentLinkParams.payment_method_options = {
-        boleto: { expires_after_days: 3 },
-      };
       paymentLink = await createStripePaymentLinkWithBrlMethods(paymentLinkParams, stripeAccount);
     } else {
       paymentLinkParams.payment_method_types = ['card'];

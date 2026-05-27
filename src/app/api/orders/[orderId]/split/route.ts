@@ -65,9 +65,6 @@ export async function POST(
               quantity: 1,
             },
           ],
-          payment_method_options: {
-            boleto: { expires_after_days: 3 },
-          },
           metadata: {
             orderId: params.orderId,
             businessId,
