@@ -53,29 +53,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let account;
-    if (existingAccountId) {
-      try {
-        account = await getAccount(existingAccountId);
-      } catch (err) {
-        if (!isStripeConnectAccountInvalidError(err)) throw err;
-        console.warn(
-          `[create-connect-account] Stale Connect account ${existingAccountId}; creating a new one.`
-        );
-        existingAccountId = undefined;
-      }
-    }
-    if (!existingAccountId) {
-      account = await createConnectAccount({
-        email: connectEmail,
-        country,
-        type: 'express',
-      });
-    }
+    let account = existingAccountId
+      ? await getAccount(existingAccountId).catch(async (err) => {
+          if (!isStripeConnectAccountInvalidError(err)) throw err;
+          console.warn(
+            `[create-connect-account] Stale Connect account ${existingAccountId}; creating a new one.`
+          );
+          return createConnectAccount({
+            email: connectEmail,
+            country,
+            type: 'express',
+          });
+        })
+      : await createConnectAccount({
+          email: connectEmail,
+          country,
+          type: 'express',
+        });
 
-    const detailsSubmitted = Boolean((account as { details_submitted?: boolean }).details_submitted);
-    const chargesEnabled = Boolean((account as { charges_enabled?: boolean }).charges_enabled);
-    const payoutsEnabled = Boolean((account as { payouts_enabled?: boolean }).payouts_enabled);
+    const detailsSubmitted = Boolean(account.details_submitted);
+    const chargesEnabled = Boolean(account.charges_enabled);
+    const payoutsEnabled = Boolean(account.payouts_enabled);
     const onboardingComplete = detailsSubmitted && chargesEnabled;
 
     await businessRef.update({
