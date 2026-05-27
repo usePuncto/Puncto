@@ -15,7 +15,7 @@ export function useCreateCheckoutSession() {
       metadata?: Record<string, string>;
       successUrl: string;
       cancelUrl: string;
-      paymentMethodTypes?: ('card' | 'pix')[];
+      paymentMethodTypes?: ('card' | 'pix' | 'boleto')[];
     }) => {
       const response = await fetch('/api/payments/create-checkout', {
         method: 'POST',

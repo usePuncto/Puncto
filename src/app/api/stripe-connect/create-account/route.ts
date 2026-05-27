@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createConnectAccount, createAccountLink, getAccount } from '@/lib/stripe/connect';
+import { isStripeConnectAccountInvalidError } from '@/lib/stripe/connectErrors';
 import { db } from '@/lib/firebaseAdmin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 
@@ -52,13 +53,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const account = existingAccountId
-      ? await getAccount(existingAccountId)
-      : await createConnectAccount({
-          email: connectEmail,
-          country,
-          type: 'express',
-        });
+    let account;
+    if (existingAccountId) {
+      try {
+        account = await getAccount(existingAccountId);
+      } catch (err) {
+        if (!isStripeConnectAccountInvalidError(err)) throw err;
+        console.warn(
+          `[create-connect-account] Stale Connect account ${existingAccountId}; creating a new one.`
+        );
+        existingAccountId = undefined;
+      }
+    }
+    if (!existingAccountId) {
+      account = await createConnectAccount({
+        email: connectEmail,
+        country,
+        type: 'express',
+      });
+    }
 
     const detailsSubmitted = Boolean((account as { details_submitted?: boolean }).details_submitted);
     const chargesEnabled = Boolean((account as { charges_enabled?: boolean }).charges_enabled);

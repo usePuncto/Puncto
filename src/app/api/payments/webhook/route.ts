@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyWebhookSignature } from '@/lib/stripe/webhooks';
 import { stripe } from '@/lib/stripe/client';
+import {
+  resolvePaymentMethodFromCheckoutSession,
+  resolvePaymentMethodFromPaymentIntent,
+} from '@/lib/stripe/paymentMethods';
+import type { PaymentMethod } from '@/types/payment';
 import { db } from '@/lib/firebaseAdmin';
 import { recordTuitionInvoicePaymentForConnect } from '@/lib/server/tuitionInvoicePaymentRecord';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
@@ -298,7 +303,25 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     .limit(1)
     .get();
   if (!existingBySession.empty) {
-    console.log(`[webhook] Payment already recorded for session ${session.id}`);
+    const existingDoc = existingBySession.docs[0];
+    const existing = existingDoc.data() as { status?: string };
+    const isPaid = session.payment_status === 'paid';
+    if (isPaid && existing.status !== 'succeeded') {
+      const paymentMethod = await resolvePaymentMethodFromCheckoutSession(session, stripeAccount);
+      await existingDoc.ref.update(
+        stripUndefined({
+          status: 'succeeded',
+          paymentMethod,
+          updatedAt: Timestamp.now(),
+          succeededAt: Timestamp.now(),
+          ...(paymentLinkId ? { stripePaymentLinkStripeId: paymentLinkId } : {}),
+        }) as Record<string, unknown>
+      );
+      await markPaymentLinkPaidInFirestore(businessId, paymentLinkId, existingDoc.id);
+      console.log(`[webhook] Updated pending payment ${existingDoc.id} to succeeded`);
+    } else {
+      console.log(`[webhook] Payment already recorded for session ${session.id}`);
+    }
     return;
   }
 
@@ -333,10 +356,8 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     }
   }
 
-  // Create payment record
-  const methodTypes = (session.payment_method_types || []) as string[];
-  const paymentMethod: 'card' | 'pix' =
-    methodTypes.includes('pix') ? 'pix' : 'card';
+  const isPaid = session.payment_status === 'paid';
+  const paymentMethod = await resolvePaymentMethodFromCheckoutSession(session, stripeAccount);
 
   const paymentData = stripUndefined({
     businessId,
@@ -347,7 +368,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     customerName: session.customer_details?.name || null,
     amount: session.amount_total || 0,
     currency: (session.currency || 'brl').toLowerCase(),
-    status: 'succeeded' as const,
+    status: (isPaid ? 'succeeded' : 'pending') as 'succeeded' | 'pending',
     paymentMethod,
     stripePaymentIntentId: piId,
     stripeCheckoutSessionId: session.id,
@@ -355,7 +376,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     description: (session as { description?: string }).description,
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
-    succeededAt: Timestamp.now(),
+    ...(isPaid ? { succeededAt: Timestamp.now() } : {}),
   });
 
   const paymentRef = await db
@@ -364,10 +385,12 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     .collection('payments')
     .add(paymentData);
 
-  await markPaymentLinkPaidInFirestore(businessId, paymentLinkId, paymentRef.id);
+  if (isPaid) {
+    await markPaymentLinkPaidInFirestore(businessId, paymentLinkId, paymentRef.id);
+  }
 
   // Update booking if exists
-  if (bookingId) {
+  if (bookingId && isPaid) {
     const bookingRef = db
       .collection('businesses')
       .doc(businessId)
@@ -571,12 +594,10 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent,
   }
 
   // Payment Link / checkout without booking: create record if checkout.session.completed has not run yet
-  const methodTypes = (paymentIntent.payment_method_types || []) as string[];
-  const paymentMethod: 'card' | 'pix' | 'other' = methodTypes.includes('pix')
-    ? 'pix'
-    : methodTypes.includes('card')
-      ? 'card'
-      : 'other';
+  const paymentMethod: PaymentMethod = await resolvePaymentMethodFromPaymentIntent(
+    paymentIntent,
+    stripeAccount
+  );
 
   const chargeId =
     typeof paymentIntent.latest_charge === 'string'

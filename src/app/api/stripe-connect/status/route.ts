@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
+import { STRIPE_CONNECT_ACCOUNT_INVALID_MESSAGE, isStripeConnectAccountInvalidError } from '@/lib/stripe/connectErrors';
 import { auth, db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 
@@ -83,6 +84,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[stripe-connect/status] Error:', error);
+    if (isStripeConnectAccountInvalidError(error)) {
+      return NextResponse.json({ error: STRIPE_CONNECT_ACCOUNT_INVALID_MESSAGE }, { status: 403 });
+    }
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `Failed to sync connect account status: ${errorMessage}` },

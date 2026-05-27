@@ -20,7 +20,7 @@ export interface CreateCheckoutSessionParams {
   metadata?: StripeCheckoutSessionMetadata;
   successUrl: string;
   cancelUrl: string;
-  paymentMethodTypes?: ('card' | 'pix')[];
+  paymentMethodTypes?: ('card' | 'pix' | 'boleto')[];
 }
 
 export interface CreatePaymentLinkParams {

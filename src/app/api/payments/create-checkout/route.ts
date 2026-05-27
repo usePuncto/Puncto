@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
 import { CreateCheckoutSessionParams } from '@/lib/stripe/types';
+import { createCheckoutSessionWithBrlMethods } from '@/lib/stripe/paymentMethods';
 import { db } from '@/lib/firebaseAdmin';
 
 export async function POST(request: NextRequest) {
@@ -17,7 +18,7 @@ export async function POST(request: NextRequest) {
       metadata,
       successUrl,
       cancelUrl,
-      paymentMethodTypes = ['card', 'pix'],
+      paymentMethodTypes = ['card', 'pix', 'boleto'],
     } = body;
 
     // Validate required fields
@@ -62,7 +63,19 @@ export async function POST(request: NextRequest) {
       sessionParams.customer_email = customerEmail;
     }
 
-    const session = await stripe.checkout.sessions.create(sessionParams);
+    if (currency.toLowerCase() === 'brl') {
+      sessionParams.payment_method_options = {
+        boleto: { expires_after_days: 3 },
+      };
+    }
+
+    const session =
+      currency.toLowerCase() === 'brl'
+        ? await createCheckoutSessionWithBrlMethods(sessionParams)
+        : await stripe.checkout.sessions.create({
+            ...sessionParams,
+            payment_method_types: ['card'],
+          });
 
     return NextResponse.json({
       sessionId: session.id,

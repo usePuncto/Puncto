@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
+import { STRIPE_CONNECT_ACCOUNT_INVALID_MESSAGE, isStripeConnectAccountInvalidError } from '@/lib/stripe/connectErrors';
+import { createStripePaymentLinkWithBrlMethods } from '@/lib/stripe/paymentMethods';
 import { CreatePaymentLinkParams } from '@/lib/stripe/types';
 import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -90,27 +92,15 @@ export async function POST(request: NextRequest) {
     // Stripe Payment Links (API 2025-12-15) does not accept expires_at.
     // We keep expiration as internal metadata in Firestore and enforce it in the app.
 
-    // Pix precisa estar habilitado na conta Stripe.
-    // Em desenvolvimento/teste pode não estar, então fazemos fallback automático.
+    let paymentLink: Awaited<ReturnType<typeof createStripePaymentLinkWithBrlMethods>>;
     if (currency.toLowerCase() === 'brl') {
-      paymentLinkParams.payment_method_types = ['card', 'pix'];
+      paymentLinkParams.payment_method_options = {
+        boleto: { expires_after_days: 3 },
+      };
+      paymentLink = await createStripePaymentLinkWithBrlMethods(paymentLinkParams, stripeAccount);
     } else {
       paymentLinkParams.payment_method_types = ['card'];
-    }
-
-    let paymentLink: any;
-    try {
       paymentLink = await stripe.paymentLinks.create(paymentLinkParams, { stripeAccount });
-    } catch (err: any) {
-      const message = typeof err?.message === 'string' ? err.message : '';
-      // Fallback: retry without pix if Stripe says pix is invalid/unavailable.
-      if (message.toLowerCase().includes('pix') && message.toLowerCase().includes('invalid')) {
-        console.warn('[create-payment-link] Pix not enabled/available; retrying with card only.');
-        paymentLinkParams.payment_method_types = ['card'];
-        paymentLink = await stripe.paymentLinks.create(paymentLinkParams, { stripeAccount });
-      } else {
-        throw err;
-      }
     }
 
     // Ensure PaymentIntent metadata includes pl_ id so webhooks can mark this Firestore link as paid.
@@ -163,6 +153,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[create-payment-link] Error:', error);
+    if (isStripeConnectAccountInvalidError(error)) {
+      return NextResponse.json({ error: STRIPE_CONNECT_ACCOUNT_INVALID_MESSAGE }, { status: 403 });
+    }
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
       { error: `Failed to create payment link: ${errorMessage}` },

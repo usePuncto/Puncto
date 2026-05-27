@@ -60,7 +60,7 @@ export function PaymentStep({
         },
         successUrl: `${baseUrl}/tenant?subdomain=${businessId}&bookingId=${bookingId}&payment=success`,
         cancelUrl: `${baseUrl}/tenant?subdomain=${businessId}&bookingId=${bookingId}&payment=canceled`,
-        paymentMethodTypes: ['card', 'pix'],
+        paymentMethodTypes: ['card', 'pix', 'boleto'],
       });
 
       // Redirect to Stripe Checkout

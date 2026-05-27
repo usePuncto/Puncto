@@ -2,7 +2,7 @@ import { Timestamp } from 'firebase/firestore';
 
 export type PaymentStatus = 'pending' | 'processing' | 'succeeded' | 'failed' | 'canceled' | 'refunded' | 'partially_refunded';
 
-export type PaymentMethod = 'card' | 'pix' | 'bank_transfer' | 'other';
+export type PaymentMethod = 'card' | 'pix' | 'boleto' | 'bank_transfer' | 'other';
 
 export type RefundStatus = 'pending' | 'succeeded' | 'failed' | 'canceled';
 

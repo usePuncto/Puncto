@@ -300,6 +300,8 @@ export default function PaymentsAdminPage() {
     const map: Record<string, string> = {
       card: 'Cartão',
       pix: 'Pix',
+      boleto: 'Boleto',
+      bank_transfer: 'Transferência',
       other: 'Outro',
     };
     return map[method] || method;
@@ -1172,6 +1174,7 @@ export default function PaymentsAdminPage() {
                   <option value="">Todos</option>
                   <option value="card">Cartão</option>
                   <option value="pix">Pix</option>
+                  <option value="boleto">Boleto</option>
                   <option value="bank_transfer">Transferência</option>
                   <option value="other">Outro</option>
                 </select>
