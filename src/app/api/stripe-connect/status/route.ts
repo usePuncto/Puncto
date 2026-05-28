@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
-import { getBoletoPaymentsCapabilityStatus } from '@/lib/stripe/boletoConnect';
+import {
+  getBoletoPaymentsCapabilityStatus,
+  getConnectedAccountBoletoPmcStatus,
+} from '@/lib/stripe/boletoConnect';
 import { STRIPE_CONNECT_ACCOUNT_INVALID_MESSAGE, isStripeConnectAccountInvalidError } from '@/lib/stripe/connectErrors';
 import { auth, db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -77,18 +80,24 @@ export async function POST(request: NextRequest) {
     });
 
     const boletoPayments = getBoletoPaymentsCapabilityStatus(account);
+    const boletoPmc = await getConnectedAccountBoletoPmcStatus(stripeConnectAccountId);
 
     return NextResponse.json({
       accountId: stripeConnectAccountId,
       platformNote:
-        'Cobranças usam a conta conectada abaixo, não a conta da plataforma Puncto. Boleto precisa estar ativo nela (capability boleto_payments).',
+        'Cobranças usam a conta conectada abaixo, não a conta da plataforma Puncto. Boleto precisa estar ativo nela (capability boleto_payments + PMC).',
       onboardingComplete,
       detailsSubmitted,
       chargesEnabled,
       payoutsEnabled,
       country: account.country || null,
       boletoPayments,
-      boletoReady: boletoPayments === 'active' && Boolean(account.charges_enabled),
+      boletoPmcConfigId: boletoPmc.configId,
+      boletoPmcAvailable: boletoPmc.boletoAvailable,
+      boletoReady:
+        boletoPayments === 'active' &&
+        boletoPmc.boletoAvailable &&
+        Boolean(account.charges_enabled),
     });
   } catch (error) {
     console.error('[stripe-connect/status] Error:', error);
