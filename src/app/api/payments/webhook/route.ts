@@ -5,6 +5,7 @@ import {
   resolvePaymentMethodFromCheckoutSession,
   resolvePaymentMethodFromPaymentIntent,
 } from '@/lib/stripe/paymentMethods';
+import { resolvePaymentLinkStripeIdForSession } from '@/lib/stripe/resolvePaymentLinkFromSession';
 import type { PaymentMethod } from '@/types/payment';
 import { db } from '@/lib/firebaseAdmin';
 import { recordTuitionInvoicePaymentForConnect } from '@/lib/server/tuitionInvoicePaymentRecord';
@@ -288,12 +289,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session, 
     return;
   }
 
-  const paymentLinkId =
-    typeof session.payment_link === 'string'
-      ? session.payment_link
-      : session.payment_link && typeof session.payment_link === 'object'
-        ? (session.payment_link as Stripe.PaymentLink).id
-        : undefined;
+  const paymentLinkId = await resolvePaymentLinkStripeIdForSession(businessId, session);
 
   const existingBySession = await db
     .collection('businesses')

@@ -65,6 +65,8 @@ export interface PaymentLink {
   currency: string;
   stripePaymentLinkId: string;
   stripePaymentLinkUrl: string;
+  /** Checkout Session (cs_...) quando o boleto é gerado via Checkout em vez de Payment Link */
+  stripeCheckoutSessionId?: string;
   qrCodeUrl?: string;
   active: boolean;
   metadata?: Record<string, string>;

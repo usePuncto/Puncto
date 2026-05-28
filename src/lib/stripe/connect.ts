@@ -16,6 +16,7 @@ export async function createConnectAccount(params: CreateConnectAccountParams) {
     email: params.email,
     capabilities: {
       card_payments: { requested: true },
+      boleto_payments: { requested: true },
       transfers: { requested: true },
     },
   });

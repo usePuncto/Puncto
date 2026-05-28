@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
 import { STRIPE_CONNECT_ACCOUNT_INVALID_MESSAGE, isStripeConnectAccountInvalidError } from '@/lib/stripe/connectErrors';
-import {
-  BOLETO_PAYMENT_LINK_TYPES,
-  BRL_STANDARD_PAYMENT_LINK_TYPES,
-  createStripePaymentLinkWithMethods,
-} from '@/lib/stripe/paymentMethods';
+import { createBoletoCheckoutSession, ensureBoletoReadyForConnectedAccount } from '@/lib/stripe/boletoConnect';
+import { BRL_STANDARD_PAYMENT_LINK_TYPES, createStripePaymentLinkWithMethods } from '@/lib/stripe/paymentMethods';
 import { CreatePaymentLinkParams } from '@/lib/stripe/types';
 import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -112,47 +109,99 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         );
       }
-      const account = await stripe.accounts.retrieve(stripeAccount);
-      const country = (account.country || '').toUpperCase();
-      if (country !== 'BR') {
-        return NextResponse.json(
-          {
-            error:
-              `A conta Stripe conectada (${stripeAccount}) está no país ${country || 'desconhecido'}. ` +
-              'Boleto só é suportado para contas no Brasil (BR).',
-          },
-          { status: 400 }
-        );
-      }
-      if (!account.charges_enabled) {
-        return NextResponse.json(
-          {
-            error:
-              'A conta Stripe conectada ainda não está habilitada para cobranças. ' +
-              'Finalize o onboarding da conta Connect e tente novamente.',
-          },
-          { status: 400 }
-        );
+      try {
+        await ensureBoletoReadyForConnectedAccount(stripeAccount);
+      } catch (capErr) {
+        const msg = capErr instanceof Error ? capErr.message : String(capErr);
+        return NextResponse.json({ error: msg }, { status: 400 });
       }
     }
 
-    // Payment Links API does not accept payment_method_options (e.g. boleto expires_after_days).
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+    if (resolvedLinkKind === 'boleto') {
+      const checkoutSession = await createBoletoCheckoutSession(
+        {
+          name,
+          description,
+          amount,
+          metadata: {
+            ...metadata,
+            businessId,
+            linkKind: 'boleto',
+          },
+          successUrl: `${baseUrl}/tenant/admin/payments?boleto=success&session_id={CHECKOUT_SESSION_ID}`,
+          cancelUrl: `${baseUrl}/tenant/admin/payments?boleto=cancel`,
+        },
+        stripeAccount
+      );
+
+      if (!checkoutSession.url) {
+        return NextResponse.json({ error: 'Stripe não retornou URL do checkout de boleto.' }, { status: 500 });
+      }
+
+      let qrCodeUrl: string | undefined;
+      if (generateQR) {
+        qrCodeUrl = await QRCode.toDataURL(checkoutSession.url);
+      }
+
+      const paymentLinkData = stripUndefined({
+        businessId,
+        linkKind: 'boleto' as const,
+        name,
+        description: description || undefined,
+        amount,
+        currency,
+        stripePaymentLinkId: checkoutSession.id,
+        stripeCheckoutSessionId: checkoutSession.id,
+        stripePaymentLinkUrl: checkoutSession.url,
+        qrCodeUrl,
+        active: true,
+        metadata,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        expiresAt: parsedExpiresAt ? Timestamp.fromDate(parsedExpiresAt) : undefined,
+      });
+
+      const docRef = await db
+        .collection('businesses')
+        .doc(businessId)
+        .collection('paymentLinks')
+        .add(paymentLinkData);
+
+      await stripe.checkout.sessions.update(
+        checkoutSession.id,
+        {
+          metadata: {
+            ...metadata,
+            businessId,
+            linkKind: 'boleto',
+            stripePaymentLinkStripeId: checkoutSession.id,
+            punctoPaymentLinkDocId: docRef.id,
+          },
+        },
+        { stripeAccount }
+      );
+
+      return NextResponse.json({
+        id: docRef.id,
+        ...paymentLinkData,
+        paymentLinkUrl: checkoutSession.url,
+      });
+    }
+
     let paymentLink: Awaited<ReturnType<typeof createStripePaymentLinkWithMethods>>;
     if (currency.toLowerCase() === 'brl') {
-      const methodTypes =
-        resolvedLinkKind === 'boleto' ? BOLETO_PAYMENT_LINK_TYPES : BRL_STANDARD_PAYMENT_LINK_TYPES;
       paymentLink = await createStripePaymentLinkWithMethods(
         paymentLinkParams,
         stripeAccount,
-        methodTypes,
-        { allowFallbackToCard: resolvedLinkKind !== 'boleto' }
+        BRL_STANDARD_PAYMENT_LINK_TYPES
       );
     } else {
       paymentLinkParams.payment_method_types = ['card'];
       paymentLink = await stripe.paymentLinks.create(paymentLinkParams, { stripeAccount });
     }
 
-    // Ensure PaymentIntent metadata includes pl_ id so webhooks can mark this Firestore link as paid.
     await stripe.paymentLinks.update(
       paymentLink.id,
       {
@@ -165,13 +214,11 @@ export async function POST(request: NextRequest) {
       { stripeAccount }
     );
 
-    // Generate QR code if requested
     let qrCodeUrl: string | undefined;
     if (generateQR) {
       qrCodeUrl = await QRCode.toDataURL(paymentLink.url);
     }
 
-    // Save payment link to Firestore
     const paymentLinkData = stripUndefined({
       businessId,
       linkKind: resolvedLinkKind,
@@ -189,12 +236,11 @@ export async function POST(request: NextRequest) {
       expiresAt: parsedExpiresAt ? Timestamp.fromDate(parsedExpiresAt) : undefined,
     });
 
-    const paymentLinksRef = db
+    const docRef = await db
       .collection('businesses')
       .doc(businessId)
-      .collection('paymentLinks');
-
-    const docRef = await paymentLinksRef.add(paymentLinkData);
+      .collection('paymentLinks')
+      .add(paymentLinkData);
 
     return NextResponse.json({
       id: docRef.id,
@@ -207,6 +253,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: STRIPE_CONNECT_ACCOUNT_INVALID_MESSAGE }, { status: 403 });
     }
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const lower = errorMessage.toLowerCase();
+    if (lower.includes('boleto') && lower.includes('invalid')) {
+      return NextResponse.json(
+        {
+          error:
+            'Boleto não está ativo na conta Stripe conectada do negócio (não basta ativar na conta principal). ' +
+            'No Dashboard: Configurações → Connect → Métodos de pagamento → Contas conectadas → ative Boleto. ' +
+            'Depois, em Connect → Contas, abra a conta do negócio e confirme a capability boleto_payments como ativa.',
+        },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
       { error: `Failed to create payment link: ${errorMessage}` },
       { status: 500 }

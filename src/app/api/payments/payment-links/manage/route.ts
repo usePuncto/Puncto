@@ -53,10 +53,10 @@ export async function POST(request: NextRequest) {
     const businessSnap = await db.collection('businesses').doc(businessId).get();
     const businessData = businessSnap.data() as { stripeConnectAccountId?: string } | undefined;
     const stripeAccount = businessData?.stripeConnectAccountId;
-    const data = snap.data() as { stripePaymentLinkId?: string; active?: boolean };
+    const data = snap.data() as { stripePaymentLinkId?: string; active?: boolean; linkKind?: string };
 
     if (action === 'cancel') {
-      if (data.stripePaymentLinkId && stripeAccount) {
+      if (data.stripePaymentLinkId?.startsWith('pl_') && stripeAccount) {
         await stripe.paymentLinks.update(
           data.stripePaymentLinkId,
           { active: false },
