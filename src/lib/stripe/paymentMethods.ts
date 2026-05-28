@@ -53,8 +53,10 @@ export async function createStripePaymentLinkWithMethods(
     payment_method_types?: string[];
   },
   stripeAccount: string,
-  preferredMethods: readonly string[]
+  preferredMethods: readonly string[],
+  options?: { allowFallbackToCard?: boolean }
 ): Promise<Stripe.PaymentLink> {
+  const allowFallbackToCard = options?.allowFallbackToCard ?? true;
   let methods: string[] = [...preferredMethods];
 
   while (methods.length > 0) {
@@ -78,10 +80,13 @@ export async function createStripePaymentLinkWithMethods(
     }
   }
 
-  return stripe.paymentLinks.create(
-    { ...params, payment_method_types: ['card'] },
-    { stripeAccount }
-  );
+  if (!allowFallbackToCard) {
+    throw new Error(
+      `None of the requested payment methods are available for this account: ${preferredMethods.join(', ')}`
+    );
+  }
+
+  return stripe.paymentLinks.create({ ...params, payment_method_types: ['card'] }, { stripeAccount });
 }
 
 /** @deprecated Use createStripePaymentLinkWithMethods with BRL_STANDARD_PAYMENT_LINK_TYPES */

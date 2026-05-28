@@ -114,7 +114,8 @@ export async function POST(request: NextRequest) {
       paymentLink = await createStripePaymentLinkWithMethods(
         paymentLinkParams,
         stripeAccount,
-        methodTypes
+        methodTypes,
+        { allowFallbackToCard: resolvedLinkKind !== 'boleto' }
       );
     } else {
       paymentLinkParams.payment_method_types = ['card'];
