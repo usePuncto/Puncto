@@ -31,6 +31,8 @@ export interface CreatePaymentLinkParams {
   description?: string;
   metadata?: Record<string, string>;
   expiresAt?: Date;
+  /** payment = cartão/Pix; boleto = somente boleto */
+  linkKind?: 'payment' | 'boleto';
 }
 
 export interface CreateTransferParams {

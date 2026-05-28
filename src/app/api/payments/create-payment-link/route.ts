@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
 import { STRIPE_CONNECT_ACCOUNT_INVALID_MESSAGE, isStripeConnectAccountInvalidError } from '@/lib/stripe/connectErrors';
-import { createStripePaymentLinkWithBrlMethods } from '@/lib/stripe/paymentMethods';
+import {
+  BOLETO_PAYMENT_LINK_TYPES,
+  BRL_STANDARD_PAYMENT_LINK_TYPES,
+  createStripePaymentLinkWithMethods,
+} from '@/lib/stripe/paymentMethods';
 import { CreatePaymentLinkParams } from '@/lib/stripe/types';
 import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
@@ -34,6 +38,7 @@ export async function POST(request: NextRequest) {
       metadata = {},
       expiresAt,
       generateQR = true,
+      linkKind = 'payment',
     } = body;
     const parsedExpiresAt = parseExpiresAtInput(expiresAt);
 
@@ -79,6 +84,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         ...metadata,
         businessId,
+        linkKind,
       },
     };
 
@@ -92,11 +98,24 @@ export async function POST(request: NextRequest) {
     // Stripe Payment Links (API 2025-12-15) does not accept expires_at.
     // We keep expiration as internal metadata in Firestore and enforce it in the app.
 
+    const resolvedLinkKind = linkKind === 'boleto' ? 'boleto' : 'payment';
+    if (resolvedLinkKind === 'boleto' && currency.toLowerCase() !== 'brl') {
+      return NextResponse.json(
+        { error: 'Boletos estão disponíveis apenas para cobranças em BRL (R$).' },
+        { status: 400 }
+      );
+    }
+
     // Payment Links API does not accept payment_method_options (e.g. boleto expires_after_days).
-    // Boleto expiry follows the connected account / Dashboard defaults.
-    let paymentLink: Awaited<ReturnType<typeof createStripePaymentLinkWithBrlMethods>>;
+    let paymentLink: Awaited<ReturnType<typeof createStripePaymentLinkWithMethods>>;
     if (currency.toLowerCase() === 'brl') {
-      paymentLink = await createStripePaymentLinkWithBrlMethods(paymentLinkParams, stripeAccount);
+      const methodTypes =
+        resolvedLinkKind === 'boleto' ? BOLETO_PAYMENT_LINK_TYPES : BRL_STANDARD_PAYMENT_LINK_TYPES;
+      paymentLink = await createStripePaymentLinkWithMethods(
+        paymentLinkParams,
+        stripeAccount,
+        methodTypes
+      );
     } else {
       paymentLinkParams.payment_method_types = ['card'];
       paymentLink = await stripe.paymentLinks.create(paymentLinkParams, { stripeAccount });
@@ -124,6 +143,7 @@ export async function POST(request: NextRequest) {
     // Save payment link to Firestore
     const paymentLinkData = stripUndefined({
       businessId,
+      linkKind: resolvedLinkKind,
       name,
       description: description || undefined,
       amount,

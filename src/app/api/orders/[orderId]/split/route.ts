@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Order, SplitPayment } from '@/types/restaurant';
 import { stripe } from '@/lib/stripe/client';
-import { createStripePaymentLinkWithBrlMethods } from '@/lib/stripe/paymentMethods';
+import {
+  BRL_STANDARD_PAYMENT_LINK_TYPES,
+  createStripePaymentLinkWithMethods,
+} from '@/lib/stripe/paymentMethods';
 
 // POST - Create split payments for an order
 export async function POST(
@@ -72,10 +75,14 @@ export async function POST(
           },
         };
         const paymentLink = stripeAccount
-          ? await createStripePaymentLinkWithBrlMethods(linkParams, stripeAccount)
+          ? await createStripePaymentLinkWithMethods(
+              linkParams,
+              stripeAccount,
+              BRL_STANDARD_PAYMENT_LINK_TYPES
+            )
           : await stripe.paymentLinks.create({
               ...linkParams,
-              payment_method_types: ['card', 'pix', 'boleto'],
+              payment_method_types: ['card', 'pix'],
             });
 
         return {

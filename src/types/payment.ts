@@ -52,9 +52,13 @@ export interface Refund {
   notes?: string;
 }
 
+export type PaymentLinkKind = 'payment' | 'boleto';
+
 export interface PaymentLink {
   id: string;
   businessId: string;
+  /** payment = cartão/Pix; boleto = link só com boleto (omitido em docs antigos = payment) */
+  linkKind?: PaymentLinkKind;
   name: string;
   description?: string;
   amount: number; // Amount in cents

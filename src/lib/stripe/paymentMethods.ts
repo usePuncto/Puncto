@@ -2,10 +2,18 @@ import type { PaymentMethod } from '@/types/payment';
 import type Stripe from 'stripe';
 import { stripe } from '@/lib/stripe/client';
 
-/** Payment methods enabled on BRL Payment Links / Checkout (in preference order for fallback). */
-export const BRL_CHECKOUT_PAYMENT_METHOD_TYPES = ['card', 'pix', 'boleto'] as const;
+/** Cartão + Pix em links de pagamento padrão. */
+export const BRL_STANDARD_PAYMENT_LINK_TYPES = ['card', 'pix'] as const;
 
-export type StripeCheckoutPaymentMethodType = (typeof BRL_CHECKOUT_PAYMENT_METHOD_TYPES)[number];
+/** Checkout de agendamento (sem boleto — boleto tem fluxo próprio). */
+export const BRL_CHECKOUT_PAYMENT_METHOD_TYPES = ['card', 'pix'] as const;
+
+/** Somente boleto em links dedicados. */
+export const BOLETO_PAYMENT_LINK_TYPES = ['boleto'] as const;
+
+export type StripeCheckoutPaymentMethodType =
+  | (typeof BRL_CHECKOUT_PAYMENT_METHOD_TYPES)[number]
+  | (typeof BOLETO_PAYMENT_LINK_TYPES)[number];
 
 export function resolvePaymentMethodFromTypes(
   methodTypes: string[],
@@ -22,9 +30,14 @@ export function resolvePaymentMethodFromTypes(
   return 'other';
 }
 
+const ALL_KNOWN_METHODS = [
+  ...BRL_STANDARD_PAYMENT_LINK_TYPES,
+  ...BOLETO_PAYMENT_LINK_TYPES,
+] as const;
+
 export function parseInvalidPaymentMethodType(message: string): string | null {
   const lower = message.toLowerCase();
-  for (const method of BRL_CHECKOUT_PAYMENT_METHOD_TYPES) {
+  for (const method of ALL_KNOWN_METHODS) {
     if (lower.includes(method) && (lower.includes('invalid') || lower.includes('not enabled'))) {
       return method;
     }
@@ -33,15 +46,16 @@ export function parseInvalidPaymentMethodType(message: string): string | null {
 }
 
 /**
- * Creates a Stripe Payment Link, dropping unsupported BRL methods (pix/boleto) when needed.
+ * Creates a Stripe Payment Link, dropping unsupported methods when needed.
  */
-export async function createStripePaymentLinkWithBrlMethods(
+export async function createStripePaymentLinkWithMethods(
   params: Omit<Stripe.PaymentLinkCreateParams, 'payment_method_types'> & {
     payment_method_types?: string[];
   },
-  stripeAccount: string
+  stripeAccount: string,
+  preferredMethods: readonly string[]
 ): Promise<Stripe.PaymentLink> {
-  let methods: string[] = [...BRL_CHECKOUT_PAYMENT_METHOD_TYPES];
+  let methods: string[] = [...preferredMethods];
 
   while (methods.length > 0) {
     try {
@@ -68,6 +82,16 @@ export async function createStripePaymentLinkWithBrlMethods(
     { ...params, payment_method_types: ['card'] },
     { stripeAccount }
   );
+}
+
+/** @deprecated Use createStripePaymentLinkWithMethods with BRL_STANDARD_PAYMENT_LINK_TYPES */
+export async function createStripePaymentLinkWithBrlMethods(
+  params: Omit<Stripe.PaymentLinkCreateParams, 'payment_method_types'> & {
+    payment_method_types?: string[];
+  },
+  stripeAccount: string
+): Promise<Stripe.PaymentLink> {
+  return createStripePaymentLinkWithMethods(params, stripeAccount, BRL_STANDARD_PAYMENT_LINK_TYPES);
 }
 
 export async function resolvePaymentMethodFromCheckoutSession(

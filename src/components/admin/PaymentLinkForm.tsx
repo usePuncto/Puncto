@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 
 interface PaymentLinkFormProps {
   businessId: string;
+  variant?: 'payment' | 'boleto';
   onSubmit: (data: {
     name: string;
     description?: string;
@@ -14,11 +15,18 @@ interface PaymentLinkFormProps {
   onCancel: () => void;
 }
 
-export function PaymentLinkForm({ businessId, onSubmit, onCancel }: PaymentLinkFormProps) {
+export function PaymentLinkForm({
+  businessId,
+  variant = 'payment',
+  onSubmit,
+  onCancel,
+}: PaymentLinkFormProps) {
+  const isBoleto = variant === 'boleto';
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('BRL');
+  const effectiveCurrency = isBoleto ? 'BRL' : currency;
   const [expiresDays, setExpiresDays] = useState<number | ''>('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -46,12 +54,12 @@ export function PaymentLinkForm({ businessId, onSubmit, onCancel }: PaymentLinkF
         name,
         description: description || undefined,
         amount: amountInCents,
-        currency: currency.toLowerCase(),
+        currency: effectiveCurrency.toLowerCase(),
         expiresAt,
       });
     } catch (error) {
       console.error('Error creating payment link:', error);
-      alert('Erro ao criar link de pagamento');
+      alert(isBoleto ? 'Erro ao gerar boleto' : 'Erro ao criar link de pagamento');
     } finally {
       setSubmitting(false);
     }
@@ -61,14 +69,14 @@ export function PaymentLinkForm({ businessId, onSubmit, onCancel }: PaymentLinkF
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-neutral-700 mb-1">
-          Nome do Link *
+          {isBoleto ? 'Nome / referência do boleto *' : 'Nome do Link *'}
         </label>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-          placeholder="Ex: Pagamento de Consulta"
+          placeholder={isBoleto ? 'Ex: Mensalidade março' : 'Ex: Pagamento de Consulta'}
           required
         />
       </div>
@@ -92,7 +100,7 @@ export function PaymentLinkForm({ businessId, onSubmit, onCancel }: PaymentLinkF
             Valor *
           </label>
           <div className="flex items-center">
-            <span className="mr-2 text-neutral-600">{currency}</span>
+            <span className="mr-2 text-neutral-600">{effectiveCurrency}</span>
             <input
               type="number"
               step="0.01"
@@ -111,13 +119,18 @@ export function PaymentLinkForm({ businessId, onSubmit, onCancel }: PaymentLinkF
             Moeda
           </label>
           <select
-            value={currency}
+            value={effectiveCurrency}
             onChange={(e) => setCurrency(e.target.value)}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            disabled={isBoleto}
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm disabled:bg-neutral-100"
           >
             <option value="BRL">BRL (R$)</option>
-            <option value="USD">USD ($)</option>
-            <option value="EUR">EUR (€)</option>
+            {!isBoleto && (
+              <>
+                <option value="USD">USD ($)</option>
+                <option value="EUR">EUR (€)</option>
+              </>
+            )}
           </select>
         </div>
       </div>
@@ -153,7 +166,7 @@ export function PaymentLinkForm({ businessId, onSubmit, onCancel }: PaymentLinkF
           disabled={submitting}
           className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         >
-          {submitting ? 'Criando...' : 'Criar Link'}
+          {submitting ? 'Gerando…' : isBoleto ? 'Gerar boleto' : 'Criar Link'}
         </button>
       </div>
     </form>

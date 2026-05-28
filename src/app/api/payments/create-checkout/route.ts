@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       metadata,
       successUrl,
       cancelUrl,
-      paymentMethodTypes = ['card', 'pix', 'boleto'],
+      paymentMethodTypes = ['card', 'pix'],
     } = body;
 
     // Validate required fields
@@ -61,12 +61,6 @@ export async function POST(request: NextRequest) {
 
     if (customerEmail) {
       sessionParams.customer_email = customerEmail;
-    }
-
-    if (currency.toLowerCase() === 'brl') {
-      sessionParams.payment_method_options = {
-        boleto: { expires_after_days: 3 },
-      };
     }
 
     const session =
