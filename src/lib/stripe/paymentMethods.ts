@@ -81,6 +81,13 @@ export async function createStripePaymentLinkWithMethods(
   }
 
   if (!allowFallbackToCard) {
+    if (preferredMethods.length === 1 && preferredMethods[0] === 'boleto') {
+      throw new Error(
+        'Boleto indisponível para esta conta Stripe conectada. ' +
+          'Verifique se o método Boleto está ativo na própria conta Connect (não só na plataforma), ' +
+          'se a conta é BR e se o onboarding está concluído.'
+      );
+    }
     throw new Error(
       `None of the requested payment methods are available for this account: ${preferredMethods.join(', ')}`
     );

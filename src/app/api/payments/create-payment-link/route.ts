@@ -105,6 +105,36 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+    if (resolvedLinkKind === 'boleto') {
+      if (amount < 500 || amount > 4_999_999) {
+        return NextResponse.json(
+          { error: 'Boleto deve ter valor entre R$ 5,00 e R$ 49.999,99.' },
+          { status: 400 }
+        );
+      }
+      const account = await stripe.accounts.retrieve(stripeAccount);
+      const country = (account.country || '').toUpperCase();
+      if (country !== 'BR') {
+        return NextResponse.json(
+          {
+            error:
+              `A conta Stripe conectada (${stripeAccount}) está no país ${country || 'desconhecido'}. ` +
+              'Boleto só é suportado para contas no Brasil (BR).',
+          },
+          { status: 400 }
+        );
+      }
+      if (!account.charges_enabled) {
+        return NextResponse.json(
+          {
+            error:
+              'A conta Stripe conectada ainda não está habilitada para cobranças. ' +
+              'Finalize o onboarding da conta Connect e tente novamente.',
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     // Payment Links API does not accept payment_method_options (e.g. boleto expires_after_days).
     let paymentLink: Awaited<ReturnType<typeof createStripePaymentLinkWithMethods>>;
