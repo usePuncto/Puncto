@@ -94,18 +94,47 @@ export async function ensureBoletoReadyForConnectedAccount(stripeAccountId: stri
 
 type PmcBoletoState = {
   available?: boolean;
-  display_preference?: { value?: string };
+  display_preference?: { value?: string; preference?: string };
 };
+
+function readBoletoFromPmc(pmc: { boleto?: PmcBoletoState }) {
+  const boleto = pmc.boleto;
+  const display =
+    boleto?.display_preference?.value ?? boleto?.display_preference?.preference ?? 'unknown';
+  return {
+    available: Boolean(boleto?.available),
+    displayPreference: display,
+  };
+}
+
+/** Liga boleto na PMC (display_preference=on); `available` só fica true com capability active. */
+async function enableBoletoOnPaymentMethodConfiguration(
+  configId: string,
+  stripeAccountId: string
+) {
+  return stripe.paymentMethodConfigurations.update(
+    configId,
+    {
+      boleto: {
+        display_preference: { preference: 'on' },
+      },
+    },
+    { stripeAccount: stripeAccountId }
+  );
+}
 
 export async function getConnectedAccountBoletoPmcStatus(stripeAccountId: string): Promise<{
   configId: string | null;
   boletoAvailable: boolean;
+  boletoDisplayPreference?: string;
 }> {
   try {
-    const { configId, boletoAvailable } = await resolveConnectedAccountPaymentMethodConfiguration(
-      stripeAccountId
-    );
-    return { configId, boletoAvailable };
+    const resolved = await resolveConnectedAccountPaymentMethodConfiguration(stripeAccountId);
+    return {
+      configId: resolved.configId,
+      boletoAvailable: resolved.boletoAvailable,
+      boletoDisplayPreference: resolved.boletoDisplayPreference,
+    };
   } catch {
     return { configId: null, boletoAvailable: false };
   }
@@ -113,30 +142,85 @@ export async function getConnectedAccountBoletoPmcStatus(stripeAccountId: string
 
 async function resolveConnectedAccountPaymentMethodConfiguration(
   stripeAccountId: string
-): Promise<{ configId: string; boletoAvailable: boolean }> {
+): Promise<{
+  configId: string;
+  boletoAvailable: boolean;
+  boletoDisplayPreference?: string;
+}> {
   const listed = await stripe.paymentMethodConfigurations.list(
-    { limit: 20 },
+    { limit: 100 },
     { stripeAccount: stripeAccountId }
   );
-  const config =
-    listed.data.find((c) => c.is_default) ??
-    listed.data.find((c) => c.application) ??
-    listed.data[0];
-  if (!config?.id) {
+
+  if (!listed.data.length) {
     throw new Error(
       `Nenhuma configuração de formas de pagamento encontrada na conta conectada ${stripeAccountId}.`
     );
   }
 
-  const pmc = await stripe.paymentMethodConfigurations.retrieve(
-    config.id,
-    {},
-    { stripeAccount: stripeAccountId }
-  );
-  const boleto = (pmc as { boleto?: PmcBoletoState }).boleto;
-  const boletoAvailable = Boolean(boleto?.available);
+  // Ordem: config da aplicação Connect, padrão, demais (pode haver PMC com boleto on em outra entrada).
+  const ordered: typeof listed.data = [];
+  const seen = new Set<string>();
+  const push = (c: (typeof listed.data)[0]) => {
+    if (!c.id || seen.has(c.id)) return;
+    seen.add(c.id);
+    ordered.push(c);
+  };
+  for (const c of listed.data) if (c.application) push(c);
+  for (const c of listed.data) if (c.is_default) push(c);
+  for (const c of listed.data) push(c);
 
-  return { configId: config.id, boletoAvailable };
+  let fallbackConfigId: string | null = null;
+  let fallbackDisplay: string | undefined;
+
+  for (const config of ordered) {
+    const pmc = await stripe.paymentMethodConfigurations.retrieve(
+      config.id,
+      {},
+      { stripeAccount: stripeAccountId }
+    );
+    const { available, displayPreference } = readBoletoFromPmc(pmc);
+    if (!fallbackConfigId) {
+      fallbackConfigId = config.id;
+      fallbackDisplay = displayPreference;
+    }
+    if (available) {
+      return {
+        configId: config.id,
+        boletoAvailable: true,
+        boletoDisplayPreference: displayPreference,
+      };
+    }
+  }
+
+  const primaryId =
+    listed.data.find((c) => c.application)?.id ??
+    listed.data.find((c) => c.is_default)?.id ??
+    listed.data[0]?.id;
+
+  if (primaryId) {
+    try {
+      const updated = await enableBoletoOnPaymentMethodConfiguration(primaryId, stripeAccountId);
+      const { available, displayPreference } = readBoletoFromPmc(updated);
+      if (available) {
+        return {
+          configId: primaryId,
+          boletoAvailable: true,
+          boletoDisplayPreference: displayPreference,
+        };
+      }
+      fallbackConfigId = primaryId;
+      fallbackDisplay = displayPreference;
+    } catch (e) {
+      console.warn('[boleto] Could not set boleto display_preference=on on PMC:', (e as Error)?.message);
+    }
+  }
+
+  return {
+    configId: fallbackConfigId ?? primaryId ?? listed.data[0].id!,
+    boletoAvailable: false,
+    boletoDisplayPreference: fallbackDisplay,
+  };
 }
 
 /**
@@ -160,21 +244,10 @@ export async function createBoletoCheckoutSession(
   assertBoletoPaymentsCapabilityActive(account);
   const capabilityStatus = 'active' as const;
 
-  const { configId, boletoAvailable } = await resolveConnectedAccountPaymentMethodConfiguration(
-    stripeAccount
-  );
+  const { configId, boletoAvailable, boletoDisplayPreference } =
+    await resolveConnectedAccountPaymentMethodConfiguration(stripeAccount);
 
-  if (!boletoAvailable) {
-    throw new Error(
-      `Boleto não está disponível na conta conectada ${stripeAccount} (payment method configuration: boleto.available=false). ` +
-        `Capability boleto_payments: ${capabilityStatus}. ` +
-        'No Dashboard (modo live), abra Connect → Contas → esta conta → Formas de pagamento e confirme Boleto disponível; ' +
-        'em Connect → Métodos de pagamento → Contas conectadas, deixe Boleto ativado por padrão. ' +
-        'Teste e produção têm configurações separadas — confira se ativou em live.'
-    );
-  }
-
-  const sessionBase: Stripe.Checkout.SessionCreateParams = {
+  const sessionCore: Stripe.Checkout.SessionCreateParams = {
     mode: 'payment',
     locale: 'pt-BR',
     line_items: [
@@ -193,27 +266,44 @@ export async function createBoletoCheckoutSession(
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,
     metadata: params.metadata,
-    payment_method_configuration: configId,
     payment_method_options: {
       boleto: { expires_after_days: 3 },
     },
-    // Boleto exige dados do pagador (nome, e-mail, CPF/CNPJ, endereço) — coletados no Checkout.
-    // @see https://docs.stripe.com/payments/boleto/accept-a-payment
     billing_address_collection: 'required',
     tax_id_collection: { enabled: true, required: 'if_supported' },
     customer_creation: 'always',
   };
 
-  try {
-    return await stripe.checkout.sessions.create(sessionBase, { stripeAccount });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (message.toLowerCase().includes('boleto') && message.toLowerCase().includes('invalid')) {
-      throw new Error(
-        `Stripe recusou boleto na conta ${stripeAccount} (capability=${capabilityStatus}, pmc=${configId}). ` +
-          'Confirme que o boleto está ativo no modo LIVE na conta conectada, não só na plataforma Puncto.'
-      );
-    }
-    throw err;
+  const pmcHint =
+    `pmc=${configId}, boleto.available=${boletoAvailable}, display=${boletoDisplayPreference ?? '?'}`;
+
+  const attempts: Stripe.Checkout.SessionCreateParams[] = [];
+
+  if (boletoAvailable) {
+    attempts.push({ ...sessionCore, payment_method_configuration: configId });
   }
+
+  // Capability active mas PMC com display off: Checkout só com boleto (sem PMC).
+  attempts.push({ ...sessionCore, payment_method_types: ['boleto'] });
+
+  if (!boletoAvailable) {
+    attempts.push({ ...sessionCore, payment_method_configuration: configId });
+  }
+
+  let lastMessage = '';
+  for (const sessionParams of attempts) {
+    try {
+      return await stripe.checkout.sessions.create(sessionParams, { stripeAccount });
+    } catch (err) {
+      lastMessage = err instanceof Error ? err.message : String(err);
+      console.warn('[boleto] Checkout attempt failed:', lastMessage);
+    }
+  }
+
+  throw new Error(
+    `Não foi possível abrir checkout de boleto na conta ${stripeAccount}. ` +
+      `Capability boleto_payments=${capabilityStatus}; ${pmcHint}. ` +
+      'No Dashboard (live): Connect → Contas → esta conta → Formas de pagamento → ative Boleto (liga display_preference). ' +
+      `Último erro Stripe: ${lastMessage}`
+  );
 }

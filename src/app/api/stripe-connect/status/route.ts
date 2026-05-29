@@ -103,6 +103,7 @@ export async function POST(request: NextRequest) {
       boletoCapabilityHint: describeBoletoCapabilityStatus(boletoPayments, stripeConnectAccountId),
       boletoPmcConfigId: boletoPmc.configId,
       boletoPmcAvailable: boletoPmc.boletoAvailable,
+      boletoPmcDisplayPreference: boletoPmc.boletoDisplayPreference ?? null,
       boletoReady:
         boletoPayments === 'active' &&
         boletoPmc.boletoAvailable &&
