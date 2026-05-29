@@ -108,6 +108,12 @@
     "lessonReschedule": {
       "pending": "Nueva solicitud de cambio de clase en «{turmaName}» — {professionalName}",
       "noProfessional": "profesor sin asignar"
+    },
+
+    "tuition": {
+      "dueSoon": "Cuota vence en 5 días: {studentName} — {planName} ({amount})",
+      "dueToday": "Cuota vence hoy: {studentName} — {planName} ({amount})",
+      "overdue": "Cuota vencida: {studentName} — {planName} ({amount})"
     }
   },
   "business": {

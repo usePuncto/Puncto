@@ -37,6 +37,24 @@ function eventTitle(t: ReturnType<typeof useTranslations>, n: BookingNotificatio
         turmaName: n.serviceName,
         professionalName: n.professionalName || t('lessonReschedule.noProfessional'),
       });
+    case 'tuition.due_soon':
+      return t('tuition.dueSoon', {
+        studentName: n.customerName,
+        planName: n.serviceName,
+        amount: n.professionalName,
+      });
+    case 'tuition.due_today':
+      return t('tuition.dueToday', {
+        studentName: n.customerName,
+        planName: n.serviceName,
+        amount: n.professionalName,
+      });
+    case 'tuition.overdue':
+      return t('tuition.overdue', {
+        studentName: n.customerName,
+        planName: n.serviceName,
+        amount: n.professionalName,
+      });
     default:
       return t('booking.created', { serviceName: n.serviceName, professionalName: n.professionalName });
   }

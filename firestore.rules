@@ -300,6 +300,31 @@ service cloud.firestore {
                        hasPermission(businessId, 'manageBookings');
       }
 
+      // Educação: mensalidades manuais (sem Stripe)
+      match /manualTuitionEnrollments/{enrollmentId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow read: if isStudentOfBusiness(businessId) &&
+                      resource.data.customerId == request.auth.token.studentCustomerId;
+        allow write: if isPlatformAdmin() ||
+                       isBusinessOwner(businessId) ||
+                       (isBusinessUser() &&
+                         request.auth.token.businessRoles != null &&
+                         request.auth.token.businessRoles[businessId] == 'manager') ||
+                       hasPermission(businessId, 'manageBookings');
+      }
+
+      match /manualTuitionInstallments/{installmentId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow read: if isStudentOfBusiness(businessId) &&
+                      resource.data.customerId == request.auth.token.studentCustomerId;
+        allow write: if isPlatformAdmin() ||
+                       isBusinessOwner(businessId) ||
+                       (isBusinessUser() &&
+                         request.auth.token.businessRoles != null &&
+                         request.auth.token.businessRoles[businessId] == 'manager') ||
+                       hasPermission(businessId, 'manageBookings');
+      }
+
       match /ledgerEntries/{entryId} {
         allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
         allow write: if isBusinessOwner(businessId) ||

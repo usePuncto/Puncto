@@ -108,6 +108,12 @@
     "lessonReschedule": {
       "pending": "New lesson reschedule request for class «{turmaName}» — {professionalName}",
       "noProfessional": "instructor not set"
+    },
+
+    "tuition": {
+      "dueSoon": "Tuition due in 5 days: {studentName} — {planName} ({amount})",
+      "dueToday": "Tuition due today: {studentName} — {planName} ({amount})",
+      "overdue": "Tuition overdue: {studentName} — {planName} ({amount})"
     }
   },
   "business": {

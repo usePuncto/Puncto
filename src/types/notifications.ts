@@ -4,7 +4,10 @@ export type BookingNotificationEventType =
   | 'booking.created'
   | 'booking.confirmed'
   | 'booking.completed'
-  | 'lesson_reschedule.pending';
+  | 'lesson_reschedule.pending'
+  | 'tuition.due_soon'
+  | 'tuition.due_today'
+  | 'tuition.overdue';
 
 export interface BookingNotification {
   id: string;

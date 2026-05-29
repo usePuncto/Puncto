@@ -108,6 +108,12 @@
     "lessonReschedule": {
       "pending": "Nova solicitação de remarcação na turma «{turmaName}» — {professionalName}",
       "noProfessional": "professor a definir"
+    },
+
+    "tuition": {
+      "dueSoon": "Mensalidade vence em 5 dias: {studentName} — {planName} ({amount})",
+      "dueToday": "Mensalidade vence hoje: {studentName} — {planName} ({amount})",
+      "overdue": "Mensalidade em atraso: {studentName} — {planName} ({amount})"
     }
   },
   "business": {

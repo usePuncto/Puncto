@@ -4,9 +4,12 @@ import React, { useMemo, useState } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePayments } from '@/lib/queries/payments';
+import { ManualTuitionsSection } from '@/components/admin/financial/ManualTuitionsSection';
 
 export default function FinancialPage() {
   const { business } = useBusiness();
+  const isEducation = business?.industry === 'education';
+  const [financialTab, setFinancialTab] = useState<'reports' | 'tuitions'>('reports');
   const queryClient = useQueryClient();
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -185,24 +188,28 @@ export default function FinancialPage() {
           <p className="text-neutral-600 mt-2">Visão geral financeira do seu negócio</p>
         </div>
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
-          >
-            + Adicionar ocorrência
-          </button>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-          />
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-          />
+          {(!isEducation || financialTab === 'reports') && (
+            <>
+              <button
+                onClick={() => setShowAddForm(true)}
+                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+              >
+                + Adicionar ocorrência
+              </button>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              />
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              />
+            </>
+          )}
         </div>
       </div>
 
@@ -212,6 +219,37 @@ export default function FinancialPage() {
         </div>
       )}
 
+      {isEducation && (
+        <div className="flex flex-wrap gap-2 border-b border-neutral-200 pb-px">
+          {(
+            [
+              { id: 'reports' as const, label: 'Relatórios' },
+              { id: 'tuitions' as const, label: 'Mensalidades' },
+            ] as const
+          ).map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setFinancialTab(tab.id);
+                setShowAddForm(false);
+              }}
+              className={`rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors ${
+                financialTab === tab.id
+                  ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 ring-b-0'
+                  : 'text-neutral-600 hover:bg-neutral-100'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isEducation && financialTab === 'tuitions' && <ManualTuitionsSection />}
+
+      {(!isEducation || financialTab === 'reports') && (
+        <>
       {/* Stripe payments (same source as P&L / fluxo de caixa) */}
       <div className="rounded-lg border border-neutral-200 bg-white p-6">
         <h2 className="text-lg font-semibold mb-4">Pagamentos Stripe</h2>
@@ -452,6 +490,8 @@ export default function FinancialPage() {
           <p className="text-neutral-500 py-4 text-sm">Nenhum dado disponível para o período.</p>
         )}
       </div>
+        </>
+      )}
     </div>
   );
 }
