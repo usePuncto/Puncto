@@ -1014,8 +1014,8 @@ export default function PaymentsAdminPage() {
         <section className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
           <h2 className="text-base font-semibold text-neutral-900">Gerar boleto</h2>
           <p className="mt-1 text-sm text-neutral-600">
-            O link abre o checkout da Stripe somente com boleto bancário. O pagamento pode levar alguns dias
-            para compensar.
+            O link abre o checkout da Stripe com boleto bancário (BRL). Quem pagar precisa informar nome,
+            e-mail, CPF ou CNPJ e endereço completo no checkout. A compensação pode levar alguns dias.
           </p>
           <div className="mt-5">
             <PaymentLinkForm

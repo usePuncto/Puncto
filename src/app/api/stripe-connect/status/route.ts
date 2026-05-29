@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
 import {
+  describeBoletoCapabilityStatus,
   getBoletoPaymentsCapabilityStatus,
   getConnectedAccountBoletoPmcStatus,
 } from '@/lib/stripe/boletoConnect';
@@ -82,16 +83,24 @@ export async function POST(request: NextRequest) {
     const boletoPayments = getBoletoPaymentsCapabilityStatus(account);
     const boletoPmc = await getConnectedAccountBoletoPmcStatus(stripeConnectAccountId);
 
+    const capabilities = account.capabilities ?? {};
+
     return NextResponse.json({
       accountId: stripeConnectAccountId,
       platformNote:
-        'Cobranças usam a conta conectada abaixo, não a conta da plataforma Puncto. Boleto precisa estar ativo nela (capability boleto_payments + PMC).',
+        'Cobranças usam a conta conectada abaixo, não a conta da plataforma Puncto. Boleto exige capabilities.boleto_payments = active nesta conta (GET /v1/accounts/{id}).',
       onboardingComplete,
       detailsSubmitted,
       chargesEnabled,
       payoutsEnabled,
       country: account.country || null,
+      capabilities: {
+        boleto_payments: capabilities.boleto_payments ?? null,
+        card_payments: capabilities.card_payments ?? null,
+        transfers: capabilities.transfers ?? null,
+      },
       boletoPayments,
+      boletoCapabilityHint: describeBoletoCapabilityStatus(boletoPayments, stripeConnectAccountId),
       boletoPmcConfigId: boletoPmc.configId,
       boletoPmcAvailable: boletoPmc.boletoAvailable,
       boletoReady:

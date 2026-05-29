@@ -10,6 +10,42 @@ export function getBoletoPaymentsCapabilityStatus(account: Stripe.Account): Bole
   return 'unrequested';
 }
 
+/** Mensagem em português conforme o status retornado em `account.capabilities.boleto_payments`. */
+export function describeBoletoCapabilityStatus(
+  status: BoletoCapabilityStatus,
+  accountId?: string
+): string {
+  const id = accountId ? ` (${accountId})` : '';
+  switch (status) {
+    case 'active':
+      return `Capability boleto_payments está active${id}. Boleto pode ser usado na API.`;
+    case 'pending':
+      return (
+        `Capability boleto_payments está pending${id}: foi solicitada e aguarda aprovação ou dados no onboarding Stripe. ` +
+        'Peça ao titular da conta conectada para concluir o cadastro no link do Connect.'
+      );
+    case 'inactive':
+      return (
+        `Capability boleto_payments está inactive${id}: não está ativa. ` +
+        'No Dashboard Stripe (mesmo modo live/test da sua chave), abra Connect → Contas → esta conta e solicite/ative boleto, ou peça ao Stripe Support para habilitar boleto_payments.'
+      );
+    default:
+      return (
+        `Capability boleto_payments não foi solicitada${id} (unrequested). ` +
+        'O Puncto tenta solicitar automaticamente; se continuar assim, reconecte a conta ou contate o suporte Stripe.'
+      );
+  }
+}
+
+export function assertBoletoPaymentsCapabilityActive(
+  account: Stripe.Account
+): asserts account is Stripe.Account & { capabilities: { boleto_payments: 'active' } } {
+  const status = getBoletoPaymentsCapabilityStatus(account);
+  if (status !== 'active') {
+    throw new Error(describeBoletoCapabilityStatus(status, account.id));
+  }
+}
+
 /** Solicita a capability boleto_payments na conta Connect (Express/Custom). */
 export async function requestBoletoPaymentsCapability(stripeAccountId: string) {
   return stripe.accounts.update(stripeAccountId, {
@@ -47,6 +83,10 @@ export async function ensureBoletoReadyForConnectedAccount(stripeAccountId: stri
     throw new Error(
       'A conta conectada ainda não está habilitada para cobranças. Finalize o onboarding Stripe Connect e tente novamente.'
     );
+  }
+
+  if (status !== 'active') {
+    throw new Error(describeBoletoCapabilityStatus(status, stripeAccountId));
   }
 
   return { ok: true, status };
@@ -117,7 +157,8 @@ export async function createBoletoCheckoutSession(
   stripeAccount: string
 ) {
   const account = await stripe.accounts.retrieve(stripeAccount);
-  const capabilityStatus = getBoletoPaymentsCapabilityStatus(account);
+  assertBoletoPaymentsCapabilityActive(account);
+  const capabilityStatus = 'active' as const;
 
   const { configId, boletoAvailable } = await resolveConnectedAccountPaymentMethodConfiguration(
     stripeAccount
@@ -135,6 +176,7 @@ export async function createBoletoCheckoutSession(
 
   const sessionBase: Stripe.Checkout.SessionCreateParams = {
     mode: 'payment',
+    locale: 'pt-BR',
     line_items: [
       {
         price_data: {
@@ -155,6 +197,11 @@ export async function createBoletoCheckoutSession(
     payment_method_options: {
       boleto: { expires_after_days: 3 },
     },
+    // Boleto exige dados do pagador (nome, e-mail, CPF/CNPJ, endereço) — coletados no Checkout.
+    // @see https://docs.stripe.com/payments/boleto/accept-a-payment
+    billing_address_collection: 'required',
+    tax_id_collection: { enabled: true, required: 'if_supported' },
+    customer_creation: 'always',
   };
 
   try {
