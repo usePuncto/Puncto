@@ -16,6 +16,8 @@ import { db } from '@/lib/firebase';
 import {
   computeFirstDueDate,
   computeNextDueDate,
+  computePlanEndDateStr,
+  isDueDateWithinPlan,
 } from '@/lib/manualTuition/billingDates';
 import type {
   ManualTuitionEnrollment,
@@ -34,7 +36,18 @@ export function toDate(value: unknown): Date {
 function mapEnrollment(docSnap: QueryDocumentSnapshot): ManualTuitionEnrollment {
   const data = docSnap.data() as Record<string, unknown>;
   const billingCycleMonths = Number(data.billingCycleMonths ?? data.durationMonths ?? 1);
-  const packageAmountCents = Number(data.packageAmountCents ?? data.monthlyAmountCents ?? 0);
+  const installmentAmountCents = Number(
+    data.installmentAmountCents ?? data.packageAmountCents ?? data.monthlyAmountCents ?? 0,
+  );
+  const startDate = String(data.startDate ?? '');
+  const planDurationMonths = Number(data.planDurationMonths ?? 0);
+  const planEndDate =
+    typeof data.planEndDate === 'string' && data.planEndDate
+      ? data.planEndDate
+      : planDurationMonths > 0 && startDate
+        ? computePlanEndDateStr(startDate, planDurationMonths)
+        : '';
+
   return {
     id: docSnap.id,
     businessId: String(data.businessId ?? ''),
@@ -43,8 +56,10 @@ function mapEnrollment(docSnap: QueryDocumentSnapshot): ManualTuitionEnrollment 
     planName: String(data.planName ?? ''),
     billingCycleMonths,
     frequencyPerWeek: Number(data.frequencyPerWeek ?? 0),
-    packageAmountCents,
-    startDate: String(data.startDate ?? ''),
+    installmentAmountCents,
+    planDurationMonths,
+    startDate,
+    planEndDate,
     dueDayOfMonth: Number(data.dueDayOfMonth ?? 10),
     status: (data.status as ManualTuitionEnrollment['status']) ?? 'active',
     notes: typeof data.notes === 'string' ? data.notes : undefined,
@@ -84,16 +99,28 @@ export function computeInstallmentDueDates(
   return [computeFirstDueDate(startDateStr, dueDayOfMonth)];
 }
 
-export function buildPlanName(billingCycleMonths: number, frequencyPerWeek: number): string {
+export function buildPlanName(
+  billingCycleMonths: number,
+  frequencyPerWeek: number,
+  planDurationMonths?: number,
+): string {
+  const durationPart =
+    planDurationMonths && planDurationMonths > 0
+      ? `Plano ${planDurationMonths} meses`
+      : 'Plano';
   const cycleLabel =
     billingCycleMonths === 1
-      ? 'Pacote mensal'
-      : billingCycleMonths === 2
-        ? 'Pacote bimestral'
-        : billingCycleMonths === 3
-          ? 'Pacote trimestral'
-          : `Pacote de ${billingCycleMonths} meses`;
-  return `${cycleLabel} — ${frequencyPerWeek}x/semana`;
+      ? 'cobrança mensal'
+      : `cobrança a cada ${billingCycleMonths} meses`;
+  return `${durationPart} — ${frequencyPerWeek}x/semana — ${cycleLabel}`;
+}
+
+export function formatPlanPeriod(enrollment: ManualTuitionEnrollment): string {
+  if (!enrollment.startDate) return '—';
+  const start = formatDueDate(new Date(enrollment.startDate + 'T12:00:00'));
+  if (!enrollment.planEndDate) return `desde ${start}`;
+  const end = formatDueDate(new Date(enrollment.planEndDate + 'T12:00:00'));
+  return `${start} até ${end}`;
 }
 
 export function formatBillingIntervalLabel(billingCycleMonths: number): string {
@@ -143,6 +170,11 @@ export function getNextChargeDisplay(
     enrollment.billingCycleMonths,
     enrollment.dueDayOfMonth,
   );
+
+  if (enrollment.planEndDate && !isDueDateWithinPlan(estimated, enrollment.planEndDate)) {
+    return { label: 'Plano encerrado', status: null };
+  }
+
   return { label: `${formatDueDate(estimated)} (prevista)`, status: 'scheduled' };
 }
 
@@ -191,16 +223,23 @@ export function useManualTuitionMutations(businessId: string) {
       customerName: string;
       billingCycleMonths: number;
       frequencyPerWeek: number;
-      packageAmountCents: number;
+      installmentAmountCents: number;
+      planDurationMonths: number;
       startDate: string;
       dueDayOfMonth: number;
       planName?: string;
       notes?: string;
     }) => {
       const now = Timestamp.now();
+      const planEndDate = computePlanEndDateStr(input.startDate, input.planDurationMonths);
       const planName =
         input.planName?.trim() ||
-        buildPlanName(input.billingCycleMonths, input.frequencyPerWeek);
+        buildPlanName(input.billingCycleMonths, input.frequencyPerWeek, input.planDurationMonths);
+
+      const firstDue = computeFirstDueDate(input.startDate, input.dueDayOfMonth);
+      if (!isDueDateWithinPlan(firstDue, planEndDate)) {
+        throw new Error('A primeira cobrança cai após o término do plano. Ajuste as datas ou a duração.');
+      }
 
       const enrollRef = collection(db, 'businesses', businessId, 'manualTuitionEnrollments');
       const enrollDoc = await addDoc(enrollRef, {
@@ -209,10 +248,12 @@ export function useManualTuitionMutations(businessId: string) {
         customerName: input.customerName,
         planName,
         billingCycleMonths: input.billingCycleMonths,
-        durationMonths: input.billingCycleMonths,
         frequencyPerWeek: input.frequencyPerWeek,
-        packageAmountCents: input.packageAmountCents,
-        monthlyAmountCents: input.packageAmountCents,
+        installmentAmountCents: input.installmentAmountCents,
+        packageAmountCents: input.installmentAmountCents,
+        monthlyAmountCents: input.installmentAmountCents,
+        planDurationMonths: input.planDurationMonths,
+        planEndDate,
         startDate: input.startDate,
         dueDayOfMonth: input.dueDayOfMonth,
         status: 'active',
@@ -220,8 +261,6 @@ export function useManualTuitionMutations(businessId: string) {
         createdAt: now,
         updatedAt: now,
       });
-
-      const firstDue = computeFirstDueDate(input.startDate, input.dueDayOfMonth);
 
       const instRef = collection(db, 'businesses', businessId, 'manualTuitionInstallments');
       await addDoc(instRef, {
@@ -232,7 +271,7 @@ export function useManualTuitionMutations(businessId: string) {
         planName,
         installmentNumber: 1,
         dueDate: Timestamp.fromDate(firstDue),
-        amountCents: input.packageAmountCents,
+        amountCents: input.installmentAmountCents,
         status: 'pending',
         paidAt: null,
         notes: null,

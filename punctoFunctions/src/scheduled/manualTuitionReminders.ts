@@ -64,6 +64,22 @@ async function getStaffRecipientUserIds(businessId: string): Promise<string[]> {
   return Array.from(new Set([...(createdBy ? [createdBy] : []), ...adminUserIds]));
 }
 
+function computePlanEndDateStr(startDateStr: string, planDurationMonths: number): string {
+  const start = new Date(startDateStr + 'T12:00:00');
+  const months = Math.max(1, planDurationMonths);
+  const end = new Date(start.getFullYear(), start.getMonth() + months, start.getDate());
+  const y = end.getFullYear();
+  const m = String(end.getMonth() + 1).padStart(2, '0');
+  const d = String(end.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function isDueDateWithinPlan(dueDate: Date, planEndDateStr: string | null): boolean {
+  if (!planEndDateStr) return true;
+  const end = startOfDay(new Date(planEndDateStr + 'T12:00:00'));
+  return startOfDay(dueDate).getTime() <= end.getTime();
+}
+
 async function ensureManualTuitionInstallments(businessId: string): Promise<number> {
   const enrollSnap = await db
     .collection('businesses')
@@ -78,9 +94,18 @@ async function ensureManualTuitionInstallments(businessId: string): Promise<numb
   for (const enrollDoc of enrollSnap.docs) {
     const data = enrollDoc.data();
     const billingCycleMonths = Number(data.billingCycleMonths ?? data.durationMonths ?? 1);
-    const packageAmountCents = Number(data.packageAmountCents ?? data.monthlyAmountCents ?? 0);
+    const installmentAmountCents = Number(
+      data.installmentAmountCents ?? data.packageAmountCents ?? data.monthlyAmountCents ?? 0,
+    );
     const dueDayOfMonth = Number(data.dueDayOfMonth ?? 10);
     const startDate = String(data.startDate ?? '');
+    const planDurationMonths = Number(data.planDurationMonths ?? 0);
+    const planEndDate =
+      typeof data.planEndDate === 'string' && data.planEndDate
+        ? data.planEndDate
+        : planDurationMonths > 0 && startDate
+          ? computePlanEndDateStr(startDate, planDurationMonths)
+          : null;
 
     const instSnap = await db
       .collection('businesses')
@@ -107,7 +132,7 @@ async function ensureManualTuitionInstallments(businessId: string): Promise<numb
       customerId: String(data.customerId ?? ''),
       customerName: String(data.customerName ?? ''),
       planName: String(data.planName ?? 'Mensalidade'),
-      amountCents: packageAmountCents,
+      amountCents: installmentAmountCents,
       status: 'pending',
       paidAt: null,
       notes: null,
@@ -117,6 +142,7 @@ async function ensureManualTuitionInstallments(businessId: string): Promise<numb
 
     if (installments.length === 0) {
       const firstDue = computeFirstDueDate(startDate, dueDayOfMonth);
+      if (!isDueDateWithinPlan(firstDue, planEndDate)) continue;
       await db.collection('businesses').doc(businessId).collection('manualTuitionInstallments').add({
         ...baseFields,
         installmentNumber: 1,
@@ -129,6 +155,7 @@ async function ensureManualTuitionInstallments(businessId: string): Promise<numb
     const latest = installments[installments.length - 1];
     const nextDue = computeNextDueDate(latest.dueDate, billingCycleMonths, dueDayOfMonth);
 
+    if (!isDueDateWithinPlan(nextDue, planEndDate)) continue;
     if (installments.some((i) => dueDatesMatch(i.dueDate, nextDue))) continue;
     if (!shouldCreateInstallmentWithDueDate(nextDue, today)) continue;
 

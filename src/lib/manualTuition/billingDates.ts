@@ -20,6 +20,26 @@ export function addDays(d: Date, days: number): Date {
   return startOfDay(x);
 }
 
+export function computePlanEndDate(startDateStr: string, planDurationMonths: number): Date {
+  const start = new Date(startDateStr + 'T12:00:00');
+  const months = Math.max(1, planDurationMonths);
+  return new Date(start.getFullYear(), start.getMonth() + months, start.getDate());
+}
+
+export function computePlanEndDateStr(startDateStr: string, planDurationMonths: number): string {
+  const end = computePlanEndDate(startDateStr, planDurationMonths);
+  const y = end.getFullYear();
+  const m = String(end.getMonth() + 1).padStart(2, '0');
+  const d = String(end.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+export function isDueDateWithinPlan(dueDate: Date, planEndDateStr?: string | null): boolean {
+  if (!planEndDateStr) return true;
+  const end = startOfDay(new Date(planEndDateStr + 'T12:00:00'));
+  return startOfDay(dueDate).getTime() <= end.getTime();
+}
+
 export function computeFirstDueDate(startDateStr: string, dueDayOfMonth: number): Date {
   const start = new Date(startDateStr + 'T12:00:00');
   const day = clampDueDay(dueDayOfMonth);

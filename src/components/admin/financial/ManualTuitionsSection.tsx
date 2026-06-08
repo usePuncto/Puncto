@@ -10,6 +10,7 @@ import {
   formatBillingIntervalLabel,
   formatBrlFromCents,
   formatDueDate,
+  formatPlanPeriod,
   getEffectiveInstallmentStatus,
   getNextChargeDisplay,
   toDate,
@@ -17,7 +18,7 @@ import {
   useManualTuitionInstallments,
   useManualTuitionMutations,
 } from '@/lib/queries/manualTuitions';
-import { TUITION_DUE_REMINDER_DAYS } from '@/lib/manualTuition/billingDates';
+import { TUITION_DUE_REMINDER_DAYS, computePlanEndDateStr } from '@/lib/manualTuition/billingDates';
 import type { ManualTuitionEnrollment, ManualTuitionInstallment } from '@/types/manualTuition';
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
@@ -138,7 +139,7 @@ function EnrollmentCard({
           </div>
         </td>
         <td className="py-3 pr-4 font-medium whitespace-nowrap">
-          {formatBrlFromCents(enrollment.packageAmountCents)}
+          {formatBrlFromCents(enrollment.installmentAmountCents)}
         </td>
         <td className="py-3 text-right whitespace-nowrap">
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -184,10 +185,13 @@ function EnrollmentCard({
         <tr className="border-b border-neutral-200 bg-neutral-50/50">
           <td colSpan={6} className="p-4">
             <p className="text-sm text-neutral-500 mb-3">
-              {formatBrlFromCents(enrollment.packageAmountCents)}{' '}
-              {formatBillingIntervalLabel(enrollment.billingCycleMonths)} · vencimento dia{' '}
-              {enrollment.dueDayOfMonth} · início{' '}
-              {new Date(enrollment.startDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+              {formatPlanPeriod(enrollment)}
+              {' · '}
+              {formatBrlFromCents(enrollment.installmentAmountCents)} por mensalidade
+              {' · '}
+              {formatBillingIntervalLabel(enrollment.billingCycleMonths)}
+              {' · '}
+              vencimento dia {enrollment.dueDayOfMonth}
               {summary.overdue > 0 && ` · ${summary.overdue} em atraso`}
               {' · '}
               {summary.paid}/{summary.total} pagas
@@ -251,13 +255,20 @@ export function ManualTuitionsSection() {
   const [searchName, setSearchName] = useState('');
   const [form, setForm] = useState({
     customerId: '',
-    billingCycleMonths: '3',
+    billingCycleMonths: '1',
     frequencyPerWeek: '2',
-    packageAmountBrl: '',
+    installmentAmountBrl: '',
+    planDurationMonths: '12',
     startDate: new Date().toISOString().split('T')[0],
     dueDayOfMonth: '10',
     notes: '',
   });
+
+  const formPlanEndPreview = useMemo(() => {
+    const months = parseInt(form.planDurationMonths, 10);
+    if (!form.startDate || isNaN(months) || months < 1) return null;
+    return computePlanEndDateStr(form.startDate, months);
+  }, [form.startDate, form.planDurationMonths]);
 
   const runManualTuitionSync = useCallback(async () => {
     if (!business?.id || !firebaseUser) return;
@@ -382,19 +393,24 @@ export function ManualTuitionsSection() {
 
     const billingCycleMonths = parseInt(form.billingCycleMonths, 10);
     const frequencyPerWeek = parseInt(form.frequencyPerWeek, 10);
+    const planDurationMonths = parseInt(form.planDurationMonths, 10);
     const dueDayOfMonth = parseInt(form.dueDayOfMonth, 10);
-    const packageAmount = parseFloat(form.packageAmountBrl.replace(',', '.'));
+    const installmentAmount = parseFloat(form.installmentAmountBrl.replace(',', '.'));
 
     if (isNaN(billingCycleMonths) || billingCycleMonths < 1 || billingCycleMonths > 24) {
       setFormError('Ciclo de cobrança deve ser entre 1 e 24 meses');
+      return;
+    }
+    if (isNaN(planDurationMonths) || planDurationMonths < 1 || planDurationMonths > 120) {
+      setFormError('Duração do plano deve ser entre 1 e 120 meses');
       return;
     }
     if (isNaN(frequencyPerWeek) || frequencyPerWeek < 1 || frequencyPerWeek > 7) {
       setFormError('Frequência deve ser entre 1 e 7 vezes por semana');
       return;
     }
-    if (isNaN(packageAmount) || packageAmount <= 0) {
-      setFormError('Valor do pacote inválido');
+    if (isNaN(installmentAmount) || installmentAmount <= 0) {
+      setFormError('Valor da mensalidade inválido');
       return;
     }
     if (isNaN(dueDayOfMonth) || dueDayOfMonth < 1 || dueDayOfMonth > 28) {
@@ -413,18 +429,20 @@ export function ManualTuitionsSection() {
         customerName,
         billingCycleMonths,
         frequencyPerWeek,
-        packageAmountCents: Math.round(packageAmount * 100),
+        installmentAmountCents: Math.round(installmentAmount * 100),
+        planDurationMonths,
         startDate: form.startDate,
         dueDayOfMonth,
-        planName: buildPlanName(billingCycleMonths, frequencyPerWeek),
+        planName: buildPlanName(billingCycleMonths, frequencyPerWeek, planDurationMonths),
         notes: form.notes.trim() || undefined,
       });
       setShowForm(false);
       setForm({
         customerId: '',
-        billingCycleMonths: '3',
+        billingCycleMonths: '1',
         frequencyPerWeek: '2',
-        packageAmountBrl: '',
+        installmentAmountBrl: '',
+        planDurationMonths: '12',
         startDate: new Date().toISOString().split('T')[0],
         dueDayOfMonth: '10',
         notes: '',
@@ -542,7 +560,7 @@ export function ManualTuitionsSection() {
                 <th className="py-3 px-4 font-medium">Plano</th>
                 <th className="py-3 px-4 font-medium">Status</th>
                 <th className="py-3 px-4 font-medium">Próxima cobrança</th>
-                <th className="py-3 px-4 font-medium">Valor</th>
+                <th className="py-3 px-4 font-medium">Mensalidade</th>
                 <th className="py-3 px-4 font-medium text-right">Ações</th>
               </tr>
             </thead>
@@ -630,24 +648,39 @@ export function ManualTuitionsSection() {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1">
-                  Valor do pacote (R$)
+                  Valor da mensalidade (R$)
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  value={form.packageAmountBrl}
-                  onChange={(e) => setForm({ ...form, packageAmountBrl: e.target.value })}
+                  value={form.installmentAmountBrl}
+                  onChange={(e) => setForm({ ...form, installmentAmountBrl: e.target.value })}
                   className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                   placeholder="400,00"
                   required
                 />
                 <p className="text-xs text-neutral-500 mt-1">
-                  Valor cobrado a cada ciclo do pacote (ex.: R$ 400 a cada 3 meses).
+                  Valor de cada cobrança dentro do plano (ex.: R$ 400 por mensalidade).
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">
+                    Duração do plano (meses)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={120}
+                    value={form.planDurationMonths}
+                    onChange={(e) => setForm({ ...form, planDurationMonths: e.target.value })}
+                    className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                    placeholder="12"
+                    required
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-1">
                     Início do plano
@@ -660,20 +693,38 @@ export function ManualTuitionsSection() {
                     required
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-neutral-700 mb-1">
-                    Vencimento (dia do mês)
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={28}
-                    value={form.dueDayOfMonth}
-                    onChange={(e) => setForm({ ...form, dueDayOfMonth: e.target.value })}
-                    className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                    required
-                  />
-                </div>
+              </div>
+
+              {formPlanEndPreview && form.startDate && (
+                <p className="text-sm text-neutral-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+                  Vigência:{' '}
+                  <strong>
+                    {formatDueDate(new Date(form.startDate + 'T12:00:00'))} até{' '}
+                    {formatDueDate(new Date(formPlanEndPreview + 'T12:00:00'))}
+                  </strong>
+                  {form.planDurationMonths && (
+                    <span className="text-neutral-600">
+                      {' '}
+                      (plano de {form.planDurationMonths}{' '}
+                      {parseInt(form.planDurationMonths, 10) === 1 ? 'mês' : 'meses'})
+                    </span>
+                  )}
+                </p>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">
+                  Vencimento (dia do mês)
+                </label>
+                <input
+                  type="number"
+                  min={1}
+                  max={28}
+                  value={form.dueDayOfMonth}
+                  onChange={(e) => setForm({ ...form, dueDayOfMonth: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm max-w-xs"
+                  required
+                />
               </div>
 
               <div>
@@ -691,15 +742,15 @@ export function ManualTuitionsSection() {
 
               {form.customerId && form.billingCycleMonths && form.frequencyPerWeek && (
                 <p className="text-sm text-neutral-600 bg-neutral-50 rounded-lg p-3">
-                  Plano:{' '}
                   <strong>
                     {buildPlanName(
                       parseInt(form.billingCycleMonths, 10) || 0,
                       parseInt(form.frequencyPerWeek, 10) || 0,
+                      parseInt(form.planDurationMonths, 10) || undefined,
                     )}
                   </strong>
-                  {form.packageAmountBrl &&
-                    ` · ${formatBrlFromCents(Math.round(parseFloat(form.packageAmountBrl.replace(',', '.')) * 100) || 0)} ${formatBillingIntervalLabel(parseInt(form.billingCycleMonths, 10) || 1)}`}
+                  {form.installmentAmountBrl &&
+                    ` · ${formatBrlFromCents(Math.round(parseFloat(form.installmentAmountBrl.replace(',', '.')) * 100) || 0)} por mensalidade`}
                 </p>
               )}
 

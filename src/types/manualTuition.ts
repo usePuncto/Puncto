@@ -10,16 +10,19 @@ export interface ManualTuitionEnrollment {
   businessId: string;
   customerId: string;
   customerName: string;
-  /** Ex.: "Pacote trimestral — 2x/semana" */
   planName: string;
-  /** Pacote: cobrança a cada N meses (1 = mensal, 2 = bimestral, 3 = trimestral). */
+  /** Cobrança a cada N meses (1 = mensal, 3 = trimestral). */
   billingCycleMonths: number;
   frequencyPerWeek: number;
-  /** Valor do pacote por ciclo de cobrança, em centavos */
-  packageAmountCents: number;
-  /** Data de início do plano (YYYY-MM-DD) */
+  /** Valor de cada mensalidade/cobrança, em centavos. */
+  installmentAmountCents: number;
+  /** Duração total do plano em meses (ex.: 12). */
+  planDurationMonths: number;
+  /** Data de início do plano (YYYY-MM-DD). */
   startDate: string;
-  /** Dia do mês para vencimento (1–28) */
+  /** Data de término do plano (YYYY-MM-DD), calculada a partir do início + duração. */
+  planEndDate: string;
+  /** Dia do mês para vencimento (1–28). */
   dueDayOfMonth: number;
   status: ManualTuitionEnrollmentStatus;
   notes?: string;
@@ -27,7 +30,7 @@ export interface ManualTuitionEnrollment {
   updatedAt: Timestamp | Date;
 }
 
-/** Cobrança individual de um plano (uma fatura por ciclo do pacote). */
+/** Cobrança individual de um plano. */
 export interface ManualTuitionInstallment {
   id: string;
   businessId: string;
