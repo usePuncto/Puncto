@@ -42,7 +42,6 @@
     "loyalty": "Loyalty",
     "campaigns": "Campaigns",
     "whatsapp": "WhatsApp",
-    "electronicSignature": "Electronic signature",
     "franchise": "Franchise",
     "settings": "Settings",
     "adminPanel": "Admin Panel",
@@ -185,35 +184,5 @@
     "bookingConfirmationsTitle": "Booking confirmations",
     "bookingConfirmationsDesc": "When a booking is created, send confirmation automatically via:",
     "sendViaWhatsApp": "Send via WhatsApp"
-  },
-  "electronicSignature": {
-    "title": "Electronic signature",
-    "subtitle": "Legally valid signatures for patients, professionals, and administrative documents.",
-    "unavailable": "Electronic signature is not available for this business segment.",
-    "health": {
-      "patientTitle": "Patient consent (LGPD)",
-      "patientDescription": "Collect the patient's electronic signature on a tablet or phone at reception, with audit trail (IP, date, and time).",
-      "patientBullet1": "Consent form for personal and sensitive data processing.",
-      "patientBullet2": "On-screen signature with hash of accepted text.",
-      "patientBullet3": "History linked to the patient record.",
-      "openPatients": "Go to patients",
-      "professionalTitle": "Professional signature (ICP-Brasil)",
-      "professionalDescription": "When completing a medical record, the professional signs with an ICP-Brasil digital certificate (Lacuna Web PKI integration).",
-      "professionalNote": "Full A1/A3 cloud certificate integration will be enabled here. Today, the EMR flow already prepares the hash and a simulated signature for testing."
-    },
-    "admin": {
-      "documentsTitle": "Documents and contracts",
-      "documentsDescription": "Sign contracts, terms, and internal documents with the company's digital certificate.",
-      "documentsBullet1": "Linked to contract management and administrative workflows.",
-      "documentsBullet2": "Audit trail for compliance and archiving.",
-      "documentsBullet3": "Compatible with ICP-Brasil certificates (e-CPF / e-CNPJ).",
-      "certificateTitle": "Digital certificate",
-      "certificateDescription": "Configure the certificate used by your team to sign documents in this panel.",
-      "certificateNote": "Soon you will be able to connect A1 or cloud A3 certificates here. Contact support if you need early access."
-    },
-    "compliance": {
-      "title": "Compliance",
-      "description": "Signatures follow LGPD and MP 2.200-2/2001 (ICP-Brasil) where applicable. Keep certificates valid and restrict access to authorized users."
-    }
   }
 }

@@ -473,7 +473,7 @@ function ProntuarioTab({
                       onClick={() => setExpandedId(isExpanded ? null : item.id)}
                       className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-neutral-50"
                     >
-                      <span className="font-medium text-neutral-900">Prontuário assinado</span>
+                      <span className="font-medium text-neutral-900">Prontuário salvo</span>
                       <span className="text-sm text-neutral-500">{signedAt}</span>
                       <span className="text-neutral-400">{isExpanded ? '▼' : '▶'}</span>
                     </button>

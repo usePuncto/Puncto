@@ -42,7 +42,6 @@
     "loyalty": "Fidelización",
     "campaigns": "Campañas",
     "whatsapp": "WhatsApp",
-    "electronicSignature": "Firma electrónica",
     "franchise": "Franquicia",
     "settings": "Configuración",
     "adminPanel": "Panel de Administración",
@@ -182,35 +181,5 @@
     "connectButton": "Conectar WhatsApp",
     "connecting": "Conectando...",
     "connectNotConfigured": "Embedded Signup no está configurado. Contacta con soporte para habilitar WhatsApp por negocio."
-  },
-  "electronicSignature": {
-    "title": "Firma electrónica",
-    "subtitle": "Firmas con validez jurídica para pacientes, profesionales y documentos administrativos.",
-    "unavailable": "La firma electrónica no está disponible para el segmento de este negocio.",
-    "health": {
-      "patientTitle": "Consentimiento del paciente (LGPD)",
-      "patientDescription": "Recoja la firma electrónica del paciente en tablet o móvil en recepción, con registro de auditoría (IP, fecha y hora).",
-      "patientBullet1": "Término de consentimiento para datos personales y sensibles.",
-      "patientBullet2": "Firma en pantalla con hash del texto aceptado.",
-      "patientBullet3": "Historial vinculado al registro del paciente.",
-      "openPatients": "Ir a pacientes",
-      "professionalTitle": "Firma del profesional (ICP-Brasil)",
-      "professionalDescription": "Al finalizar una historia clínica, el profesional firma con certificado digital ICP-Brasil (integración Lacuna Web PKI).",
-      "professionalNote": "La integración completa con certificado A1/A3 en la nube se habilitará aquí. Hoy, el flujo de historia clínica ya prepara el hash y una firma simulada para pruebas."
-    },
-    "admin": {
-      "documentsTitle": "Documentos y contratos",
-      "documentsDescription": "Firme contratos, términos y documentos internos con el certificado digital de la empresa.",
-      "documentsBullet1": "Vinculado a gestión de contratos y flujos administrativos.",
-      "documentsBullet2": "Pista de auditoría para cumplimiento y archivo.",
-      "documentsBullet3": "Compatible con certificados ICP-Brasil (e-CPF / e-CNPJ).",
-      "certificateTitle": "Certificado digital",
-      "certificateDescription": "Configure el certificado que usa el equipo para firmar documentos en este panel.",
-      "certificateNote": "Pronto podrá conectar el certificado A1 o A3 en la nube aquí. Contacte soporte si necesita activación anticipada."
-    },
-    "compliance": {
-      "title": "Cumplimiento",
-      "description": "Las firmas siguen la LGPD y la MP 2.200-2/2001 (ICP-Brasil) cuando corresponda. Mantenga certificados válidos y restrinja el acceso a usuarios autorizados."
-    }
   }
 }

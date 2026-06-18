@@ -3,8 +3,8 @@ import { auth, db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 
 /**
- * Mark an EMR as signed by the doctor (ICP-Brasil).
- * Accepts emrId, businessId, patientId, signedHash and sets status: 'signed', signedHash, signedAt.
+ * Mark an EMR as finalized (saved).
+ * Accepts emrId, businessId, patientId and sets status: 'signed', signedAt.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -17,11 +17,11 @@ export async function POST(request: NextRequest) {
     await auth.verifyIdToken(token);
 
     const body = await request.json();
-    const { emrId, businessId, patientId, signedHash } = body;
+    const { emrId, businessId, patientId } = body;
 
-    if (!emrId || !businessId || !patientId || !signedHash) {
+    if (!emrId || !businessId || !patientId) {
       return NextResponse.json(
-        { error: 'Missing required fields: emrId, businessId, patientId, signedHash' },
+        { error: 'Missing required fields: emrId, businessId, patientId' },
         { status: 400 }
       );
     }
@@ -36,7 +36,6 @@ export async function POST(request: NextRequest) {
 
     await emrRef.update({
       status: 'signed',
-      signedHash,
       signedAt: Timestamp.now(),
     });
 
@@ -44,9 +43,8 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     console.error('EMR complete error:', err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to sign EMR' },
+      { error: err instanceof Error ? err.message : 'Failed to save EMR' },
       { status: 500 }
     );
   }
 }
-

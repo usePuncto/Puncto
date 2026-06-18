@@ -9,7 +9,6 @@ import { z } from 'zod';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { FeatureGuard } from '@/components/features/FeatureGuard';
-import { sha256Hash, signWithLacunaWebPki } from '@/lib/utils/pkiSignature';
 import Link from 'next/link';
 
 const emrSchema = z.object({
@@ -94,10 +93,6 @@ function EMRFormContent() {
         setEmrId(currentEmrId);
       }
 
-      // Hash payload and perform PKI signature with Lacuna Web PKI (simulated)
-      const payloadHash = await sha256Hash(JSON.stringify(payload));
-      const signedHash = await signWithLacunaWebPki(payloadHash);
-
       const completeRes = await fetch('/api/emr/complete', {
         method: 'POST',
         headers: {
@@ -108,7 +103,6 @@ function EMRFormContent() {
           emrId: currentEmrId,
           businessId: business.id,
           patientId,
-          signedHash,
         }),
       });
 
@@ -131,10 +125,10 @@ function EMRFormContent() {
         {/* On-screen success banner, hidden in print */}
         <div className="mb-4 rounded-xl border border-green-200 bg-green-50 p-4 print:hidden">
           <h2 className="text-sm font-semibold text-green-800 mb-1">
-            Prontuário assinado com sucesso
+            Prontuário salvo com sucesso
           </h2>
           <p className="text-xs text-neutral-700 mb-2">
-            O prontuário foi salvo e assinado digitalmente. Agora você pode imprimir ou salvar em PDF.
+            O prontuário foi salvo. Agora você pode imprimir ou salvar em PDF.
           </p>
           <div className="flex gap-2">
             <button
