@@ -2,9 +2,14 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import {
+  type PlanId,
+  getPlanCardHighlights,
+  PLAN_MODULE_LIMITS,
+} from '@/content/modules';
 
 export interface PricingPlan {
-  id: string;
+  id: PlanId;
   name: string;
   description: string;
   price: {
@@ -13,6 +18,7 @@ export interface PricingPlan {
   };
   customPrice?: string;
   popular?: boolean;
+  moduleLimit: number;
   features: string[];
   limitations?: string[];
   cta: {
@@ -66,6 +72,24 @@ export default function PricingCard({ plan, isAnnual, index = 0 }: PricingCardPr
       <p className={`text-sm mb-6 ${plan.popular ? 'text-primary-100' : 'text-slate-500'}`}>
         {plan.description}
       </p>
+
+      <div className="mb-4">
+        <div
+          className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-semibold ${
+            plan.popular ? 'bg-white/20 text-white' : 'bg-primary-50 text-primary-700'
+          }`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+            />
+          </svg>
+          Até {plan.moduleLimit} módulos
+        </div>
+      </div>
 
       <div className="mb-6">
         <div className="flex items-baseline gap-1">
@@ -124,70 +148,51 @@ export const pricingPlans: PricingPlan[] = [
   {
     id: 'gratis',
     name: 'Grátis',
-    description: 'Para começar. Recursos essenciais de agendamento.',
+    description: 'Para começar montando seu ERP com os módulos essenciais.',
     price: { monthly: 0, annually: 0 },
     customPrice: 'Grátis',
-    features: [
-      'Agendamentos limitados',
-      'Sincronização de calendário',
-      'Histórico de clientes',
-      'Suporte por email',
-    ],
+    moduleLimit: PLAN_MODULE_LIMITS.gratis,
+    features: getPlanCardHighlights('gratis'),
     cta: {
-      text: 'Começar Grátis',
-      href: '/auth/signup',
+      text: 'Escolher Módulos',
+      href: '/pricing/choose-modules?plan=gratis',
     },
   },
   {
     id: 'starter',
     name: 'Starter',
-    description: 'Perfeito para crescer. Agendamento completo e confirmações.',
+    description: 'Para operações em crescimento com mais módulos disponíveis.',
     price: { monthly: 69.9, annually: 55.92 },
-    features: [
-      'Agendamentos ilimitados',
-      'Lembretes WhatsApp/Email',
-      'Sincronização de calendário',
-      'Histórico de clientes',
-      'Suporte por email',
-    ],
+    moduleLimit: PLAN_MODULE_LIMITS.starter,
+    features: getPlanCardHighlights('starter'),
     cta: {
-      text: 'Começar Grátis',
-      href: '/auth/signup',
+      text: 'Escolher Módulos',
+      href: '/pricing/choose-modules?plan=starter',
     },
   },
   {
     id: 'growth',
     name: 'Growth',
-    description: 'Pagamentos, cardápio e comanda. Inclui cota de WhatsApp e notas fiscais.',
+    description: 'Módulos avançados: fiscal, estoque, ponto e automação.',
     price: { monthly: 189.9, annually: 151.92 },
     popular: true,
-    features: [
-      'Tudo do Starter',
-      'Pagamentos PIX e cartão',
-      'Cardápio digital e comanda virtual',
-      '150 msgs WhatsApp + 30 NFS-e/NFC-e/mês',
-      'Suporte prioritário',
-    ],
+    moduleLimit: PLAN_MODULE_LIMITS.growth,
+    features: getPlanCardHighlights('growth'),
     cta: {
-      text: 'Começar Grátis',
-      href: '/auth/signup',
+      text: 'Escolher Módulos',
+      href: '/pricing/choose-modules?plan=growth',
     },
   },
   {
     id: 'pro',
     name: 'Pro',
-    description: 'Solução completa: estoque, ponto eletrônico e cotas maiores.',
+    description: 'Máximo de módulos, incluindo integrações e produção (KDS).',
     price: { monthly: 399.9, annually: 319.92 },
-    features: [
-      'Tudo do Growth',
-      'Ponto eletrônico e controle de estoque',
-      '300 msgs WhatsApp + 100 NFS-e/NFC-e/mês',
-      'Programa de fidelidade e campanhas',
-      'API, webhooks e relatórios avançados',
-    ],
+    moduleLimit: PLAN_MODULE_LIMITS.pro,
+    features: getPlanCardHighlights('pro'),
     cta: {
-      text: 'Começar Grátis',
-      href: '/auth/signup',
+      text: 'Escolher Módulos',
+      href: '/pricing/choose-modules?plan=pro',
     },
   },
 ];

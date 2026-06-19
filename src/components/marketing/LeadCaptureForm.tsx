@@ -20,12 +20,14 @@ type ContactFormData = z.infer<typeof contactSchema>;
 interface LeadCaptureFormProps {
   variant?: 'contact' | 'demo' | 'compact';
   subject?: string;
+  defaultMessage?: string;
   onSuccess?: () => void;
 }
 
 export default function LeadCaptureForm({
   variant = 'contact',
   subject,
+  defaultMessage,
   onSuccess,
 }: LeadCaptureFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -41,6 +43,7 @@ export default function LeadCaptureForm({
     resolver: zodResolver(contactSchema),
     defaultValues: {
       subject: subject || '',
+      message: defaultMessage || '',
     },
   });
 

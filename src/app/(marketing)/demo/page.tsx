@@ -22,9 +22,9 @@ export default function DemoPage() {
                 Veja o Puncto em ação
               </h1>
               <p className="body-lg mb-8">
-                Agende uma demonstração personalizada e descubra como o Puncto
-                pode transformar a gestão do seu negócio. Nossa equipe vai
-                mostrar as funcionalidades mais relevantes para você.
+                Agende um diagnóstico gratuito e veja como montamos o ERP modular 
+                ideal para a sua operação. Nossa equipe mostra os módulos e 
+                customizações mais relevantes para o seu tipo de negócio.
               </p>
 
               <div className="space-y-4 mb-8">

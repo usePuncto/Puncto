@@ -180,7 +180,7 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-3 lg:col-span-1">
             <Logo variant="dark" className="mb-4" />
             <p className="text-slate-400 text-sm mb-4">
-              Transformando a gestão de negócios com tecnologia acessível e integrada.
+              Transformando a gestão de negócios com ERP modular customizado.
             </p>
             <div className="flex gap-3">
               {socialLinks.map((social) => (

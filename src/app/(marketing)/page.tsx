@@ -13,10 +13,8 @@ import PricingCard, { pricingPlans } from '@/components/marketing/PricingCard';
 import { features } from '@/content/features';
 import { faqItems } from '@/content/faq';
 import { industries, industryIcons } from '@/content/industries';
-import { featureDetailsByIndustry } from '@/content/featureDetailsByIndustry';
 import {
   businessTypeOptions,
-  planFeaturesByBusinessType,
   type BusinessTypeKey,
 } from '@/content/pricingByBusinessType';
 
@@ -47,20 +45,13 @@ export default function HomePage() {
 
   const industrySlug = businessTypeToIndustrySlug[selectedBusinessType];
 
-  const detailsForBusinessType = featureDetailsByIndustry[industrySlug];
-
   const plansWithFeaturesForType = pricingPlans.map((plan) => {
-    const planDetails = detailsForBusinessType?.[plan.id];
+    const billingParam = isAnnual ? 'annual' : 'monthly';
     return {
       ...plan,
-      description: planDetails?.intro ?? plan.description,
-      features:
-        plan.id in planFeaturesByBusinessType[selectedBusinessType]
-          ? planFeaturesByBusinessType[selectedBusinessType][plan.id as 'gratis' | 'starter' | 'growth' | 'pro']
-          : plan.features,
       cta: {
         ...plan.cta,
-        href: `/industries/${industrySlug}`,
+        href: `/pricing/choose-modules?plan=${plan.id}&industry=${industrySlug}&billing=${billingParam}`,
       },
     };
   });
@@ -84,8 +75,8 @@ export default function HomePage() {
               Tudo que você precisa em um só lugar
             </h2>
             <p className="body-lg max-w-2xl mx-auto">
-              Plataforma SaaS completa para pequenos negócios ou desenvolvimento 
-              customizado para grandes empresas. Soluções que se adaptam ao seu negócio.
+              Um ecossistema modular de gestão: você escolhe os módulos e nós 
+              customizamos cada implementação para a realidade da sua operação.
             </p>
           </motion.div>
 
@@ -249,7 +240,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Custom Development Section */}
+      {/* Approach Section */}
       <section className="section bg-white">
         <div className="container-marketing">
           <motion.div
@@ -258,122 +249,71 @@ export default function HomePage() {
             viewport={{ once: true }}
             className="text-center mb-12"
           >
-            <span className="badge-primary mb-4">Desenvolvimento Customizado</span>
+            <span className="badge-primary mb-4">Nossa Abordagem</span>
             <h2 className="heading-lg text-slate-900 mb-4">
-              Soluções sob medida para grandes empresas
+              O sistema se adapta a você — não o contrário
             </h2>
             <p className="body-lg max-w-2xl mx-auto">
-              Para indústrias, fábricas e grandes corporações, desenvolvemos sistemas 
-              personalizados que se integram aos seus processos existentes.
+              Não vendemos um produto pronto de prateleira. Construímos um ERP modular 
+              customizado para cada cliente, com os módulos e fluxos que fazem sentido 
+              para a sua operação.
             </p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              className="bg-gradient-to-br from-primary-50 to-white rounded-2xl p-8 border border-primary-100"
-            >
-              <div className="w-12 h-12 bg-primary-600 rounded-xl flex items-center justify-center mb-6">
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
-                  />
-                </svg>
-              </div>
-              <h3 className="heading-sm text-slate-900 mb-4">
-                Plataforma SaaS
-              </h3>
-              <p className="text-slate-600 mb-6">
-                Ideal para salões, restaurantes, clínicas e pequenos negócios. 
-                Comece grátis ou com planos a partir de R$ 69,90/mês.
-              </p>
-              <ul className="space-y-2 mb-6">
-                <li className="flex items-start gap-2 text-slate-600">
-                  <svg className="w-5 h-5 text-secondary-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {[
+              {
+                title: 'Escolha seus módulos',
+                description:
+                  'Agendamento, estoque, ponto eletrônico, fiscal, CRM e muito mais. Você monta o pacote ideal para o seu negócio.',
+                icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z',
+              },
+              {
+                title: 'Customizamos para você',
+                description:
+                  'Cada implementação é adaptada aos seus processos, regras de negócio e fluxos de trabalho. Nada de forçar sua equipe a mudar a rotina.',
+                icon: 'M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z',
+              },
+              {
+                title: 'Evoluímos junto',
+                description:
+                  'Seu negócio muda, o sistema acompanha. Novos módulos, ajustes de fluxo e integrações conforme sua operação cresce.',
+                icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6',
+              },
+            ].map((item, index) => (
+              <motion.div
+                key={item.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-slate-50 rounded-2xl p-8 border border-slate-100"
+              >
+                <div className="w-12 h-12 bg-primary-600 rounded-xl flex items-center justify-center mb-6">
+                  <svg
+                    className="w-6 h-6 text-white"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d={item.icon}
+                    />
                   </svg>
-                  <span>Ativação imediata</span>
-                </li>
-                <li className="flex items-start gap-2 text-slate-600">
-                  <svg className="w-5 h-5 text-secondary-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Sem necessidade de desenvolvimento</span>
-                </li>
-                <li className="flex items-start gap-2 text-slate-600">
-                  <svg className="w-5 h-5 text-secondary-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Atualizações automáticas</span>
-                </li>
-              </ul>
-              <Link href="/pricing" className="btn-primary w-full text-center">
-                Ver Planos SaaS
-              </Link>
-            </motion.div>
+                </div>
+                <h3 className="heading-sm text-slate-900 mb-3">{item.title}</h3>
+                <p className="text-slate-600">{item.description}</p>
+              </motion.div>
+            ))}
+          </div>
 
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-8 text-white"
-            >
-              <div className="w-12 h-12 bg-secondary-500 rounded-xl flex items-center justify-center mb-6">
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"
-                  />
-                </svg>
-              </div>
-              <h3 className="heading-sm text-white mb-4">
-                Desenvolvimento Customizado
-              </h3>
-              <p className="text-slate-300 mb-6">
-                Para indústrias, fábricas e grandes empresas. Sistemas sob medida 
-                que resolvem desafios específicos do seu negócio.
-              </p>
-              <ul className="space-y-2 mb-6">
-                <li className="flex items-start gap-2 text-slate-300">
-                  <svg className="w-5 h-5 text-secondary-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Desenvolvimento sob medida</span>
-                </li>
-                <li className="flex items-start gap-2 text-slate-300">
-                  <svg className="w-5 h-5 text-secondary-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Integração com sistemas legados</span>
-                </li>
-                <li className="flex items-start gap-2 text-slate-300">
-                  <svg className="w-5 h-5 text-secondary-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
-                  <span>Suporte e evolução contínua</span>
-                </li>
-              </ul>
-              <Link href="https://wa.me/5541991626161" target="_blank" className="btn bg-white text-slate-900 hover:bg-slate-100 w-full text-center">
-                Solicitar Orçamento
-              </Link>
-            </motion.div>
+          <div className="text-center mt-12">
+            <Link href="https://wa.me/5541991626161" target="_blank" className="btn-primary">
+              Agendar Diagnóstico Gratuito
+            </Link>
           </div>
         </div>
       </section>
@@ -387,12 +327,13 @@ export default function HomePage() {
             viewport={{ once: true }}
             className="text-center mb-12"
           >
-            <span className="badge-primary mb-4">Planos</span>
+            <span className="badge-primary mb-4">Pacotes de Referência</span>
             <h2 className="heading-lg text-slate-900 mb-4">
-              Escolha o plano ideal para você
+              Módulos para cada fase do seu negócio
             </h2>
             <p className="body-lg max-w-2xl mx-auto mb-6">
-              Selecione seu tipo de negócio para ver os recursos de cada plano.
+              Cada plano define quantos módulos você pode escolher. Clique em
+              &quot;Escolher Módulos&quot; para montar seu ERP.
             </p>
 
             {/* Business type selector */}
@@ -499,9 +440,9 @@ export default function HomePage() {
 
       {/* Final CTA Section */}
       <CTASection
-        title="Pronto para transformar seu negócio?"
-        description="Comece gratuitamente e descubra como o Puncto pode simplificar a gestão do seu negócio."
-        primaryCTA={{ text: 'Começar Grátis', href: '/contact' }}
+        title="Pronto para um sistema feito para você?"
+        description="Agende um diagnóstico gratuito e descubra como montar o ERP modular ideal para a sua operação."
+        primaryCTA={{ text: 'Agendar Diagnóstico', href: 'https://wa.me/5541991626161' }}
         secondaryCTA={{ text: 'Agendar Demonstração', href: '/demo' }}
         variant="gradient"
       />

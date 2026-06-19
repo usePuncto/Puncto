@@ -1,13 +1,28 @@
 export const faqItems = [
   {
-    question: 'Preciso pagar para começar a usar?',
+    question: 'Como funciona o modelo da Puncto?',
     answer:
-      'Não. Criamos o Plano Grátis justamente para quem está começando ou organizando a casa. Ele inclui tudo o que você precisa para sair do papel e da planilha. Você só migra para os planos Starter ou Growth quando sua operação estiver madura o suficiente para precisar de recursos avançados, como Ponto Eletrônico, WhatsApp Automático e Emissão Fiscal.',
+      'Somos um ERP modular customizado. Você escolhe os módulos que precisa — agendamento, estoque, ponto, fiscal, CRM e outros — e nós adaptamos cada implementação aos seus processos e regras de negócio. Não vendemos um sistema pronto de prateleira: o sistema se adapta a você, não o contrário.',
   },
   {
-    question: 'Preciso de conhecimento técnico para usar?',
+    question: 'Quantos módulos posso escolher em cada plano?',
     answer:
-      'Não! A Puncto foi desenvolvida para ser intuitiva e fácil de usar. Nossa equipe oferece suporte completo na configuração inicial e temos tutoriais em vídeo, documentação detalhada e suporte por chat para qualquer dúvida.',
+      'No plano Grátis você escolhe até 2 módulos. No Starter, até 8. No Growth, até 10. No Pro, até 12. Alguns módulos avançados — como emissão fiscal, estoque, ponto eletrônico e automação — só ficam disponíveis a partir do plano Growth. Integrações/API e Produção (KDS) são exclusivos do Pro.',
+  },
+  {
+    question: 'O que está incluído em pequenas customizações?',
+    answer:
+      'Pequenas customizações estão incluídas para os módulos contratados no seu plano: ajustes de interface, nomenclatura de campos, adaptações visuais leves e configurações do sistema. O limite é de até 2 horas técnicas de desenvolvimento por mês calendário, sem acúmulo de horas não utilizadas.',
+  },
+  {
+    question: 'E se eu precisar de algo além das 2 horas mensais?',
+    answer:
+      'Novas regras de negócio, integrações complexas, relatórios avançados não previstos no sistema original ou qualquer demanda que ultrapasse o limite mensal são tratadas como Desenvolvimento Específico, com análise técnica, orçamento separado e aprovação prévia.',
+  },
+  {
+    question: 'Como funciona o suporte técnico?',
+    answer:
+      'O suporte é realizado por e-mail, WhatsApp e telefone, em dias úteis das 09h às 18h. O prazo de resposta (SLA) é de até 3 horas úteis, conforme a criticidade da solicitação.',
   },
   {
     question: 'Quais formas de pagamento são aceitas?',

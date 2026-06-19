@@ -18,9 +18,9 @@ interface CTASectionProps {
 }
 
 export default function CTASection({
-  title = 'Pronto para transformar seu negócio?',
-  description = 'Comece gratuitamente e veja como o Puncto pode simplificar sua gestão.',
-  primaryCTA = { text: 'Começar Grátis', href: '/auth/signup' },
+  title = 'Pronto para um sistema feito para você?',
+  description = 'Agende um diagnóstico gratuito e descubra como montar o ERP modular ideal para a sua operação.',
+  primaryCTA = { text: 'Agendar Diagnóstico', href: '/contact' },
   secondaryCTA = { text: 'Falar com Vendas', href: '/contact' },
   variant = 'gradient',
 }: CTASectionProps) {

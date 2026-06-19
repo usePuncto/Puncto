@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
@@ -9,10 +9,17 @@ import FAQAccordion from '@/components/marketing/FAQAccordion';
 import CTASection from '@/components/marketing/CTASection';
 import {
   businessTypeOptions,
-  planFeaturesByBusinessType,
   type BusinessTypeKey,
 } from '@/content/pricingByBusinessType';
-import { featureDetailsByIndustry } from '@/content/featureDetailsByIndustry';
+import {
+  erpModules,
+  getMinPlanLabel,
+  isModuleAvailableForPlan,
+  PLAN_LABELS,
+  PLAN_MODULE_LIMITS,
+  type PlanId,
+} from '@/content/modules';
+import ServiceTermsSection from '@/components/marketing/ServiceTermsSection';
 
 const businessTypeToIndustrySlug: Record<BusinessTypeKey, string> = {
   servicos: 'servicos',
@@ -25,14 +32,34 @@ const businessTypeToIndustrySlug: Record<BusinessTypeKey, string> = {
 
 const pricingFAQ = [
   {
-    question: 'Preciso pagar para começar a usar?',
+    question: 'Como funciona o modelo da Puncto?',
     answer:
-      'Não. Criamos o Plano Grátis justamente para quem está começando ou organizando a casa. Ele inclui tudo o que você precisa para sair do papel e da planilha. Você só migra para os planos Starter ou Growth quando sua operação estiver madura o suficiente para precisar de recursos avançados, como Ponto Eletrônico, WhatsApp Automático e Emissão Fiscal.',
+      'Somos um ERP modular customizado. Você escolhe os módulos que precisa — agendamento, estoque, ponto, fiscal, CRM e outros — e nós adaptamos cada implementação aos seus processos e regras de negócio. Não vendemos um sistema pronto de prateleira: o sistema se adapta a você, não o contrário.',
   },
   {
-    question: 'Preciso de conhecimento técnico para usar?',
+    question: 'Quantos módulos posso escolher em cada plano?',
     answer:
-      'Não! A Puncto foi desenvolvida para ser intuitiva e fácil de usar. Nossa equipe oferece suporte completo na configuração inicial e temos tutoriais em vídeo, documentação detalhada e suporte por chat para qualquer dúvida.',
+      'No plano Grátis você escolhe até 2 módulos. No Starter, até 8. No Growth, até 10. No Pro, até 12. Alguns módulos avançados — como emissão fiscal, estoque, ponto eletrônico e automação — só ficam disponíveis a partir do plano Growth. Integrações/API e Produção (KDS) são exclusivos do Pro.',
+  },
+  {
+    question: 'O que está incluído em pequenas customizações?',
+    answer:
+      'Pequenas customizações estão incluídas para os módulos contratados no seu plano: ajustes de interface, nomenclatura de campos, adaptações visuais leves e configurações do sistema. O limite é de até 2 horas técnicas de desenvolvimento por mês calendário, sem acúmulo de horas não utilizadas.',
+  },
+  {
+    question: 'E se eu precisar de algo além das 2 horas mensais?',
+    answer:
+      'Novas regras de negócio, integrações complexas com APIs de terceiros, relatórios avançados não previstos no sistema original ou qualquer demanda que ultrapasse o limite mensal são tratadas como Desenvolvimento Específico. Fazemos análise técnica, orçamento separado e só iniciamos após sua aprovação prévia.',
+  },
+  {
+    question: 'Como funciona o suporte técnico?',
+    answer:
+      'O suporte é realizado por e-mail, WhatsApp e telefone, em dias úteis das 09h às 18h. O prazo de resposta (SLA) é de até 3 horas úteis, conforme a criticidade da solicitação.',
+  },
+  {
+    question: 'Atualizações e correções têm custo extra?',
+    answer:
+      'Não. Atualizações de versão, correção de bugs e melhorias de segurança estão incluídas na assinatura, sem custo adicional.',
   },
   {
     question: 'Quais formas de pagamento são aceitas?',
@@ -60,67 +87,16 @@ export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(true);
   const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessTypeKey>('servicos');
 
-  const featureComparisonForType = useMemo(() => {
-    const planOrder = ['gratis', 'starter', 'growth', 'pro'] as const;
-    type PlanId = (typeof planOrder)[number];
-
-    const rawByPlan = planFeaturesByBusinessType[selectedBusinessType] as Record<PlanId, string[]>;
-
-    // Expandimos "Tudo do ..." para montar o conjunto real de recursos efetivamente incluídos por plano.
-    const includedByPlan: Record<PlanId, Set<string>> = {
-      gratis: new Set(),
-      starter: new Set(),
-      growth: new Set(),
-      pro: new Set(),
-    };
-
-    const orderedFeatures: string[] = [];
-    const includedSoFar = new Set<string>();
-    const isSummary = (value: string) => value.startsWith('Tudo do ');
-
-    for (const planId of planOrder) {
-      const extras = (rawByPlan[planId] ?? []).filter((value) => !isSummary(value));
-
-      for (const featureName of extras) {
-        if (!includedSoFar.has(featureName)) {
-          includedSoFar.add(featureName);
-          orderedFeatures.push(featureName);
-        }
-      }
-
-      // snapshot acumulado até este plano
-      includedByPlan[planId] = new Set(includedSoFar);
-    }
-
-    return [
-      {
-        category: 'Recursos incluídos',
-        features: orderedFeatures.map((name) => ({
-          name,
-          gratis: includedByPlan.gratis.has(name),
-          starter: includedByPlan.starter.has(name),
-          growth: includedByPlan.growth.has(name),
-          pro: includedByPlan.pro.has(name),
-        })),
-      },
-    ];
-  }, [selectedBusinessType]);
-
   const industrySlug = businessTypeToIndustrySlug[selectedBusinessType];
-  const detailsForBusinessType = featureDetailsByIndustry[industrySlug];
+  const planIds: PlanId[] = ['gratis', 'starter', 'growth', 'pro'];
 
   const plansWithFeaturesForType = pricingPlans.map((plan) => {
-    const planDetails = detailsForBusinessType?.[plan.id];
+    const billingParam = isAnnual ? 'annual' : 'monthly';
     return {
       ...plan,
-      description: planDetails?.intro ?? plan.description,
-      features:
-        plan.id in planFeaturesByBusinessType[selectedBusinessType]
-          ? planFeaturesByBusinessType[selectedBusinessType][plan.id as 'gratis' | 'starter' | 'growth' | 'pro']
-          : plan.features,
       cta: {
         ...plan.cta,
-        href: `/industries/${industrySlug}`,
+        href: `/pricing/choose-modules?plan=${plan.id}&industry=${industrySlug}&billing=${billingParam}`,
       },
     };
   });
@@ -135,14 +111,13 @@ export default function PricingPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center max-w-3xl mx-auto"
           >
-            <span className="badge-primary mb-4">Preços transparentes</span>
+            <span className="badge-primary mb-4">Investimento</span>
             <h1 className="heading-xl text-slate-900 mb-6">
-              Planos para cada fase do seu negócio
+              Pacotes modulares de referência
             </h1>
             <p className="body-lg mb-6">
-              Comece no plano Grátis ou escolha Starter, Growth ou Pro. Nos planos pagos,
-              cotas de WhatsApp e notas fiscais estão incluídas; uso acima da cota é
-              faturado automaticamente (Pay-As-You-Go).
+              Escolha o plano, selecione os módulos que fazem sentido para sua operação
+              e receba uma implementação customizada.
             </p>
 
             {/* Business type selector */}
@@ -209,7 +184,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Feature Comparison Table */}
+      {/* Module Comparison Table */}
       <section className="section bg-slate-50">
         <div className="container-marketing">
           <motion.div
@@ -219,88 +194,60 @@ export default function PricingPage() {
             className="text-center mb-12"
           >
             <h2 className="heading-lg text-slate-900 mb-4">
-              Compare todos os recursos
+              Módulos disponíveis por plano
             </h2>
             <p className="body-lg max-w-2xl mx-auto">
-              Veja exatamente o que está incluído em cada plano.
+              Cada plano define quantos módulos você pode escolher e quais ficam
+              disponíveis para seleção.
             </p>
           </motion.div>
 
-          <div className="bg-white rounded-2xl shadow-soft border border-slate-200 overflow-hidden">
-            {/* Header */}
-            <div className="grid grid-cols-5 bg-slate-50 border-b border-slate-200">
-              <div className="p-4 font-semibold text-slate-900">Recurso</div>
-              <div className="p-4 text-center font-semibold text-slate-900">Grátis</div>
-              <div className="p-4 text-center font-semibold text-slate-900">Starter</div>
-              <div className="p-4 text-center font-semibold text-slate-900">Growth</div>
-              <div className="p-4 text-center font-semibold text-slate-900">Pro</div>
-            </div>
-
-            {/* Feature rows */}
-            {featureComparisonForType.map((category, catIndex) => (
-              <div key={catIndex}>
-                {/* Category header */}
-                <div className="grid grid-cols-5 bg-slate-100 border-b border-slate-200">
-                  <div className="col-span-5 p-3 font-semibold text-primary-600">
-                    {category.category}
+          <div className="bg-white rounded-2xl shadow-soft border border-slate-200 overflow-hidden overflow-x-auto">
+            <div className="grid grid-cols-5 min-w-[720px] bg-slate-50 border-b border-slate-200">
+              <div className="p-4 font-semibold text-slate-900">Módulo</div>
+              {planIds.map((planId) => (
+                <div key={planId} className="p-4 text-center font-semibold text-slate-900">
+                  {PLAN_LABELS[planId]}
+                  <div className="text-xs font-normal text-slate-500 mt-1">
+                    até {PLAN_MODULE_LIMITS[planId]} módulos
                   </div>
                 </div>
-                {/* Features */}
-                {category.features.map((feature, featIndex) => (
-                  <div
-                    key={featIndex}
-                    className="grid grid-cols-5 border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="p-4 text-slate-700 text-sm">{feature.name}</div>
-                    <div className="p-4 flex justify-center">
-                      {feature.gratis ? (
+              ))}
+            </div>
+
+            {erpModules.map((module) => (
+              <div
+                key={module.id}
+                className="grid grid-cols-5 min-w-[720px] border-b border-slate-100 hover:bg-slate-50 transition-colors"
+              >
+                <div className="p-4">
+                  <div className="text-sm font-medium text-slate-900">{module.name}</div>
+                  <div className="text-xs text-slate-500 mt-1">{getMinPlanLabel(module.minPlan)}</div>
+                </div>
+                {planIds.map((planId) => {
+                  const available = isModuleAvailableForPlan(module, planId);
+                  return (
+                    <div key={planId} className="p-4 flex justify-center items-center">
+                      {available ? (
                         <svg className="w-5 h-5 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
                       ) : (
-                        <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                        <span className="text-xs text-slate-400">—</span>
                       )}
                     </div>
-                    <div className="p-4 flex justify-center">
-                      {feature.starter ? (
-                        <svg className="w-5 h-5 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="p-4 flex justify-center">
-                      {feature.growth ? (
-                        <svg className="w-5 h-5 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="p-4 flex justify-center">
-                      {feature.pro ? (
-                        <svg className="w-5 h-5 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* Service terms */}
+      <section className="section bg-white border-t border-slate-100">
+        <div className="container-marketing">
+          <ServiceTermsSection />
         </div>
       </section>
 
@@ -327,26 +274,27 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Enterprise CTA */}
+      {/* Custom Project CTA */}
       <section className="section-sm bg-slate-900 text-white">
         <div className="container-marketing">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="heading-lg text-white mb-4">
-                Desenvolvimento Customizado
+                Cada projeto é único
               </h2>
               <p className="text-slate-300 text-lg mb-6">
-                Para indústrias, fábricas e grandes empresas, desenvolvemos sistemas 
-                sob medida que se integram aos seus processos existentes e resolvem 
-                desafios específicos do seu negócio.
+                Os pacotes acima são referências. Na prática, cada implementação 
+                é customizada para os processos, integrações e regras de negócio 
+                do seu cliente. É assim que garantimos que o sistema se adapta 
+                à operação — e não o contrário.
               </p>
               <ul className="space-y-3 mb-8">
                 {[
-                  'Sistemas desenvolvidos sob medida',
-                  'Integração com sistemas legados',
-                  'Automação de processos industriais',
-                  'Dashboards e relatórios personalizados',
-                  'Suporte e evolução contínua',
+                  'Módulos escolhidos conforme a necessidade',
+                  'Fluxos e telas adaptados ao seu processo',
+                  'Integração com sistemas que você já usa',
+                  'Evolução contínua conforme o negócio cresce',
+                  'Suporte dedicado em horário comercial',
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-3">
                     <svg className="w-5 h-5 text-secondary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -357,23 +305,23 @@ export default function PricingPage() {
                 ))}
               </ul>
               <Link href="https://wa.me/5541991626161" target="_blank" className="btn bg-white text-slate-900 hover:bg-slate-100">
-                Solicitar Orçamento
+                Agendar Diagnóstico Gratuito
               </Link>
             </div>
             <div className="bg-slate-800 rounded-2xl p-8">
               <div className="text-center">
                 <div className="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center mx-auto mb-4">
                   <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">Customizado</h3>
+                <h3 className="text-xl font-bold text-white mb-2">Sob Medida</h3>
                 <p className="text-slate-400 mb-6">
-                  Desenvolvimento sob medida para indústrias e grandes empresas
+                  ERP modular customizado para a sua operação
                 </p>
-                <div className="text-4xl font-bold text-white mb-2">Sob Medida</div>
+                <div className="text-4xl font-bold text-white mb-2">Proposta Personalizada</div>
                 <p className="text-slate-400 text-sm">
-                  Orçamento baseado no escopo do projeto
+                  Orçamento baseado nos módulos e customizações do seu projeto
                 </p>
               </div>
             </div>
@@ -383,9 +331,9 @@ export default function PricingPage() {
 
       {/* Final CTA */}
       <CTASection
-        title="Comece sua transformação hoje"
-        description="Comece grátis ou escolha o plano ideal para o seu negócio."
-        primaryCTA={{ text: 'Começar Grátis', href: '/contact' }}
+        title="Pronto para montar seu ERP?"
+        description="Agende um diagnóstico gratuito e receba uma proposta customizada para a sua operação."
+        primaryCTA={{ text: 'Agendar Diagnóstico', href: '/contact' }}
         variant="gradient"
       />
     </>

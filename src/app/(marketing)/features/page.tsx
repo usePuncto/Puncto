@@ -43,8 +43,8 @@ export default function FeaturesPage() {
               Tudo que você precisa para gerenciar seu negócio
             </h1>
             <p className="body-lg">
-              Explore todas as funcionalidades que fazem do Puncto a plataforma
-              mais completa para negócios de serviços.
+              Módulos de gestão que você combina e customiza conforme a necessidade 
+              do seu negócio. O sistema se adapta a você.
             </p>
           </motion.div>
         </div>
@@ -380,9 +380,9 @@ console.log('Agendamento criado:', booking.id);`}</code>
 
       {/* CTA */}
       <CTASection
-        title="Pronto para explorar?"
-        description="Comece gratuitamente e descubra como o Puncto pode simplificar a gestão do seu negócio."
-        primaryCTA={{ text: 'Começar Grátis', href: '/contact' }}
+        title="Pronto para montar seu ERP?"
+        description="Agende um diagnóstico gratuito e descubra quais módulos e customizações fazem sentido para a sua operação."
+        primaryCTA={{ text: 'Agendar Diagnóstico', href: '/contact' }}
         variant="gradient"
       />
     </>

@@ -10,32 +10,32 @@ export const addOnContentByIndustry: Record<string, AddOnContent> = {
   servicos: {
     title: '🧩 Personalize a Puncto do seu jeito',
     description:
-      'Sabemos que cada negócio é único. Por isso, nossa plataforma é modular. Mesmo sendo um prestador de serviços, se você decidir vender lanches na recepção ou precisar de um ponto eletrônico para funcionários, você pode ativar essas funcionalidades extras (Add-ons) individualmente, pagando apenas pelo que usar, sem precisar migrar para um plano mais caro ou mudar de sistema.',
+      'Cada negócio é único — por isso customizamos cada implementação. Escolha os módulos que precisa e nós adaptamos fluxos, telas e regras à sua operação. Precisa de ponto eletrônico, venda de produtos na recepção ou gestão fiscal? Ative os módulos certos sem trocar de sistema.',
   },
   varejo: {
     title: '🧩 O melhor dos dois mundos',
     description:
-      'Seu negócio é híbrido? Sem problemas. Se você tem uma loja de roupas que faz ajustes (serviço) ou uma oficina que vende peças (varejo), você não precisa contratar dois sistemas. Ative funcionalidades de Serviços (como agendamento online ou gestão de equipes) dentro do seu plano de Varejo através dos nossos Add-ons, pagando apenas pelo que faz sentido para sua operação.',
+      'Seu negócio é híbrido? Sem problemas. Combinamos módulos de varejo e serviços e customizamos tudo para a sua operação — loja que faz ajustes, oficina que vende peças, ou qualquer modelo que não cabe em um sistema engessado.',
   },
   empresas: {
     title: '⚙️ Personalize sua Indústria',
     description:
-      'Sabemos que cada fábrica tem seu processo. Precisa de um CRM para sua equipe de vendas externas ou de uma gestão de entregas (Logística)? Você pode ativar módulos de outros segmentos (como o CRM do Plano Pro de Serviços) através de add-ons, montando o ERP perfeito para sua operação híbrida.',
+      'Cada fábrica tem seu processo. Montamos o ERP modular ideal — CRM, logística, produção, estoque — e customizamos cada módulo para a realidade do chão de fábrica e da gestão.',
   },
   saude: {
     title: '🧩 Sua clínica, suas regras',
     description:
-      'Precisa de algo além do padrão? Adicione módulos complementares à sua gestão de saúde. Se a sua clínica cresceu, você pode ativar o controle de Ponto Eletrônico para a equipe da recepção ou a Gestão de Contratos para parcerias com convênios, através de nossos Add-ons pagos, mantendo tudo integrado em um único sistema.',
+      'Sua clínica tem particularidades que um sistema genérico não resolve. Escolha os módulos necessários e nós adaptamos prontuários, agendamentos, convênios e fluxos à forma como sua equipe realmente trabalha.',
   },
   educacao: {
     title: '🧩 Seu processo de ensino, do seu jeito',
     description:
-      'Precisa de recursos além do básico para sua escola, curso ou treinamento? Ative módulos complementares como lembretes automatizados, gestão de turmas e (quando necessário) controles adicionais (ex: materiais e rotinas operacionais) via add-ons pagos. Assim, você adapta a Puncto ao seu modelo sem trocar de plataforma.',
+      'Cada escola ou curso funciona de um jeito. Combinamos módulos de gestão acadêmica, financeira e operacional e customizamos para o seu modelo de ensino — sem forçar sua equipe a mudar a rotina.',
   },
   corporativo: {
     title: '🧩 Um sistema que se molda à sua empresa',
     description:
-      'Seu escritório tem demandas específicas? Adicione funcionalidades de outros segmentos de acordo com a sua necessidade. Se precisar gerenciar a agenda de salas de reunião, controlar o estoque de materiais de escritório ou adicionar um CRM para o time de vendas, você pode habilitar essas ferramentas como add-ons pagos, unificando toda a sua operação corporativa no Puncto.',
+      'Seu escritório tem demandas específicas. Escolha os módulos certos — agenda de salas, estoque, CRM, contratos — e nós adaptamos cada detalhe para unificar sua operação corporativa em um único ERP.',
   },
 };
 

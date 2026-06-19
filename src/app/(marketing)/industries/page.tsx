@@ -22,8 +22,8 @@ export default function IndustriesPage() {
               Soluções específicas para cada tipo de negócio
             </h1>
             <p className="body-lg">
-              Plataforma SaaS para pequenos negócios ou desenvolvimento customizado 
-              para grandes empresas. Soluções adaptadas às necessidades reais de cada setor.
+              ERP modular customizado para cada setor. Escolha os módulos que precisa 
+              e tenha um sistema adaptado à realidade do seu mercado.
             </p>
           </motion.div>
         </div>
@@ -142,9 +142,9 @@ export default function IndustriesPage() {
               Não encontrou seu setor?
             </h2>
             <p className="body-lg mb-8">
-              Seja através da nossa plataforma SaaS ou desenvolvimento customizado, 
-              o Puncto pode ser adaptado para diversos tipos de negócios. Entre em 
-              contato e descubra como podemos ajudar.
+              Cada setor tem suas particularidades. Montamos o pacote de módulos 
+              e customizações certos para o seu tipo de negócio. Entre em contato 
+              e descubra como podemos ajudar.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/contact" className="btn-primary">
@@ -160,7 +160,7 @@ export default function IndustriesPage() {
 
       {/* CTA */}
       <CTASection
-        primaryCTA={{ text: 'Começar Grátis', href: '/contact' }}
+        primaryCTA={{ text: 'Agendar Diagnóstico', href: '/contact' }}
         variant="gradient"
       />
     </>

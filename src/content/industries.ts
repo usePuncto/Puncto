@@ -131,15 +131,15 @@ export const industries = [
     shortName: 'Indústria',
     icon: 'calendar',
     description:
-      'Desenvolvimento customizado para indústrias, fábricas e grandes corporações.',
+      'ERP modular customizado para indústrias, fábricas e grandes corporações.',
     longDescription:
-      'Para empresas que precisam de soluções específicas, desenvolvemos sistemas sob medida que se integram aos processos existentes. Painéis administrativos, automações industriais e sistemas de gestão personalizados.',
+      'Montamos o pacote de módulos ideal e customizamos cada detalhe para os processos da sua operação industrial. Painéis administrativos, automações, integrações e gestão personalizada — tudo adaptado à sua realidade.',
     benefits: [
-      'Sistemas desenvolvidos sob medida',
+      'Módulos escolhidos conforme a necessidade',
       'Integração com sistemas legados',
       'Automação de processos industriais',
       'Dashboards e relatórios personalizados',
-      'Suporte e evolução contínua',
+      'Evolução contínua com o negócio',
     ],
     useCases: [
       'Indústrias e Fábricas',

@@ -25,7 +25,7 @@ export default function Hero() {
             >
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-100 text-primary-700 text-sm font-medium mb-6">
                 <span className="w-2 h-2 bg-primary-500 rounded-full animate-pulse" />
-                Plataforma SaaS + Desenvolvimento Customizado
+                ERP Modular Customizado
               </span>
             </motion.div>
 
@@ -47,8 +47,8 @@ export default function Hero() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              Seja com nossa plataforma de gestão pronta ou com desenvolvimento exclusivo para grandes indústrias, 
-              entregamos a solução exata que a sua operação exige
+              Um ERP modular em que você escolhe os módulos e nós customizamos cada detalhe 
+              para a sua operação. O sistema se adapta ao seu negócio.
             </motion.p>
 
             {/* CTA Buttons */}
@@ -91,19 +91,19 @@ export default function Hero() {
                 <svg className="w-5 h-5 text-secondary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
+                Módulos à sua escolha
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-secondary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Customizado para você
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-5 h-5 text-secondary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
                 Atendimento Humanizado
-              </div>
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-secondary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Projetos Exclusivos
-              </div>
-              <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-secondary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Foco em Resultado
               </div>
             </motion.div>
           </div>

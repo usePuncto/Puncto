@@ -6,11 +6,26 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 
 import LeadCaptureForm from '@/components/marketing/LeadCaptureForm';
+import ServiceTermsSection from '@/components/marketing/ServiceTermsSection';
+import {
+  getModuleById,
+  PLAN_LABELS,
+  type PlanId,
+} from '@/content/modules';
+
+const VALID_PLANS: PlanId[] = ['gratis', 'starter', 'growth', 'pro'];
 
 function ContactContent() {
   const searchParams = useSearchParams();
   const subject = searchParams.get('subject') || undefined;
   const plan = searchParams.get('plan') || undefined;
+  const message = searchParams.get('message') || undefined;
+  const modulesParam = searchParams.get('modules') || '';
+  const selectedModuleIds = modulesParam.split(',').filter(Boolean);
+  const selectedModules = selectedModuleIds
+    .map((id) => getModuleById(id))
+    .filter(Boolean);
+  const planId = plan && VALID_PLANS.includes(plan as PlanId) ? (plan as PlanId) : undefined;
 
   return (
     <>
@@ -27,8 +42,8 @@ function ContactContent() {
               Fale conosco
             </h1>
             <p className="body-lg">
-              Estamos aqui para ajudar. Envie sua mensagem e nossa equipe
-              responderá em até 24 horas úteis.
+              Envie sua mensagem e nossa equipe responderá em até 3 horas úteis
+              no suporte técnico (dias úteis, 9h às 18h).
             </p>
           </motion.div>
         </div>
@@ -126,6 +141,14 @@ function ContactContent() {
                   </li>
                   <li>
                     <Link
+                      href="/pricing#termos-servico"
+                      className="text-primary-600 hover:text-primary-700"
+                    >
+                      Customizações, suporte e atualizações
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
                       href="/features"
                       className="text-primary-600 hover:text-primary-700"
                     >
@@ -142,6 +165,41 @@ function ContactContent() {
               animate={{ opacity: 1, x: 0 }}
               className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-8"
             >
+              {plan && selectedModules.length > 0 && (
+                <div className="bg-primary-50 rounded-lg p-4 mb-6 border border-primary-100">
+                  <h3 className="font-semibold text-primary-900 mb-2">
+                    Resumo da sua seleção
+                  </h3>
+                  <p className="text-primary-800 text-sm mb-3">
+                    Plano <strong>{PLAN_LABELS[plan as PlanId] || plan}</strong> com{' '}
+                    {selectedModules.length} módulo{selectedModules.length !== 1 ? 's' : ''}:
+                  </p>
+                  <ul className="space-y-1">
+                    {selectedModules.map((module) => (
+                      <li key={module!.id} className="text-sm text-primary-700 flex items-center gap-2">
+                        <svg className="w-4 h-4 text-secondary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {module!.name}
+                      </li>
+                    ))}
+                  </ul>
+                  <Link
+                    href={`/pricing/choose-modules?plan=${plan}${modulesParam ? `&modules=${modulesParam}` : ''}`}
+                    className="inline-block mt-3 text-sm text-primary-600 hover:text-primary-700 font-medium"
+                  >
+                    Alterar módulos selecionados
+                  </Link>
+                  <p className="text-xs text-primary-700/80 mt-3 pt-3 border-t border-primary-100">
+                    Inclui até 2h/mês de pequenas customizações nos módulos contratados.
+                    Demandas maiores são orçadas como Desenvolvimento Específico.{' '}
+                    <a href="#termos-servico" className="underline hover:text-primary-900">
+                      Ver detalhes
+                    </a>
+                  </p>
+                </div>
+              )}
+
               {plan === 'enterprise' && (
                 <div className="bg-primary-50 rounded-lg p-4 mb-6">
                   <h3 className="font-semibold text-primary-900">
@@ -157,13 +215,20 @@ function ContactContent() {
               <LeadCaptureForm
                 variant="contact"
                 subject={subject || (plan ? `Interesse no plano ${plan}` : undefined)}
+                defaultMessage={message}
               />
             </motion.div>
           </div>
         </div>
       </section>
 
-      
+      {planId && (
+        <section className="section bg-slate-50 border-t border-slate-100">
+          <div className="container-marketing max-w-5xl">
+            <ServiceTermsSection planId={planId} variant="compact" />
+          </div>
+        </section>
+      )}
     </>
   );
 }

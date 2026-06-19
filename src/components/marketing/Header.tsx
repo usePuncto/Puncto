@@ -60,8 +60,8 @@ export default function Header() {
             >
               Entrar
             </Link>
-            <Link href="/industries" className="btn-primary btn-sm">
-              Começar Grátis
+            <Link href="/contact" className="btn-primary btn-sm">
+              Agendar Diagnóstico
             </Link>
           </div>
 
@@ -128,11 +128,11 @@ export default function Header() {
                   Entrar
                 </Link>
                 <Link
-                  href="/industries"
+                  href="/contact"
                   className="block btn-primary text-center"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  Começar Grátis
+                  Agendar Diagnóstico
                 </Link>
               </div>
 

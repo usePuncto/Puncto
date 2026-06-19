@@ -10,20 +10,21 @@ import { JsonLd, generateOrganizationSchema, generateWebsiteSchema } from '@/lib
 
 export const metadata = {
   title: {
-    default: 'Puncto - Plataforma Completa de Gestão para seu Negócio',
+    default: 'Puncto - ERP Modular Customizado para seu Negócio',
     template: '%s | Puncto',
   },
   description:
-    'Simplifique agendamentos, pagamentos, gestão de equipe e muito mais. Tudo em uma única plataforma para salões, restaurantes, clínicas e mais.',
+    'ERP modular customizado para cada cliente. Escolha os módulos que precisa e tenha um sistema adaptado à sua operação — não o contrário.',
   keywords: [
+    'ERP modular',
+    'ERP customizado',
+    'gestão de negócios',
+    'sistema sob medida',
     'agendamento online',
-    'gestão de salão',
-    'sistema para restaurante',
     'controle de ponto',
     'pagamentos',
     'PIX',
-    'gestão de negócios',
-    'SaaS Brasil',
+    'gestão empresarial Brasil',
   ],
   authors: [{ name: 'Puncto' }],
   creator: 'Puncto',
@@ -38,9 +39,9 @@ export const metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: 'Puncto - Plataforma Completa de Gestão para seu Negócio',
+    title: 'Puncto - ERP Modular Customizado para seu Negócio',
     description:
-      'Simplifique agendamentos, pagamentos, gestão de equipe e muito mais. Tudo em uma única plataforma.',
+      'ERP modular customizado para cada cliente. Escolha os módulos e tenha um sistema adaptado à sua operação.',
     url: 'https://puncto.com.br',
     siteName: 'Puncto',
     locale: 'pt_BR',

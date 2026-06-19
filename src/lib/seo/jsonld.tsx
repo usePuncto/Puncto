@@ -8,7 +8,7 @@ export function generateOrganizationSchema() {
     url: 'https://puncto.com.br',
     logo: 'https://puncto.com.br/logo.svg',
     description:
-      'Plataforma SaaS completa para salões, restaurantes, clínicas e desenvolvimento customizado para grandes empresas e indústrias.',
+      'ERP modular customizado para cada cliente. Escolha os módulos que precisa e tenha um sistema adaptado à sua operação.',
     contactPoint: {
       '@type': 'ContactPoint',
       contactType: 'customer service',

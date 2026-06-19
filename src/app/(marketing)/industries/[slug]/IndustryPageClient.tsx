@@ -39,17 +39,13 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
   const billingParam = isAnnual ? 'annual' : 'monthly';
   const plansForIndustry: PricingPlan[] = pricingPlans.map((plan) => {
     const details = detailsForIndustry?.[plan.id];
-    const checkoutUrl = `/checkout?plan=${plan.id}&industry=${industry.slug}&billing=${billingParam}`;
+    const chooseModulesUrl = `/pricing/choose-modules?plan=${plan.id}&industry=${industry.slug}&billing=${billingParam}`;
     return {
       ...plan,
       description: details?.intro ?? plan.description,
-      features:
-        'planFeatures' in industry && industry.planFeatures
-          ? industry.planFeatures[plan.id as keyof typeof industry.planFeatures]
-          : plan.features,
       cta: {
-        text: plan.id === 'gratis' ? 'Começar Grátis' : 'Começar agora',
-        href: checkoutUrl,
+        text: 'Escolher Módulos',
+        href: chooseModulesUrl,
       },
     };
   });
@@ -119,7 +115,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
 
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
                 <a href="#precos" className="btn-primary btn-lg">
-                  Começar Grátis
+                  Ver Pacotes de Módulos
                   <svg
                     className="w-5 h-5"
                     fill="none"
@@ -287,9 +283,13 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
               viewport={{ once: true }}
               className="mb-12 scroll-mt-24"
             >
-              <h3 className="heading-md text-slate-900 mb-6 text-center">
-                O que está incluído em cada plano
+              <h3 className="heading-md text-slate-900 mb-2 text-center">
+                Pacotes modulares de referência
               </h3>
+              <p className="text-slate-600 text-sm text-center max-w-2xl mx-auto mb-6">
+                Os pacotes abaixo são pontos de partida. Após o diagnóstico, montamos 
+                a combinação de módulos e customizações ideal para a sua operação.
+              </p>
 
               {/* Billing toggle */}
               <div className="flex justify-center mb-8">
@@ -345,10 +345,13 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
               {/* Transparency info box */}
               <div className="mt-8 p-6 md:p-8 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100/80 border border-slate-200 shadow-sm">
                 <h4 className="font-bold text-slate-900 text-lg mb-4">
-                  📋 Transparência: Entenda os limites do seu plano
+                  📋 Como montamos sua proposta
                 </h4>
                 <p className="text-slate-700 mb-6 text-sm leading-relaxed">
-                  Nós crescemos junto com a sua empresa. Nossos planos possuem cotas desenhadas para atender diferentes estágios do seu negócio, garantindo que você só pague por aquilo que realmente precisa.
+                  Os pacotes acima servem como referência de módulos e investimento. 
+                  Na prática, cada implementação é customizada para os processos e 
+                  regras do seu negócio — você escolhe os módulos e nós adaptamos 
+                  cada detalhe.
                 </p>
                 <div className="space-y-5 mb-5">
                   <div className="bg-white/80 rounded-xl p-4 border border-slate-200/60">
@@ -359,7 +362,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
                       <li><strong>Pro:</strong> Até 30 colaboradores.</li>
                     </ul>
                     <p className="text-sm text-slate-500 italic mt-2">
-                      (Sua operação é maior? Fale com nosso time de vendas para montarmos um plano personalizado para o seu tamanho!)
+                      (Sua operação é maior? Fale com nosso time para montarmos um pacote personalizado!)
                     </p>
                   </div>
                   <div className="bg-white/80 rounded-xl p-4 border border-slate-200/60">
@@ -526,7 +529,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
       <CTASection
         title={`Pronto para transformar seu ${industry.shortName.toLowerCase()}?`}
         description="Comece gratuitamente e veja os resultados em poucos dias."
-        primaryCTA={{ text: 'Começar Grátis', href: '#precos' }}
+        primaryCTA={{ text: 'Agendar Diagnóstico', href: '/contact' }}
         variant="gradient"
       />
     </>

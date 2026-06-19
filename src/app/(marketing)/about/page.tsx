@@ -26,13 +26,13 @@ const values = [
   {
     title: 'Modularidade',
     description:
-      'Acreditamos que você só deve pagar pelo que usa. Nossas ferramentas se encaixam como blocos para montar a operação perfeita.',
+      'Você escolhe os módulos e nós montamos o ERP ideal. Pague apenas pelo que sua operação realmente precisa.',
     icon: 'M13 10V3L4 14h7v7l9-11h-7z',
   },
   {
-    title: 'Transparência Absoluta',
+    title: 'Customização Real',
     description:
-      'Sem letras miúdas. Regras claras de limites de planos, cotas visíveis e modelo pay-as-you-go sem surpresas na fatura.',
+      'Cada cliente recebe uma implementação adaptada aos seus processos. O sistema se molda à sua operação, não o contrário.',
     icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
   },
   {
@@ -51,7 +51,7 @@ const values = [
 
 const milestones = [
   { year: '2025', title: 'Fundação', description: 'Puncto nasce para simplificar a gestão de negócios de serviços no Brasil' },
-  { year: '2026', title: 'Lançamento', description: 'Primeira versão da plataforma, um ecossistema modular completo' },
+  { year: '2026', title: 'Lançamento', description: 'Primeira versão do ERP modular customizado, adaptado para cada cliente' },
 ];
 
 export default function AboutPage() {
@@ -67,12 +67,12 @@ export default function AboutPage() {
           >
             <span className="badge-primary mb-4">Sobre nós</span>
             <h1 className="heading-xl text-slate-900 mb-6">
-              Simplificando a gestão de negócios no Brasil
+              ERP modular que se adapta ao seu negócio
             </h1>
             <p className="body-lg">
               Nascemos da frustração de empreendedores que perdiam tempo com
-              sistemas complicados. Nossa missão é trazer tecnologia de ponta para
-              pequenos, médios e grandes negócios de forma simples e acessível.
+              sistemas engessados. Nossa missão é construir tecnologia que se molda
+              à operação de cada cliente — pequeno, médio ou grande.
             </p>
           </motion.div>
         </div>
@@ -96,16 +96,22 @@ export default function AboutPage() {
                   decidimos inverter essa lógica.
                 </p>
                 <p>
-                  Construímos uma plataforma verdadeiramente modular. Para pequenos prestadores 
-                  de serviço e comércios locais, oferecemos agendamento, vitrine digital e controle 
-                  financeiro de forma intuitiva. Conforme crescemos, entendemos que clínicas, 
-                  escritórios corporativos e indústrias também precisavam dessa mesma facilidade, 
-                  mas com governança avançada, módulos de produção (KDS) e automações potentes.
+                  Construímos um ERP verdadeiramente modular. Cada cliente escolhe 
+                  os módulos que precisa — agendamento, estoque, ponto eletrônico, 
+                  fiscal, CRM e muito mais — e nós customizamos a implementação para 
+                  a realidade da sua operação.
                 </p>
                 <p>
-                  Hoje, a Puncto é o motor que impulsiona operações de ponta a ponta. Seja reduzindo 
-                  filas no varejo ou traduzindo ordens de serviço no chão de fábrica, nossa missão é 
-                  democratizar a tecnologia de alto nível com transparência e um modelo justo de pagamento.
+                  Percebemos que vender um sistema pronto, sem adaptação, não funciona. 
+                  Cada negócio tem seus processos, suas regras e seus desafios. Por isso, 
+                  nossa abordagem é simples: entendemos sua operação, montamos os módulos 
+                  certos e ajustamos cada detalhe para que sua equipe trabalhe do jeito 
+                  que já conhece.
+                </p>
+                <p>
+                  Hoje, a Puncto é o motor que impulsiona operações de ponta a ponta — 
+                  de salões e clínicas a fábricas e corporações. Sempre com a mesma 
+                  premissa: o sistema se adapta ao cliente, não o contrário.
                 </p>
               </div>
             </motion.div>
@@ -289,7 +295,7 @@ export default function AboutPage() {
 
       {/* CTA */}
       <CTASection
-        primaryCTA={{ text: 'Começar Grátis', href: '/contact' }}
+        primaryCTA={{ text: 'Agendar Diagnóstico', href: '/contact' }}
         variant="gradient"
       />
     </>
