@@ -80,6 +80,8 @@ export interface Customer {
   lastName: string;
   email?: string;
   phone: string;
+  /** CPF do aluno/cliente (apenas dígitos ou formatado). */
+  cpf?: string;
   /** yyyy-MM-dd */
   birthDate?: string;
   totalBookings: number;

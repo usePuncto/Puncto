@@ -217,7 +217,7 @@ async function getProfessionalStaffEmails(businessId: string, professionalId?: s
 
   const emails = proSnap.docs
     .map((d) => d.data()?.email as string | undefined)
-    .filter((e) => !!e);
+    .filter((e): e is string => Boolean(e));
 
   return Array.from(new Set(emails));
 }

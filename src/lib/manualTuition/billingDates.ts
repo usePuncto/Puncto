@@ -46,6 +46,22 @@ export function computeFirstDueDate(startDateStr: string, dueDayOfMonth: number)
   return new Date(start.getFullYear(), start.getMonth(), day);
 }
 
+export function parseDateStr(dateStr: string): Date {
+  return startOfDay(new Date(dateStr + 'T12:00:00'));
+}
+
+/** Data da 1ª cobrança — usa data personalizada quando informada. */
+export function resolveFirstDueDate(
+  startDate: string,
+  dueDayOfMonth: number,
+  firstInstallmentDueDate?: string | null,
+): Date {
+  if (firstInstallmentDueDate) {
+    return parseDateStr(firstInstallmentDueDate);
+  }
+  return computeFirstDueDate(startDate, dueDayOfMonth);
+}
+
 export function computeNextDueDate(
   fromDueDate: Date,
   billingCycleMonths: number,

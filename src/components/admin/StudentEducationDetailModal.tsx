@@ -9,13 +9,14 @@ import type { StudentSubscription } from '@/types/studentSubscription';
 import type { Payment } from '@/types/payment';
 import { addMonths, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { formatCpfInput } from '@/lib/utils/cpf';
 
 const weekdaysPt = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-function formatBrl(cents: number, currency: string) {
+function formatBrl(cents: number, currency?: string | null) {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
-    currency: currency.toUpperCase(),
+    currency: (currency ?? 'BRL').toUpperCase(),
   }).format(cents / 100);
 }
 
@@ -115,6 +116,9 @@ export function StudentEducationDetailModal({
               {customer.firstName} {customer.lastName}
             </h2>
             <p className="text-sm text-neutral-500">Turmas e mensalidade</p>
+            {customer.cpf && (
+              <p className="text-sm text-neutral-500 mt-0.5">CPF: {formatCpfInput(customer.cpf)}</p>
+            )}
           </div>
           <button
             type="button"
@@ -305,7 +309,7 @@ function SubscriptionRow({ sub }: { sub: StudentSubscription }) {
     <div className="rounded-lg border border-neutral-200 px-3 py-2 text-sm">
       <div className="flex justify-between gap-2">
         <span className="font-medium text-neutral-900">{statusPt[sub.status] ?? sub.status}</span>
-        <span className="tabular-nums">{formatBrlStatic(sub.amount, sub.currency)}</span>
+        <span className="tabular-nums">{formatBrl(sub.amount, sub.currency)}</span>
       </div>
       {sub.tuitionTypeName && (
         <p className="text-xs text-neutral-600 mt-1">Tipo: {sub.tuitionTypeName}</p>
@@ -319,9 +323,3 @@ function SubscriptionRow({ sub }: { sub: StudentSubscription }) {
   );
 }
 
-function formatBrlStatic(cents: number, currency: string) {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: currency.toUpperCase(),
-  }).format(cents / 100);
-}

@@ -16,6 +16,10 @@ export interface ManualTuitionEnrollment {
   frequencyPerWeek: number;
   /** Valor de cada mensalidade/cobrança, em centavos. */
   installmentAmountCents: number;
+  /** Valor da 1ª cobrança quando diferente (ex.: proporcional ao início no meio do mês), em centavos. */
+  firstInstallmentAmountCents?: number;
+  /** Vencimento da 1ª cobrança quando diferente (YYYY-MM-DD). */
+  firstInstallmentDueDate?: string;
   /** Duração total do plano em meses (ex.: 12). */
   planDurationMonths: number;
   /** Data de início do plano (YYYY-MM-DD). */

@@ -6,6 +6,7 @@ import {
   computePlanEndDateStr,
   dueDatesMatch,
   isDueDateWithinPlan,
+  resolveFirstDueDate,
   shouldCreateInstallmentWithDueDate,
   startOfDay,
 } from '@/lib/manualTuition/billingDates';
@@ -32,6 +33,14 @@ function enrollmentFields(data: Record<string, unknown>) {
     installmentAmountCents: Number(
       data.installmentAmountCents ?? data.packageAmountCents ?? data.monthlyAmountCents ?? 0,
     ),
+    firstInstallmentAmountCents:
+      typeof data.firstInstallmentAmountCents === 'number'
+        ? data.firstInstallmentAmountCents
+        : undefined,
+    firstInstallmentDueDate:
+      typeof data.firstInstallmentDueDate === 'string' && data.firstInstallmentDueDate
+        ? data.firstInstallmentDueDate
+        : undefined,
     dueDayOfMonth: Number(data.dueDayOfMonth ?? 10),
     startDate,
     planEndDate,
@@ -42,6 +51,32 @@ function enrollmentFields(data: Record<string, unknown>) {
   };
 }
 
+function resolveInstallmentAmountCents(
+  fields: ReturnType<typeof enrollmentFields>,
+  installmentNumber: number,
+): number {
+  if (
+    installmentNumber === 1 &&
+    fields.firstInstallmentAmountCents != null &&
+    fields.firstInstallmentAmountCents > 0
+  ) {
+    return fields.firstInstallmentAmountCents;
+  }
+  return fields.installmentAmountCents;
+}
+
+function isDivergentFirstInstallment(
+  fields: ReturnType<typeof enrollmentFields>,
+  firstDue: Date,
+): boolean {
+  const standardDue = computeFirstDueDate(fields.startDate, fields.dueDayOfMonth);
+  const amountDivergent =
+    fields.firstInstallmentAmountCents != null &&
+    fields.firstInstallmentAmountCents !== fields.installmentAmountCents;
+  const dateDivergent = !dueDatesMatch(firstDue, standardDue);
+  return amountDivergent || dateDivergent;
+}
+
 async function createInstallment(
   businessId: string,
   enrollmentId: string,
@@ -49,6 +84,7 @@ async function createInstallment(
   dueDate: Date,
   installmentNumber: number,
 ): Promise<void> {
+  const amountCents = resolveInstallmentAmountCents(fields, installmentNumber);
   const now = Timestamp.now();
   await db
     .collection('businesses')
@@ -62,10 +98,13 @@ async function createInstallment(
       planName: fields.planName,
       installmentNumber,
       dueDate: Timestamp.fromDate(dueDate),
-      amountCents: fields.installmentAmountCents,
+      amountCents,
       status: 'pending',
       paidAt: null,
-      notes: null,
+      notes:
+        installmentNumber === 1 && isDivergentFirstInstallment(fields, dueDate)
+          ? 'Primeira mensalidade personalizada'
+          : null,
       createdAt: now,
       updatedAt: now,
     });
@@ -138,7 +177,11 @@ export async function ensureManualTuitionInstallments(businessId: string): Promi
       .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
 
     if (installments.length === 0) {
-      const firstDue = computeFirstDueDate(fields.startDate, fields.dueDayOfMonth);
+      const firstDue = resolveFirstDueDate(
+        fields.startDate,
+        fields.dueDayOfMonth,
+        fields.firstInstallmentDueDate,
+      );
       if (!isDueDateWithinPlan(firstDue, fields.planEndDate)) {
         await maybeCompleteEnrollment(businessId, enrollDoc.id, fields, installments);
         continue;

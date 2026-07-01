@@ -19,8 +19,6 @@ export const sendBookingReminders = onSchedule(
     logger.info('[Reminders] Starting reminder check...');
 
     const now = new Date();
-    const threeHoursLater = new Date(now.getTime() + 3 * 60 * 60 * 1000);
-    const twentyFourHoursLater = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const fortyEightHoursLater = new Date(now.getTime() + 48 * 60 * 60 * 1000);
 
     // Get all businesses
@@ -28,7 +26,6 @@ export const sendBookingReminders = onSchedule(
 
     for (const businessDoc of businessesSnapshot.docs) {
       const businessId = businessDoc.id;
-      const business = businessDoc.data();
 
       // Get bookings in the reminder windows
       const bookingsQuery = db

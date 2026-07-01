@@ -28,6 +28,17 @@ function computeFirstDueDate(startDateStr: string, dueDayOfMonth: number): Date 
   return new Date(start.getFullYear(), start.getMonth(), day);
 }
 
+function resolveFirstDueDate(
+  startDate: string,
+  dueDayOfMonth: number,
+  firstInstallmentDueDate?: string | null,
+): Date {
+  if (firstInstallmentDueDate) {
+    return startOfDay(new Date(firstInstallmentDueDate + 'T12:00:00'));
+  }
+  return computeFirstDueDate(startDate, dueDayOfMonth);
+}
+
 function computeNextDueDate(fromDueDate: Date, billingCycleMonths: number, dueDayOfMonth: number): Date {
   const day = clampDueDay(dueDayOfMonth);
   const cycle = Math.max(1, billingCycleMonths);
@@ -97,6 +108,14 @@ async function ensureManualTuitionInstallments(businessId: string): Promise<numb
     const installmentAmountCents = Number(
       data.installmentAmountCents ?? data.packageAmountCents ?? data.monthlyAmountCents ?? 0,
     );
+    const firstInstallmentAmountCents =
+      typeof data.firstInstallmentAmountCents === 'number'
+        ? data.firstInstallmentAmountCents
+        : undefined;
+    const firstInstallmentDueDate =
+      typeof data.firstInstallmentDueDate === 'string' && data.firstInstallmentDueDate
+        ? data.firstInstallmentDueDate
+        : undefined;
     const dueDayOfMonth = Number(data.dueDayOfMonth ?? 10);
     const startDate = String(data.startDate ?? '');
     const planDurationMonths = Number(data.planDurationMonths ?? 0);
@@ -126,27 +145,46 @@ async function ensureManualTuitionInstallments(businessId: string): Promise<numb
       .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
 
     const now = Timestamp.now();
+    const resolveAmount = (installmentNumber: number) => {
+      if (
+        installmentNumber === 1 &&
+        firstInstallmentAmountCents != null &&
+        firstInstallmentAmountCents > 0
+      ) {
+        return firstInstallmentAmountCents;
+      }
+      return installmentAmountCents;
+    };
+    const resolveNotes = (installmentNumber: number, dueDate: Date) => {
+      if (installmentNumber !== 1) return null;
+      const standardDue = computeFirstDueDate(startDate, dueDayOfMonth);
+      const amountDivergent =
+        firstInstallmentAmountCents != null &&
+        firstInstallmentAmountCents !== installmentAmountCents;
+      const dateDivergent = !dueDatesMatch(dueDate, standardDue);
+      return amountDivergent || dateDivergent ? 'Primeira mensalidade personalizada' : null;
+    };
     const baseFields = {
       businessId,
       enrollmentId: enrollDoc.id,
       customerId: String(data.customerId ?? ''),
       customerName: String(data.customerName ?? ''),
       planName: String(data.planName ?? 'Mensalidade'),
-      amountCents: installmentAmountCents,
       status: 'pending',
       paidAt: null,
-      notes: null,
       createdAt: now,
       updatedAt: now,
     };
 
     if (installments.length === 0) {
-      const firstDue = computeFirstDueDate(startDate, dueDayOfMonth);
+      const firstDue = resolveFirstDueDate(startDate, dueDayOfMonth, firstInstallmentDueDate);
       if (!isDueDateWithinPlan(firstDue, planEndDate)) continue;
       await db.collection('businesses').doc(businessId).collection('manualTuitionInstallments').add({
         ...baseFields,
         installmentNumber: 1,
         dueDate: Timestamp.fromDate(firstDue),
+        amountCents: resolveAmount(1),
+        notes: resolveNotes(1, firstDue),
       });
       created++;
       continue;
@@ -165,6 +203,8 @@ async function ensureManualTuitionInstallments(businessId: string): Promise<numb
       ...baseFields,
       installmentNumber: nextNumber,
       dueDate: Timestamp.fromDate(nextDue),
+      amountCents: resolveAmount(nextNumber),
+      notes: resolveNotes(nextNumber, nextDue),
     });
     created++;
   }

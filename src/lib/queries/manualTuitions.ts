@@ -17,7 +17,9 @@ import {
   computeFirstDueDate,
   computeNextDueDate,
   computePlanEndDateStr,
+  dueDatesMatch,
   isDueDateWithinPlan,
+  resolveFirstDueDate,
 } from '@/lib/manualTuition/billingDates';
 import type {
   ManualTuitionEnrollment,
@@ -57,6 +59,14 @@ function mapEnrollment(docSnap: QueryDocumentSnapshot): ManualTuitionEnrollment 
     billingCycleMonths,
     frequencyPerWeek: Number(data.frequencyPerWeek ?? 0),
     installmentAmountCents,
+    firstInstallmentAmountCents:
+      typeof data.firstInstallmentAmountCents === 'number'
+        ? data.firstInstallmentAmountCents
+        : undefined,
+    firstInstallmentDueDate:
+      typeof data.firstInstallmentDueDate === 'string' && data.firstInstallmentDueDate
+        ? data.firstInstallmentDueDate
+        : undefined,
     planDurationMonths,
     startDate,
     planEndDate,
@@ -160,7 +170,11 @@ export function getNextChargeDisplay(
   }
 
   if (sorted.length === 0) {
-    const first = computeFirstDueDate(enrollment.startDate, enrollment.dueDayOfMonth);
+    const first = resolveFirstDueDate(
+      enrollment.startDate,
+      enrollment.dueDayOfMonth,
+      enrollment.firstInstallmentDueDate,
+    );
     return { label: formatDueDate(first), status: 'scheduled' };
   }
 
@@ -229,6 +243,8 @@ export function useManualTuitionMutations(businessId: string) {
       dueDayOfMonth: number;
       planName?: string;
       notes?: string;
+      firstInstallmentAmountCents?: number;
+      firstInstallmentDueDate?: string;
     }) => {
       const now = Timestamp.now();
       const planEndDate = computePlanEndDateStr(input.startDate, input.planDurationMonths);
@@ -236,10 +252,21 @@ export function useManualTuitionMutations(businessId: string) {
         input.planName?.trim() ||
         buildPlanName(input.billingCycleMonths, input.frequencyPerWeek, input.planDurationMonths);
 
-      const firstDue = computeFirstDueDate(input.startDate, input.dueDayOfMonth);
+      const firstDue = resolveFirstDueDate(
+        input.startDate,
+        input.dueDayOfMonth,
+        input.firstInstallmentDueDate,
+      );
       if (!isDueDateWithinPlan(firstDue, planEndDate)) {
         throw new Error('A primeira cobrança cai após o término do plano. Ajuste as datas ou a duração.');
       }
+
+      const standardFirstDue = computeFirstDueDate(input.startDate, input.dueDayOfMonth);
+      const isDivergentFirst =
+        (input.firstInstallmentAmountCents != null &&
+          input.firstInstallmentAmountCents !== input.installmentAmountCents) ||
+        (input.firstInstallmentDueDate != null &&
+          dueDatesMatch(firstDue, standardFirstDue) === false);
 
       const enrollRef = collection(db, 'businesses', businessId, 'manualTuitionEnrollments');
       const enrollDoc = await addDoc(enrollRef, {
@@ -250,6 +277,8 @@ export function useManualTuitionMutations(businessId: string) {
         billingCycleMonths: input.billingCycleMonths,
         frequencyPerWeek: input.frequencyPerWeek,
         installmentAmountCents: input.installmentAmountCents,
+        firstInstallmentAmountCents: input.firstInstallmentAmountCents ?? null,
+        firstInstallmentDueDate: input.firstInstallmentDueDate ?? null,
         packageAmountCents: input.installmentAmountCents,
         monthlyAmountCents: input.installmentAmountCents,
         planDurationMonths: input.planDurationMonths,
@@ -271,10 +300,10 @@ export function useManualTuitionMutations(businessId: string) {
         planName,
         installmentNumber: 1,
         dueDate: Timestamp.fromDate(firstDue),
-        amountCents: input.installmentAmountCents,
+        amountCents: input.firstInstallmentAmountCents ?? input.installmentAmountCents,
         status: 'pending',
         paidAt: null,
-        notes: null,
+        notes: isDivergentFirst ? 'Primeira mensalidade personalizada' : null,
         createdAt: now,
         updatedAt: now,
       });

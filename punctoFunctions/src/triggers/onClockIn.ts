@@ -21,6 +21,7 @@ interface Shift {
   overtimeHours?: number;
   status: string;
   clockIns: string[];
+  createdAt?: any;
 }
 
 const db = getFirestore();

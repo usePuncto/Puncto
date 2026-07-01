@@ -74,6 +74,7 @@ export function useCreateCustomer(businessId: string) {
       lastName: string;
       phone: string;
       email?: string;
+      cpf?: string;
       birthDate?: string;
       notes?: string;
       tuitionTypeId?: string;
@@ -95,6 +96,7 @@ export function useCreateCustomer(businessId: string) {
         lastName: customerData.lastName.trim(),
         phone: customerData.phone.trim(),
         email: customerData.email?.trim() || '',
+        cpf: customerData.cpf?.trim() || '',
         birthDate: customerData.birthDate || '',
         totalBookings: 0,
         totalSpent: 0,

@@ -29,7 +29,6 @@ export const onBookingCancel = onDocumentUpdated(
       const cancelledBooking = after;
       const serviceId = cancelledBooking.serviceId;
       const professionalId = cancelledBooking.professionalId;
-      const scheduledDateTime = cancelledBooking.scheduledDateTime.toDate();
 
       // Find matching waitlist entries
       let waitlistQuery = db
@@ -61,18 +60,6 @@ export const onBookingCancel = onDocumentUpdated(
         .doc(businessId)
         .collection('bookings')
         .doc();
-
-      // Get service details to calculate end time
-      const serviceDoc = await db
-        .collection('businesses')
-        .doc(businessId)
-        .collection('services')
-        .doc(serviceId)
-        .get();
-
-      const service = serviceDoc.data();
-      const durationMinutes = service?.durationMinutes || 60;
-      const endDateTime = new Date(scheduledDateTime.getTime() + durationMinutes * 60 * 1000);
 
       await newBookingRef.set({
         ...cancelledBooking,

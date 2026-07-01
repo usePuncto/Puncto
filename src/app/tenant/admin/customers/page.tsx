@@ -13,6 +13,7 @@ import { CustomerDetailModal } from '@/components/admin/CustomerDetailModal';
 import { StudentEducationDetailModal } from '@/components/admin/StudentEducationDetailModal';
 import { AnamnesisFormsSection } from '@/components/admin/AnamnesisFormsSection';
 import { formatPhoneInput } from '@/lib/utils/phone';
+import { formatCpfInput } from '@/lib/utils/cpf';
 import { BRAZIL_UFS } from '@/lib/constants/brazilUfs';
 
 export default function AdminCustomersPage() {
@@ -34,6 +35,7 @@ export default function AdminCustomersPage() {
     lastName: '',
     phone: '',
     email: '',
+    cpf: '',
     birthDate: '',
     notes: '',
     tuitionTypeId: '',
@@ -95,10 +97,12 @@ export default function AdminCustomersPage() {
         const phone = (c.phone || '').replace(/\D/g, '');
         const email = (c.email || '').toLowerCase();
         const searchDigits = q.replace(/\D/g, '');
+        const cpfDigits = (c.cpf || '').replace(/\D/g, '');
         return (
           name.includes(q) ||
           email.includes(q) ||
-          (searchDigits.length >= 4 && phone.includes(searchDigits))
+          (searchDigits.length >= 4 && phone.includes(searchDigits)) ||
+          (searchDigits.length >= 4 && cpfDigits.includes(searchDigits))
         );
       });
     }
@@ -139,6 +143,7 @@ export default function AdminCustomersPage() {
         lastName: formData.lastName.trim(),
         phone: formData.phone.trim(),
         email: formData.email.trim() || undefined,
+        cpf: formData.cpf.trim() || undefined,
         birthDate: formData.birthDate || undefined,
         notes: formData.notes.trim() || undefined,
         ...(isEducation && formData.tuitionTypeId ? { tuitionTypeId: formData.tuitionTypeId } : {}),
@@ -171,6 +176,7 @@ export default function AdminCustomersPage() {
         lastName: '',
         phone: '',
         email: '',
+        cpf: '',
         birthDate: '',
         notes: '',
         tuitionTypeId: '',
@@ -285,7 +291,7 @@ export default function AdminCustomersPage() {
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <input
           type="text"
-          placeholder="Buscar por nome, telefone ou e-mail..."
+          placeholder="Buscar por nome, telefone, CPF ou e-mail..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-xs rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
@@ -356,6 +362,18 @@ export default function AdminCustomersPage() {
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                 placeholder="email@exemplo.com"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">CPF</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={14}
+                value={formData.cpf}
+                onChange={(e) => setFormData({ ...formData, cpf: formatCpfInput(e.target.value) })}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                placeholder="000.000.000-00"
               />
             </div>
             <div>

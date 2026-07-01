@@ -188,6 +188,20 @@ function EnrollmentCard({
               {formatPlanPeriod(enrollment)}
               {' · '}
               {formatBrlFromCents(enrollment.installmentAmountCents)} por mensalidade
+              {enrollment.firstInstallmentAmountCents != null &&
+                enrollment.firstInstallmentAmountCents !== enrollment.installmentAmountCents && (
+                  <>
+                    {' · '}
+                    1ª cobrança: {formatBrlFromCents(enrollment.firstInstallmentAmountCents)}
+                  </>
+                )}
+              {enrollment.firstInstallmentDueDate && (
+                <>
+                  {' · '}
+                  1º vencimento:{' '}
+                  {formatDueDate(new Date(enrollment.firstInstallmentDueDate + 'T12:00:00'))}
+                </>
+              )}
               {' · '}
               {formatBillingIntervalLabel(enrollment.billingCycleMonths)}
               {' · '}
@@ -258,6 +272,9 @@ export function ManualTuitionsSection() {
     billingCycleMonths: '1',
     frequencyPerWeek: '2',
     installmentAmountBrl: '',
+    hasDivergentFirstInstallment: false,
+    firstInstallmentAmountBrl: '',
+    firstInstallmentDueDate: '',
     planDurationMonths: '12',
     startDate: new Date().toISOString().split('T')[0],
     dueDayOfMonth: '10',
@@ -413,6 +430,23 @@ export function ManualTuitionsSection() {
       setFormError('Valor da mensalidade inválido');
       return;
     }
+
+    let firstInstallmentAmountCents: number | undefined;
+    let firstInstallmentDueDate: string | undefined;
+    if (form.hasDivergentFirstInstallment) {
+      const firstAmount = parseFloat(form.firstInstallmentAmountBrl.replace(',', '.'));
+      if (isNaN(firstAmount) || firstAmount <= 0) {
+        setFormError('Valor da primeira mensalidade inválido');
+        return;
+      }
+      firstInstallmentAmountCents = Math.round(firstAmount * 100);
+
+      if (!form.firstInstallmentDueDate) {
+        setFormError('Informe o vencimento da primeira mensalidade');
+        return;
+      }
+      firstInstallmentDueDate = form.firstInstallmentDueDate;
+    }
     if (isNaN(dueDayOfMonth) || dueDayOfMonth < 1 || dueDayOfMonth > 28) {
       setFormError('Dia de vencimento deve ser entre 1 e 28');
       return;
@@ -430,6 +464,8 @@ export function ManualTuitionsSection() {
         billingCycleMonths,
         frequencyPerWeek,
         installmentAmountCents: Math.round(installmentAmount * 100),
+        firstInstallmentAmountCents,
+        firstInstallmentDueDate,
         planDurationMonths,
         startDate: form.startDate,
         dueDayOfMonth,
@@ -442,6 +478,9 @@ export function ManualTuitionsSection() {
         billingCycleMonths: '1',
         frequencyPerWeek: '2',
         installmentAmountBrl: '',
+        hasDivergentFirstInstallment: false,
+        firstInstallmentAmountBrl: '',
+        firstInstallmentDueDate: '',
         planDurationMonths: '12',
         startDate: new Date().toISOString().split('T')[0],
         dueDayOfMonth: '10',
@@ -661,8 +700,76 @@ export function ManualTuitionsSection() {
                   required
                 />
                 <p className="text-xs text-neutral-500 mt-1">
-                  Valor de cada cobrança dentro do plano (ex.: R$ 400 por mensalidade).
+                  Valor das cobranças a partir da 2ª mensalidade (ex.: R$ 400 por mês).
                 </p>
+              </div>
+
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.hasDivergentFirstInstallment}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        hasDivergentFirstInstallment: e.target.checked,
+                        firstInstallmentAmountBrl: e.target.checked ? form.firstInstallmentAmountBrl : '',
+                        firstInstallmentDueDate: e.target.checked
+                          ? form.firstInstallmentDueDate || form.startDate
+                          : '',
+                      })
+                    }
+                    className="mt-1 h-4 w-4 rounded border-neutral-300"
+                  />
+                  <span>
+                    <span className="block text-sm font-medium text-neutral-900">
+                      Primeira cobrança personalizada
+                    </span>
+                    <span className="block text-xs text-neutral-600 mt-0.5">
+                      Para alunos que começam no meio do mês com valor e/ou vencimento diferentes
+                      na 1ª cobrança. As demais seguem o valor e as datas normais do plano.
+                    </span>
+                  </span>
+                </label>
+
+                {form.hasDivergentFirstInstallment && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1">
+                        Valor da 1ª mensalidade (R$)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={form.firstInstallmentAmountBrl}
+                        onChange={(e) =>
+                          setForm({ ...form, firstInstallmentAmountBrl: e.target.value })
+                        }
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+                        placeholder="Ex.: 200,00 (proporcional)"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-neutral-700 mb-1">
+                        Vencimento da 1ª mensalidade
+                      </label>
+                      <input
+                        type="date"
+                        value={form.firstInstallmentDueDate}
+                        onChange={(e) =>
+                          setForm({ ...form, firstInstallmentDueDate: e.target.value })
+                        }
+                        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm bg-white"
+                        required
+                      />
+                      <p className="text-xs text-neutral-500 mt-1">
+                        Ex.: data de início das aulas. A 2ª cobrança segue o dia normal do plano.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -688,7 +795,16 @@ export function ManualTuitionsSection() {
                   <input
                     type="date"
                     value={form.startDate}
-                    onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        startDate: e.target.value,
+                        firstInstallmentDueDate:
+                          form.hasDivergentFirstInstallment && !form.firstInstallmentDueDate
+                            ? e.target.value
+                            : form.firstInstallmentDueDate,
+                      })
+                    }
                     className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
                     required
                   />
@@ -751,6 +867,12 @@ export function ManualTuitionsSection() {
                   </strong>
                   {form.installmentAmountBrl &&
                     ` · ${formatBrlFromCents(Math.round(parseFloat(form.installmentAmountBrl.replace(',', '.')) * 100) || 0)} por mensalidade`}
+                  {form.hasDivergentFirstInstallment &&
+                    form.firstInstallmentAmountBrl &&
+                    ` · 1ª cobrança: ${formatBrlFromCents(Math.round(parseFloat(form.firstInstallmentAmountBrl.replace(',', '.')) * 100) || 0)}`}
+                  {form.hasDivergentFirstInstallment &&
+                    form.firstInstallmentDueDate &&
+                    ` · 1º vencimento: ${formatDueDate(new Date(form.firstInstallmentDueDate + 'T12:00:00'))}`}
                 </p>
               )}
 

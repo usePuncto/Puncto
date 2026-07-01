@@ -65,7 +65,7 @@ export const processCommission = onDocumentCreated(
           .collection("businesses")
           .doc(businessId)
           .collection("professionals")
-          .doc(professionalId);
+          .doc(booking.professionalId);
 
         const professionalDoc = await professionalRef.get();
         if (!professionalDoc.exists) {
