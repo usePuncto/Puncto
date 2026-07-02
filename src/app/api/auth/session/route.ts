@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/firebaseAdmin';
+import { updateLastLogin } from '@/lib/auth/user-access';
 
 const SESSION_COOKIE_NAME = '__session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 5; // 5 days (Firebase max is 2 weeks)
@@ -21,9 +22,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const decoded = await auth.verifyIdToken(idToken);
     const sessionCookie = await auth.createSessionCookie(idToken, {
       expiresIn: SESSION_MAX_AGE * 1000,
     });
+
+    try {
+      await updateLastLogin(decoded.uid);
+    } catch (err) {
+      console.warn('[Auth Session] Failed to update lastLoginAt:', err);
+    }
 
     const response = NextResponse.json({ ok: true });
     response.cookies.set(SESSION_COOKIE_NAME, sessionCookie, {

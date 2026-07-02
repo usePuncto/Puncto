@@ -207,7 +207,9 @@ export default function AdminCustomersPage() {
       await queryClient.invalidateQueries({ queryKey: ['customers', business.id] });
       if (data.emailSent) {
         window.alert(
-          `Convite enviado para ${customer.email}.\n\nA senha inicial é a data de nascimento no formato DDMMAAAA (ex.: ${data.temporaryPassword}).\n\nPeça ao aluno a verificar a caixa de entrada e o spam.`,
+          data.resent
+            ? `Instruções de acesso reenviadas para ${customer.email}.`
+            : `Convite enviado para ${customer.email}.\n\nA senha inicial é a data de nascimento no formato DDMMAAAA (ex.: ${data.temporaryPassword}).\n\nPeça ao aluno a verificar a caixa de entrada e o spam.`,
         );
       } else {
         window.alert(
@@ -564,13 +566,22 @@ export default function AdminCustomersPage() {
                     <td className="px-6 py-4 text-right text-sm">
                       <div className="flex justify-end gap-2">
                         {customer.studentUserId || customer.studentAccessEnabled ? (
-                          <span
-                            role="status"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex cursor-default select-none items-center rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-400"
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCreateStudentAccess(customer);
+                            }}
+                            disabled={
+                              !customer.email ||
+                              !customer.birthDate ||
+                              accessLoadingId === customer.id
+                            }
+                            title="Reenviar instruções de acesso por e-mail"
+                            className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
                           >
-                            Criado
-                          </span>
+                            {accessLoadingId === customer.id ? 'Enviando...' : 'Reenviar acesso'}
+                          </button>
                         ) : (
                           <button
                             type="button"

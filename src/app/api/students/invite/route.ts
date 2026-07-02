@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { createUser } from '@/lib/auth/create-user';
-import { sendEmail } from '@/lib/messaging/email';
+import { sendStudentAccessEmail } from '@/lib/auth/send-access-email';
 
 async function canManageStudents(uid: string, businessId: string) {
   const user = await auth.getUser(uid);
@@ -12,14 +12,6 @@ async function canManageStudents(uid: string, businessId: string) {
   if (role === 'owner' || role === 'manager') return true;
   const staffSnap = await db.collection('businesses').doc(businessId).collection('staff').doc(uid).get();
   return Boolean((staffSnap.data()?.permissions as Record<string, boolean> | undefined)?.manageBookings);
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
 }
 
 function passwordFromBirthDate(birthDate?: string): string | null {
@@ -67,6 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     const customerData = customerSnap.data() as { firstName?: string; birthDate?: string } | undefined;
+    const normalizedEmail = email.trim().toLowerCase();
     const tempPassword = passwordFromBirthDate(customerData?.birthDate);
     if (!tempPassword) {
       return NextResponse.json(
@@ -74,26 +67,57 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    const created = await createUser({
-      email: email.trim().toLowerCase(),
-      password: tempPassword,
-      displayName: displayName || customerData?.firstName || 'Aluno',
-      userType: 'student',
-      customClaims: {
-        studentBusinessId: businessId,
-        studentCustomerId: customerId,
-      },
-      additionalData: {
-        studentBusinessId: businessId,
-        studentCustomerId: customerId,
-      },
-    });
+
+    let userId: string;
+    let isResend = false;
+
+    const existingCustomerUserId = (customerSnap.data() as { studentUserId?: string } | undefined)?.studentUserId;
+    if (existingCustomerUserId) {
+      userId = existingCustomerUserId;
+      isResend = true;
+      await auth.updateUser(userId, { password: tempPassword });
+    } else {
+      try {
+        const created = await createUser({
+          email: normalizedEmail,
+          password: tempPassword,
+          displayName: displayName || customerData?.firstName || 'Aluno',
+          userType: 'student',
+          customClaims: {
+            studentBusinessId: businessId,
+            studentCustomerId: customerId,
+          },
+          additionalData: {
+            studentBusinessId: businessId,
+            studentCustomerId: customerId,
+          },
+        });
+        userId = created.userId;
+      } catch (createErr: unknown) {
+        const code = (createErr as { message?: string })?.message || '';
+        if (!code.includes('email-already-exists') && !code.includes('already in use')) {
+          throw createErr;
+        }
+        const existingUser = await auth.getUserByEmail(normalizedEmail);
+        userId = existingUser.uid;
+        isResend = true;
+        await auth.updateUser(userId, {
+          password: tempPassword,
+          displayName: displayName || customerData?.firstName || 'Aluno',
+        });
+        await auth.setCustomUserClaims(userId, {
+          userType: 'student',
+          studentBusinessId: businessId,
+          studentCustomerId: customerId,
+        });
+      }
+    }
 
     await customerRef.set(
       {
-        studentUserId: created.userId,
+        studentUserId: userId,
         studentAccessEnabled: true,
-        userId: created.userId,
+        userId,
         updatedAt: Timestamp.now(),
       },
       { merge: true }
@@ -103,38 +127,20 @@ export async function POST(request: NextRequest) {
     const loginUrl = `${baseUrl}/auth/student/login?subdomain=${encodeURIComponent(businessId)}`;
     const studentName = displayName || `${customerData?.firstName || ''}`.trim() || 'Aluno';
 
-    let emailSent = false;
-    try {
-      const result = await sendEmail({
-        to: email.trim().toLowerCase(),
-        toNames: studentName,
-        subject: 'Acesso ao portal do aluno — Puncto',
-        html: `
-          <p>Olá, ${escapeHtml(studentName)}!</p>
-          <p>Foi criado o seu acesso ao <strong>portal do aluno</strong> da instituição.</p>
-          <p><strong>Senha inicial:</strong> sua data de nascimento no formato <strong>DDMMAAAA</strong> (somente números).<br/>
-          Ex.: nascimento em 15/03/2010 → senha <code>15032010</code>.</p>
-          <p>Depois do primeiro acesso você pode alterar a senha nas configurações da conta, se disponível.</p>
-          <p><a href="${loginUrl}" style="display:inline-block;margin-top:12px;padding:10px 16px;background:#171717;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Abrir login do aluno</a></p>
-          <p style="font-size:13px;color:#555;">Ou copie o endereço: ${loginUrl}</p>
-          <p>— Equipe Puncto</p>
-        `,
-        text: `Olá, ${studentName}. Acesso ao portal do aluno criado. Senha inicial: data de nascimento em DDMMAAAA (ex.: 15032010). Login: ${loginUrl}`,
-      });
-      emailSent = Boolean(result.success);
-      if (!result.success && result.error) {
-        console.warn('[students/invite] Email:', result.error);
-      }
-    } catch (mailErr) {
-      console.warn('[students/invite] Falha ao enviar e-mail:', mailErr);
-    }
+    const emailSent = await sendStudentAccessEmail({
+      email: normalizedEmail,
+      studentName,
+      loginUrl,
+      temporaryPassword: tempPassword,
+    });
 
     return NextResponse.json({
       success: true,
-      studentUserId: created.userId,
+      studentUserId: userId,
       temporaryPassword: tempPassword,
       emailSent,
       loginUrl,
+      resent: isResend,
     });
   } catch (error: any) {
     console.error('[students/invite] Error:', error);

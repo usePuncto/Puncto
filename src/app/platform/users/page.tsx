@@ -14,6 +14,9 @@ interface User {
   businessRoles?: Record<string, 'owner' | 'manager' | 'professional'>;
   businesses?: Array<{ id: string; role: string; displayName?: string | null }>;
   createdAt?: string;
+  lastAccessAt?: string | null;
+  accountStatus?: 'active' | 'pending_first_login';
+  canResendInvite?: boolean;
 }
 
 function roleLabel(role: string): string {
@@ -37,10 +40,29 @@ function userRoleLabels(user: User): string[] {
   return [];
 }
 
+function accountStatusLabel(status?: User['accountStatus']): string {
+  if (status === 'active') return 'Conta ativa';
+  if (status === 'pending_first_login') return 'Aguardando 1º acesso';
+  return 'Desconhecido';
+}
+
+function accountStatusClass(status?: User['accountStatus']): string {
+  if (status === 'active') return 'bg-green-100 text-green-800';
+  if (status === 'pending_first_login') return 'bg-amber-100 text-amber-800';
+  return 'bg-gray-100 text-gray-800';
+}
+
+function formatDateTime(iso?: string | null): string {
+  if (!iso) return 'Nunca acessou';
+  return new Date(iso).toLocaleString('pt-BR');
+}
+
 export default function PlatformUsersPage() {
   const { firebaseUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resendingId, setResendingId] = useState<string | null>(null);
+  const [resendMessage, setResendMessage] = useState<{ userId: string; text: string } | null>(null);
   const [filters, setFilters] = useState({
     businessId: '',
     role: '',
@@ -90,6 +112,30 @@ export default function PlatformUsersPage() {
       console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendInvite = async (user: User) => {
+    if (!firebaseUser || !user.canResendInvite) return;
+    setResendingId(user.id);
+    setResendMessage(null);
+    try {
+      const token = await firebaseUser.getIdToken();
+      const response = await fetch('/api/platform/users/resend-invite', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: user.id }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Erro ao reenviar convite');
+      setResendMessage({ userId: user.id, text: data.message || 'Convite reenviado.' });
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Erro ao reenviar convite');
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -172,7 +218,16 @@ export default function PlatformUsersPage() {
                   Negócios
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Último acesso
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Criado em
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ações
                 </th>
               </tr>
             </thead>
@@ -240,10 +295,36 @@ export default function PlatformUsersPage() {
                       )}
                     </div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${accountStatusClass(user.accountStatus)}`}
+                    >
+                      {accountStatusLabel(user.accountStatus)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {formatDateTime(user.lastAccessAt)}
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {user.createdAt
                       ? new Date(user.createdAt).toLocaleDateString('pt-BR')
                       : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    {user.canResendInvite ? (
+                      <button
+                        onClick={() => handleResendInvite(user)}
+                        disabled={resendingId === user.id}
+                        className="rounded border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                      >
+                        {resendingId === user.id ? 'Enviando...' : 'Reenviar convite'}
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-400">—</span>
+                    )}
+                    {resendMessage?.userId === user.id && (
+                      <p className="mt-1 text-xs text-green-600">{resendMessage.text}</p>
+                    )}
                   </td>
                 </tr>
               ))}

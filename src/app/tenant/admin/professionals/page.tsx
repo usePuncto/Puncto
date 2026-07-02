@@ -538,6 +538,16 @@ export default function AdminProfessionalsPage() {
                   {invitingId === professional.id ? 'Enviando...' : 'Convidar'}
                 </button>
               )}
+              {professional.email && professional.userId && !isOwnerProfessional(professional) && (
+                <button
+                  onClick={() => handleInvite(professional)}
+                  disabled={!!invitingId}
+                  className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+                  title="Reenviar e-mail com novo link para definir senha"
+                >
+                  {invitingId === professional.id ? 'Enviando...' : 'Reenviar convite'}
+                </button>
+              )}
               {!isOwnerProfessional(professional) && (
                 <button
                   onClick={() => handleDelete(professional)}

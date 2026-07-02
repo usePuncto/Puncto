@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, db } from '@/lib/firebaseAdmin';
+import { getAccountAccessStatus, getLastAccessIso } from '@/lib/auth/user-access';
 
 /**
  * Verify platform admin access
@@ -79,6 +80,15 @@ export async function GET(request: NextRequest) {
           userData.businessRoles = customClaims.businessRoles || {};
           userData.studentBusinessId =
             (customClaims.studentBusinessId as string) || userData.studentBusinessId;
+          userData.professionalId = customClaims.professionalId as string | undefined;
+          userData.studentCustomerId = customClaims.studentCustomerId as string | undefined;
+
+          const firestoreLastLogin = data.lastLoginAt?.toDate?.() ?? null;
+          userData.lastAccessAt = getLastAccessIso(userRecord, firestoreLastLogin);
+          userData.accountStatus = getAccountAccessStatus(userRecord);
+          userData.canResendInvite =
+            userData.accountStatus === 'pending_first_login' &&
+            (userData.userType === 'business_user' || userData.userType === 'student');
 
           // Get businesses user belongs to
           const businessRoles = customClaims.businessRoles || {};
