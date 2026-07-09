@@ -154,6 +154,14 @@ service cloud.firestore {
                        isPlatformAdmin();
       }
 
+      // Educação: aulas experimentais (aluno visitante em turma/data específica)
+      match /experimentalLessons/{lessonId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow write: if isBusinessOwner(businessId) ||
+                       hasPermission(businessId, 'manageBookings') ||
+                       isPlatformAdmin();
+      }
+
       // Educação: registros de chamada por turma/aluno/data
       match /attendanceRollCalls/{recordId} {
         allow read: if isBusinessStaff(businessId) || isPlatformAdmin();

@@ -10,6 +10,7 @@ import type { Payment } from '@/types/payment';
 import { addMonths, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCpfInput } from '@/lib/utils/cpf';
+import { modalityBadgeClass, studentModalityLabel } from '@/lib/education/studentModality';
 
 const weekdaysPt = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -118,6 +119,13 @@ export function StudentEducationDetailModal({
             <p className="text-sm text-neutral-500">Turmas e mensalidade</p>
             {customer.cpf && (
               <p className="text-sm text-neutral-500 mt-0.5">CPF: {formatCpfInput(customer.cpf)}</p>
+            )}
+            {customer.modality && (
+              <span
+                className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${modalityBadgeClass(customer.modality)}`}
+              >
+                {studentModalityLabel(customer.modality)}
+              </span>
             )}
           </div>
           <button

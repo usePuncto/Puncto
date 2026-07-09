@@ -65,6 +65,7 @@ const educationAdminNavItems: NavItem[] = [
   { href: '/tenant/admin/eventos', key: 'events', icon: '🎉', feature: 'scheduling' },
   { href: '/tenant/admin/professionals', key: 'professionals', icon: '👥', feature: 'scheduling' },
   { href: '/tenant/admin/customers', key: 'students', icon: '👤', feature: 'crm' },
+  { href: '/tenant/admin/aulas-experimentais', key: 'experimentalLessons', icon: '🧪', feature: 'scheduling' },
   { href: '/tenant/admin/turmas', key: 'turmas', icon: '🎓', feature: 'scheduling' },
   { href: '/tenant/admin/attendance', key: 'rollCall', icon: '📝', feature: 'scheduling' },
   { href: '/tenant/admin/payments', key: 'payments', icon: '💳', feature: 'payments' },

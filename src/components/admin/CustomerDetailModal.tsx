@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Customer } from '@/types/booking';
+import { Customer, type StudentModality } from '@/types/booking';
 import { useBookings } from '@/lib/queries/bookings';
 import { useUpdateCustomer } from '@/lib/queries/customers';
 import { useTuitionTypes } from '@/lib/queries/tuitionTypes';
@@ -24,6 +24,7 @@ import { printPrescription } from '@/lib/utils/prescriptionPrint';
 import { formatPhoneInput } from '@/lib/utils/phone';
 import { formatCpfInput } from '@/lib/utils/cpf';
 import { BRAZIL_UFS } from '@/lib/constants/brazilUfs';
+import { STUDENT_MODALITY_OPTIONS } from '@/lib/education/studentModality';
 
 function normalizePhone(phone: string | undefined): string {
   if (!phone) return '';
@@ -623,6 +624,7 @@ export function CustomerDetailModal({
     birthDate: customer.birthDate || '',
     notes: customer.notes || '',
     tuitionTypeId: customer.tuitionTypeId || '',
+    modality: (customer.modality || '') as '' | StudentModality,
     address: {
       street: customer.address?.street ?? '',
       complement: customer.address?.complement ?? '',
@@ -641,6 +643,7 @@ export function CustomerDetailModal({
       birthDate: customer.birthDate || '',
       notes: customer.notes || '',
       tuitionTypeId: customer.tuitionTypeId || '',
+      modality: (customer.modality || '') as '' | StudentModality,
       address: {
         street: customer.address?.street ?? '',
         complement: customer.address?.complement ?? '',
@@ -659,6 +662,7 @@ export function CustomerDetailModal({
     customer.birthDate,
     customer.notes,
     customer.tuitionTypeId,
+    customer.modality,
     customer.address?.street,
     customer.address?.complement,
     customer.address?.neighborhood,
@@ -712,6 +716,7 @@ export function CustomerDetailModal({
             state: formData.address.state.trim(),
           },
           ...(isEducation ? { tuitionTypeId: formData.tuitionTypeId.trim() } : {}),
+          ...(isEducation ? { modality: formData.modality || undefined } : {}),
         },
       });
 
@@ -976,6 +981,27 @@ export function CustomerDetailModal({
                 </div>
               </div>
               {isEducation && (
+                <>
+                <div>
+                  <label className="block text-sm font-medium text-neutral-700 mb-1">Modalidade</label>
+                  <select
+                    value={formData.modality}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        modality: e.target.value as '' | StudentModality,
+                      })
+                    }
+                    className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  >
+                    <option value="">Nenhuma</option>
+                    {STUDENT_MODALITY_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-neutral-700 mb-1">Tipo de mensalidade</label>
                   <select
@@ -995,6 +1021,7 @@ export function CustomerDetailModal({
                     no portal para ele pagar e ativar a recorrência. Tipos em Pagamentos.
                   </p>
                 </div>
+                </>
               )}
               <div className="flex items-center gap-4 text-sm text-neutral-600">
                 <span>Agendamentos: {customer.totalBookings}</span>

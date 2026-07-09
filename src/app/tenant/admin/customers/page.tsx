@@ -15,6 +15,8 @@ import { AnamnesisFormsSection } from '@/components/admin/AnamnesisFormsSection'
 import { formatPhoneInput } from '@/lib/utils/phone';
 import { formatCpfInput } from '@/lib/utils/cpf';
 import { BRAZIL_UFS } from '@/lib/constants/brazilUfs';
+import { STUDENT_MODALITY_OPTIONS, modalityBadgeClass, studentModalityLabel } from '@/lib/education/studentModality';
+import type { StudentModality } from '@/types/booking';
 
 export default function AdminCustomersPage() {
   const { business } = useBusiness();
@@ -30,6 +32,7 @@ export default function AdminCustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'recent' | 'spent' | 'bookings'>('name');
+  const [modalityFilter, setModalityFilter] = useState<'' | StudentModality | 'none'>('');
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -39,6 +42,7 @@ export default function AdminCustomersPage() {
     birthDate: '',
     notes: '',
     tuitionTypeId: '',
+    modality: '' as '' | StudentModality,
     address: {
       street: '',
       complement: '',
@@ -90,9 +94,9 @@ export default function AdminCustomersPage() {
 
   const filteredAndSorted = useMemo(() => {
     const q = search.toLowerCase().trim();
-    let list = customers;
+    let list = isEducation ? customers.filter((c) => !c.isExperimentalStudent) : customers;
     if (q) {
-      list = customers.filter((c) => {
+      list = list.filter((c) => {
         const name = `${c.firstName} ${c.lastName}`.toLowerCase();
         const phone = (c.phone || '').replace(/\D/g, '');
         const email = (c.email || '').toLowerCase();
@@ -106,8 +110,15 @@ export default function AdminCustomersPage() {
         );
       });
     }
+    if (isEducation && modalityFilter) {
+      list =
+        modalityFilter === 'none'
+          ? list.filter((c) => !c.modality)
+          : list.filter((c) => c.modality === modalityFilter);
+    }
+    const effectiveSort = isEducation ? 'name' : sortBy;
     return [...list].sort((a, b) => {
-      switch (sortBy) {
+      switch (effectiveSort) {
         case 'name': {
           const na = `${a.firstName} ${a.lastName}`.toLowerCase();
           const nb = `${b.firstName} ${b.lastName}`.toLowerCase();
@@ -128,7 +139,12 @@ export default function AdminCustomersPage() {
           return 0;
       }
     });
-  }, [customers, search, sortBy]);
+  }, [customers, search, sortBy, modalityFilter, isEducation]);
+
+  const educationListTotal = useMemo(
+    () => (isEducation ? customers.filter((c) => !c.isExperimentalStudent).length : customers.length),
+    [customers, isEducation],
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -147,6 +163,7 @@ export default function AdminCustomersPage() {
         birthDate: formData.birthDate || undefined,
         notes: formData.notes.trim() || undefined,
         ...(isEducation && formData.tuitionTypeId ? { tuitionTypeId: formData.tuitionTypeId } : {}),
+        ...(isEducation && formData.modality ? { modality: formData.modality } : {}),
         address: formData.address,
       });
 
@@ -180,6 +197,7 @@ export default function AdminCustomersPage() {
         birthDate: '',
         notes: '',
         tuitionTypeId: '',
+        modality: '',
         address: { street: '', complement: '', neighborhood: '', city: '', state: '' },
       });
     } catch (err: any) {
@@ -299,18 +317,39 @@ export default function AdminCustomersPage() {
           className="max-w-xs rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
         />
         <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          value={isEducation ? modalityFilter : sortBy}
+          onChange={(e) => {
+            if (isEducation) {
+              setModalityFilter(e.target.value as '' | StudentModality | 'none');
+            } else {
+              setSortBy(e.target.value as typeof sortBy);
+            }
+          }}
           className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
         >
-          <option value="name">Nome (A–Z)</option>
-          <option value="recent">Mais recentes primeiro</option>
-          <option value="spent">Maior gasto</option>
-          <option value="bookings">Mais agendamentos</option>
+          {isEducation ? (
+            <>
+              <option value="">Todas as modalidades</option>
+              {STUDENT_MODALITY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+              <option value="none">Sem modalidade</option>
+            </>
+          ) : (
+            <>
+              <option value="name">Nome (A–Z)</option>
+              <option value="recent">Mais recentes primeiro</option>
+              <option value="spent">Maior gasto</option>
+              <option value="bookings">Mais agendamentos</option>
+            </>
+          )}
         </select>
-        {search && (
+        {(search || (isEducation && modalityFilter)) && (
           <span className="text-sm text-neutral-500">
-            {filteredAndSorted.length} de {customers.length} {patientsLabel.toLowerCase()}
+            {filteredAndSorted.length} de {isEducation ? educationListTotal : customers.length}{' '}
+            {patientsLabel.toLowerCase()}
           </span>
         )}
       </div>
@@ -481,6 +520,27 @@ export default function AdminCustomersPage() {
               </div>
             </div>
             {isEducation && (
+              <>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Modalidade</label>
+                <select
+                  value={formData.modality}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      modality: e.target.value as '' | StudentModality,
+                    })
+                  }
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                >
+                  <option value="">Selecione...</option>
+                  {STUDENT_MODALITY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-1">Tipo de mensalidade</label>
                 <select
@@ -499,6 +559,7 @@ export default function AdminCustomersPage() {
                   Com e-mail e valor sugerido no tipo (Pagamentos), a mensalidade é preparada no portal ao cadastrar.
                 </p>
               </div>
+              </>
             )}
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex gap-2">
@@ -531,6 +592,9 @@ export default function AdminCustomersPage() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Nome</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Contato</th>
+                {isEducation && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Modalidade</th>
+                )}
                 {!isEducation && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-neutral-500 uppercase">Agendamentos</th>
                 )}
@@ -556,6 +620,15 @@ export default function AdminCustomersPage() {
                     <div>{customer.email || '-'}</div>
                     {customer.phone && <div className="text-neutral-500">{customer.phone}</div>}
                   </td>
+                  {isEducation && (
+                    <td className="px-6 py-4 text-sm">
+                      <span
+                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${modalityBadgeClass(customer.modality)}`}
+                      >
+                        {studentModalityLabel(customer.modality)}
+                      </span>
+                    </td>
+                  )}
                   {!isEducation && <td className="px-6 py-4 text-sm">{customer.totalBookings}</td>}
                   {!isEducation && (
                     <td className="px-6 py-4 text-sm font-medium">

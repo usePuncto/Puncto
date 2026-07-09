@@ -21,6 +21,8 @@ export interface Turma {
   studentIds: string[];
   /** Dias e horários de aula da turma */
   schedules: TurmaScheduleSlot[];
+  /** Aula individual VIP (máx. 1 aluno) */
+  isVip?: boolean;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;
 }

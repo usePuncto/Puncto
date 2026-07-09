@@ -219,6 +219,14 @@
         { "fieldPath": "turmaId", "order": "ASCENDING" },
         { "fieldPath": "requestedDate", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "experimentalLessons",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "turmaId", "order": "ASCENDING" },
+        { "fieldPath": "date", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

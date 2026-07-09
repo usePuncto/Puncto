@@ -1,5 +1,7 @@
 import { Timestamp } from 'firebase/firestore';
 
+export type StudentModality = 'presencial' | 'online' | 'vip';
+
 export interface CustomerData {
   firstName: string;
   lastName: string;
@@ -110,6 +112,10 @@ export interface Customer {
   stripeCustomerId?: string;
   /** Tipo de mensalidade padrão (tuitionTypes/{id}) — educação */
   tuitionTypeId?: string;
+  /** Aluno cadastrado apenas para aulas experimentais (não aparece em Alunos). */
+  isExperimentalStudent?: boolean;
+  /** Modalidade do aluno — educação */
+  modality?: StudentModality;
   address?: CustomerAddress;
   createdAt: Timestamp | Date;
   updatedAt: Timestamp | Date;

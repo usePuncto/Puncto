@@ -9,7 +9,7 @@ import {
   deleteField,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Customer, CustomerAddress } from '@/types/booking';
+import { Customer, CustomerAddress, type StudentModality } from '@/types/booking';
 
 function normalizeCustomerAddress(input: {
   street?: string;
@@ -78,6 +78,8 @@ export function useCreateCustomer(businessId: string) {
       birthDate?: string;
       notes?: string;
       tuitionTypeId?: string;
+      isExperimentalStudent?: boolean;
+      modality?: StudentModality;
       address?: {
         street?: string;
         complement?: string;
@@ -103,6 +105,8 @@ export function useCreateCustomer(businessId: string) {
         consentGiven: true,
         notes: customerData.notes?.trim() || '',
         ...(customerData.tuitionTypeId ? { tuitionTypeId: customerData.tuitionTypeId } : {}),
+        ...(customerData.isExperimentalStudent ? { isExperimentalStudent: true } : {}),
+        ...(customerData.modality ? { modality: customerData.modality } : {}),
         ...(address && hasAnyAddressField(address) ? { address } : {}),
         createdAt: now,
         updatedAt: now,
@@ -139,6 +143,14 @@ export function useUpdateCustomer(businessId: string) {
 
       if ('tuitionTypeId' in sanitizedUpdates && sanitizedUpdates.tuitionTypeId === '') {
         sanitizedUpdates.tuitionTypeId = deleteField();
+      }
+
+      if ('isExperimentalStudent' in sanitizedUpdates && sanitizedUpdates.isExperimentalStudent === false) {
+        sanitizedUpdates.isExperimentalStudent = deleteField();
+      }
+
+      if ('modality' in sanitizedUpdates && !sanitizedUpdates.modality) {
+        sanitizedUpdates.modality = deleteField();
       }
 
       await updateDoc(customerRef, {

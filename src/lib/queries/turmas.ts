@@ -28,6 +28,7 @@ function mapTurmaDoc(docSnap: QueryDocumentSnapshot): Turma {
     typeof data.maxStudents === 'number' && Number.isFinite(data.maxStudents) && data.maxStudents > 0
       ? Math.floor(data.maxStudents)
       : undefined;
+  const isVip = data.isVip === true;
   return {
     id: docSnap.id,
     businessId: (data.businessId as string) || '',
@@ -37,6 +38,7 @@ function mapTurmaDoc(docSnap: QueryDocumentSnapshot): Turma {
     professionalId,
     studentIds: Array.isArray(data.studentIds) ? (data.studentIds as string[]) : [],
     schedules,
+    isVip,
     createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() || data.createdAt,
     updatedAt: (data.updatedAt as { toDate?: () => Date })?.toDate?.() || data.updatedAt,
   } as Turma;
@@ -67,6 +69,9 @@ export function useCreateTurma(businessId: string) {
       description?: string;
       schedules?: TurmaScheduleSlot[];
       maxStudents?: number;
+      isVip?: boolean;
+      professionalId?: string;
+      studentIds?: string[];
     }) => {
       const ref = collection(db, 'businesses', businessId, 'turmas');
       const now = Timestamp.now();
@@ -74,13 +79,22 @@ export function useCreateTurma(businessId: string) {
         typeof input.maxStudents === 'number' && Number.isFinite(input.maxStudents) && input.maxStudents > 0
           ? Math.floor(input.maxStudents)
           : undefined;
+      const professionalId =
+        typeof input.professionalId === 'string' && input.professionalId.trim() !== ''
+          ? input.professionalId.trim()
+          : undefined;
+      const studentIds = Array.isArray(input.studentIds)
+        ? [...new Set(input.studentIds.filter((id) => typeof id === 'string' && id.trim() !== ''))]
+        : [];
       const data = {
         businessId,
         name: input.name.trim(),
         description: (input.description || '').trim(),
-        studentIds: [] as string[],
+        studentIds,
         schedules: input.schedules || [],
         ...(normalizedMaxStudents ? { maxStudents: normalizedMaxStudents } : {}),
+        ...(input.isVip ? { isVip: true } : {}),
+        ...(professionalId ? { professionalId } : {}),
         createdAt: now,
         updatedAt: now,
       };

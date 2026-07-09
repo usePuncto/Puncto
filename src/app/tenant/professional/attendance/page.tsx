@@ -16,6 +16,7 @@ import { useTurmas } from '@/lib/queries/turmas';
 import { useCustomers } from '@/lib/queries/customers';
 import { useAttendanceRollCallsByTurmaDate, useUpsertAttendanceRollCall } from '@/lib/queries/attendance';
 import { useLessonRescheduleRequestsForTurmaDate } from '@/lib/queries/lessonReschedules';
+import { useExperimentalLessonsForTurmaDate } from '@/lib/queries/experimentalLessons';
 import { buildRollCallRowsWithReplacementGuests } from '@/lib/education/rollCallStudents';
 import { RescheduleRequestsReviewPanel } from '@/components/education/RescheduleRequestsReviewPanel';
 import type { RollCallStatus } from '@/types/attendance';
@@ -66,6 +67,12 @@ function ProfessionalAttendanceContent() {
     rollCallDate,
   );
 
+  const { data: rollCallDayExperimentalLessons = [] } = useExperimentalLessonsForTurmaDate(
+    business?.id ?? '',
+    selectedTurma?.id ?? '',
+    rollCallDate,
+  );
+
   const customerById = useMemo(() => new Map(customers.map((c) => [c.id, c])), [customers]);
 
   const selectedStudents = useMemo(() => {
@@ -83,8 +90,16 @@ function ProfessionalAttendanceContent() {
       selectedStudents,
       rollCallDayRescheduleRequests,
       customerById,
+      rollCallDayExperimentalLessons,
     );
-  }, [selectedTurma, rollCallDate, selectedStudents, rollCallDayRescheduleRequests, customerById]);
+  }, [
+    selectedTurma,
+    rollCallDate,
+    selectedStudents,
+    rollCallDayRescheduleRequests,
+    customerById,
+    rollCallDayExperimentalLessons,
+  ]);
 
   useEffect(() => {
     const t = searchParams.get('t') || searchParams.get('turmaId');
@@ -282,7 +297,7 @@ function ProfessionalAttendanceContent() {
               </div>
             ) : rollCallDisplayRows.length === 0 ? (
               <div className="p-8 text-center text-neutral-500">
-                Esta turma ainda não possui alunos vinculados.
+                Nenhum aluno para chamada nesta data.
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -298,7 +313,7 @@ function ProfessionalAttendanceContent() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-neutral-200">
-                    {rollCallDisplayRows.map(({ student, isReplacementGuest }) => {
+                    {rollCallDisplayRows.map(({ student, isReplacementGuest, isExperimentalGuest }) => {
                       const status = rollCallStatusByStudentId.get(student.id) || 'pending';
                       const rowSaving = rollCallSavingStudentIds.has(student.id);
                       const statusButton = (value: RollCallStatus, label: string, activeClass: string) => (
@@ -324,6 +339,11 @@ function ProfessionalAttendanceContent() {
                             {isReplacementGuest && (
                               <span className="ml-2 inline-block rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800">
                                 Remarcação
+                              </span>
+                            )}
+                            {isExperimentalGuest && (
+                              <span className="ml-2 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                                Aula experimental
                               </span>
                             )}
                           </td>
