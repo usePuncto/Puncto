@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { Business } from '@/types/business';
 import { getBusinessTypeLabel } from '@/lib/features/businessTypeFeatures';
+import { PLAN_LABELS, tierToPlanId } from '@/content/businessModules';
 
 interface BusinessListItem extends Partial<Business> {
   id: string;
@@ -141,8 +142,8 @@ export default function PlatformBusinessesPage() {
             >
               <option value="">Todos</option>
               <option value="free">Grátis</option>
-              <option value="basic">Básico</option>
-              <option value="pro">Pro</option>
+              <option value="basic">Starter</option>
+              <option value="pro">Growth / Pro</option>
               <option value="enterprise">Enterprise</option>
             </select>
           </div>
@@ -239,12 +240,12 @@ export default function PlatformBusinessesPage() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                      business.subscription?.tier === 'enterprise' ? 'bg-purple-100 text-purple-800' :
-                      business.subscription?.tier === 'pro' ? 'bg-blue-100 text-blue-800' :
-                      business.subscription?.tier === 'basic' ? 'bg-green-100 text-green-800' :
+                      tierToPlanId(business.subscription?.tier, business.subscription?.planId) === 'pro' ? 'bg-purple-100 text-purple-800' :
+                      tierToPlanId(business.subscription?.tier, business.subscription?.planId) === 'growth' ? 'bg-blue-100 text-blue-800' :
+                      tierToPlanId(business.subscription?.tier, business.subscription?.planId) === 'starter' ? 'bg-green-100 text-green-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
-                      {business.subscription?.tier === 'enterprise' ? 'Enterprise' : business.subscription?.tier === 'pro' ? 'Pro' : business.subscription?.tier === 'basic' ? 'Básico' : 'Grátis'}
+                      {PLAN_LABELS[tierToPlanId(business.subscription?.tier, business.subscription?.planId)]}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

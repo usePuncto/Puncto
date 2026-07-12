@@ -6,6 +6,12 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { Business } from '@/types/business';
 import { getBusinessTypeLabel } from '@/lib/features/businessTypeFeatures';
+import {
+  PLAN_LABELS,
+  getModulesForIndustry,
+  isModuleEnabled,
+  tierToPlanId,
+} from '@/content/businessModules';
 
 function formatDate(dateOrTimestamp: any): string {
   if (!dateOrTimestamp) return 'N/A';
@@ -146,20 +152,12 @@ export default function PlatformBusinessDetailPage() {
                 <dt className="text-sm font-medium text-gray-500">Plano</dt>
                 <dd className="mt-1">
                   <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                    (business.subscription?.tier || 'free') === 'enterprise' ? 'bg-purple-100 text-purple-800' :
-                    (business.subscription?.tier || '') === 'pro' ? 'bg-blue-100 text-blue-800' :
-                    (business.subscription?.tier || '') === 'basic' ? 'bg-green-100 text-green-800' :
+                    tierToPlanId(business.subscription?.tier, business.subscription?.planId) === 'pro' ? 'bg-purple-100 text-purple-800' :
+                    tierToPlanId(business.subscription?.tier, business.subscription?.planId) === 'growth' ? 'bg-blue-100 text-blue-800' :
+                    tierToPlanId(business.subscription?.tier, business.subscription?.planId) === 'starter' ? 'bg-green-100 text-green-800' :
                     'bg-gray-100 text-gray-800'
                   }`}>
-                    {
-                      business.subscription?.tier === 'enterprise'
-                        ? 'Enterprise'
-                        : business.subscription?.tier === 'pro'
-                          ? 'Pro'
-                          : business.subscription?.tier === 'basic'
-                            ? 'Básico'
-                            : 'Grátis'
-                    }
+                    {PLAN_LABELS[tierToPlanId(business.subscription?.tier, business.subscription?.planId)]}
                   </span>
                 </dd>
               </div>
@@ -190,6 +188,36 @@ export default function PlatformBusinessDetailPage() {
                 </div>
               )}
             </dl>
+          </div>
+
+          {/* Modules */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Módulos</h2>
+              <Link
+                href={`/platform/businesses/${businessId}/edit`}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Gerenciar
+              </Link>
+            </div>
+            <ul className="space-y-2">
+              {getModulesForIndustry(business.industry || 'general').map((mod) => {
+                const on = isModuleEnabled(business.enabledModules, mod.id);
+                return (
+                  <li key={mod.id} className="flex items-center justify-between text-sm">
+                    <span className="text-gray-900">{mod.name}</span>
+                    <span
+                      className={`px-2 py-0.5 text-xs font-semibold rounded-full ${
+                        on ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
+                      {on ? 'Ativo' : 'Off'}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         </div>
 

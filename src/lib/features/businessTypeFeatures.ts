@@ -4,6 +4,7 @@
  */
 
 import { Business } from '@/types/business';
+import { getModulesForIndustry, isModuleEnabled } from '@/content/businessModules';
 
 /**
  * Business type enum
@@ -302,15 +303,26 @@ export const FEATURE_FLAG_MAP: Record<string, FeatureId> = {
 };
 
 /**
- * Check if a business has access to a feature
- * All features are available regardless of subscription tier or industry.
- * (Tier/industry checks bypassed per product requirement.)
+ * Check if a business has access to a feature.
+ * Respects platform-admin module toggles (enabledModules) and feature flags.
  */
 export function hasFeatureAccess(
-  _business: Business,
-  _featureKey: keyof Business['features']
+  business: Business,
+  featureKey: keyof Business['features']
 ): boolean {
-  return true; // All features enabled - tier and industry do not restrict access
+  const modules = getModulesForIndustry(business.industry || 'general');
+  const controlling = modules.filter((m) => m.featureKeys?.includes(featureKey as string));
+
+  if (controlling.length > 0) {
+    const anyEnabled = controlling.some((m) =>
+      isModuleEnabled(business.enabledModules, m.id)
+    );
+    if (!anyEnabled) return false;
+  }
+
+  const flag = business.features?.[featureKey];
+  if (typeof flag === 'boolean') return flag;
+  return true;
 }
 
 /**

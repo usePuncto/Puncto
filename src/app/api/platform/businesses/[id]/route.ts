@@ -102,6 +102,7 @@ export async function PATCH(
     const allowedFields: string[] = [
       'subscription.status',
       'subscription.tier',
+      'subscription.planId',
       'subscription.stripeCustomerId',
       'subscription.stripeSubscriptionId',
       'subscription.stripePriceId',
@@ -109,6 +110,7 @@ export async function PATCH(
       'subscription.currentPeriodEnd',
       'subscription.trialEndsAt',
       'features',
+      'enabledModules',
       'industry',
     ];
 
@@ -120,16 +122,25 @@ export async function PATCH(
     if (body.subscription) {
       const currentData = businessDoc.data();
       const currentSubscription = currentData?.subscription || {};
-      
-      updates['subscription'] = {
+
+      const { planIdToTier } = await import('@/content/businessModules');
+      const nextSubscription = {
         ...currentSubscription,
         ...body.subscription,
       };
 
-      // If tier changed, update features
-      if (body.subscription.tier && body.subscription.tier !== currentSubscription.tier) {
+      // Keep legacy tier in sync when commercial planId is set
+      if (body.subscription.planId) {
+        nextSubscription.tier = planIdToTier(body.subscription.planId);
+      }
+
+      updates['subscription'] = nextSubscription;
+
+      // If tier/plan changed, update base features from tier defaults
+      const nextTier = nextSubscription.tier;
+      if (nextTier && nextTier !== currentSubscription.tier) {
         const { TIER_FEATURES } = await import('@/types/features');
-        const newTierFeatures = TIER_FEATURES[body.subscription.tier as keyof typeof TIER_FEATURES];
+        const newTierFeatures = TIER_FEATURES[nextTier as keyof typeof TIER_FEATURES];
         if (newTierFeatures) {
           updates['features'] = newTierFeatures;
         }
@@ -138,11 +149,21 @@ export async function PATCH(
 
     // Handle direct feature updates
     if (body.features) {
-      const currentFeatures = businessDoc.data()?.features || {};
+      const currentFeatures = updates['features'] || businessDoc.data()?.features || {};
       updates['features'] = {
         ...currentFeatures,
         ...body.features,
       };
+    }
+
+    // Handle per-business module toggles
+    if (body.enabledModules && typeof body.enabledModules === 'object') {
+      updates['enabledModules'] = body.enabledModules;
+
+      const { featuresFromEnabledModules } = await import('@/content/businessModules');
+      const industry = body.industry || businessDoc.data()?.industry || 'general';
+      const baseFeatures = updates['features'] || businessDoc.data()?.features || {};
+      updates['features'] = featuresFromEnabledModules(industry, body.enabledModules, baseFeatures);
     }
 
     // Handle industry change

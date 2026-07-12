@@ -27,8 +27,13 @@ export interface Branding {
   hidePunctoBranding?: boolean;
 }
 
+/** Marketing plan IDs used on /pricing (source of truth for commercial plans) */
+export type PlanId = 'gratis' | 'starter' | 'growth' | 'pro';
+
 export interface Subscription {
   tier: 'free' | 'basic' | 'pro' | 'enterprise';
+  /** Commercial plan from pricing page; preferred over tier when present */
+  planId?: PlanId;
   status: 'active' | 'trial' | 'suspended' | 'cancelled' | 'pending_payment';
   currentPeriodStart: Timestamp | Date;
   currentPeriodEnd: Timestamp | Date;
@@ -179,6 +184,12 @@ export interface Business {
   website?: string;
   subscription: Subscription;
   features: FeatureFlags;
+  /**
+   * Per-business module access toggles (platform admin).
+   * Keys are module IDs from the business-type catalog; true = enabled.
+   * When undefined, modules default to enabled for backwards compatibility.
+   */
+  enabledModules?: Record<string, boolean>;
   settings: Settings;
   customFields?: CustomFields;
   rating?: number;

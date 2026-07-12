@@ -126,11 +126,14 @@ export default function LoginPage() {
       // Continue redirect even if set-context fails (cookie may already be set)
     }
 
-    // On gestao subdomain: use /tenant/admin/dashboard (middleware normalizes and rewrites correctly)
+    // On gestao subdomain: middleware rewrites /tenant/admin/* and /tenant/professional/* separately
     const isGestaoDomain = typeof window !== 'undefined' && window.location.hostname.includes('.gestao.');
+    const pathWithoutQuery = targetUrl.includes('?') ? targetUrl.split('?')[0] : targetUrl;
     const path = isGestaoDomain
-      ? '/tenant/admin/dashboard'
-      : (targetUrl.includes('?') ? targetUrl.split('?')[0] : targetUrl);
+      ? pathWithoutQuery.startsWith('/tenant/professional')
+        ? pathWithoutQuery
+        : '/tenant/admin/dashboard'
+      : pathWithoutQuery;
 
     window.location.href = path;
   }
@@ -216,7 +219,13 @@ export default function LoginPage() {
           .catch(() => {})
           .finally(() => {
             const isGestaoDomain = typeof window !== 'undefined' && window.location.hostname.includes('.gestao.');
-            const path = isGestaoDomain ? '/tenant/admin/dashboard' : (url.includes('?') ? url.split('?')[0] : '/tenant/admin/dashboard');
+            const pathWithoutQuery = url.includes('?') ? url.split('?')[0] : '/tenant/admin/dashboard';
+            const path =
+              isGestaoDomain && pathWithoutQuery.startsWith('/tenant/professional')
+                ? pathWithoutQuery
+                : isGestaoDomain
+                  ? '/tenant/admin/dashboard'
+                  : pathWithoutQuery;
             window.location.href = path;
           });
         return;

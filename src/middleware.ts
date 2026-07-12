@@ -306,6 +306,28 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL('/auth/login', request.url));
       }
     }
+    // Professional area on gestao subdomain — must rewrite to /tenant/professional/*, not /tenant/admin/tenant/professional/*
+    if (
+      url.pathname.startsWith('/tenant/professional') ||
+      url.pathname.startsWith('/professional')
+    ) {
+      let professionalPath = url.pathname;
+      if (professionalPath.startsWith('/tenant/professional')) {
+        professionalPath = professionalPath.slice('/tenant/professional'.length) || '';
+      } else {
+        professionalPath = professionalPath.slice('/professional'.length) || '';
+      }
+
+      const gestaoProfessionalResponse = NextResponse.rewrite(
+        new URL(`/tenant/professional${professionalPath}${url.search}`, request.url),
+        { request: { headers: requestHeaders } }
+      );
+      gestaoProfessionalResponse.headers.set('x-business-slug', subdomain);
+      gestaoProfessionalResponse.headers.set('x-middleware-request-url', request.url);
+      gestaoProfessionalResponse.cookies.set('x-business-slug', subdomain, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 });
+      return gestaoProfessionalResponse;
+    }
+
     // Normalize: /tenant/admin/dashboard -> /dashboard so rewrite yields /tenant/admin/dashboard (no double path)
     let adminPath = url.pathname;
     if (adminPath.startsWith('/tenant/admin')) {

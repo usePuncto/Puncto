@@ -1,0 +1,79 @@
+Puncto Educação
+- Agendamento de aulas experimentais
+- Cadastro e histórico de alunos
+- Gestão de turmas
+- Lista de presença
+- Equipes
+- Relatório financeiro
+- Ponto eletrônico
+- Coleta de cadastro em eventos
+- Whatsapp automático
+- Emissão de NF
+- Portal do aluno
+- Links de pagamento, boletos e mensalidades
+
+------------------------------------------
+
+Puncto Prestadores de serviço
+- Agendamento online ilimitado
+- Cadastro e histórico de clientes
+- Lembrete de agendamento
+- Whatsapp automático
+- Relatório financeiro
+- Equipes
+- Ponto eletrônico
+- Controle de estoque
+- Lista de espera inteligente
+- Pacote de serviços
+- Pagamentos via pix, boleto e cartão
+- Emissão de NF
+
+------------------------------------------
+
+Puncto Saúde
+- Agendamento online ilimitado
+- Cadastro e histórico de clientes
+- Lembrete de agendamento
+- Whatsapp automático
+- Relatório financeiro
+- Equipes
+- Prescrição eletrônica
+- Controle de estoque
+- Lista de espera inteligente
+- Assinatura eletrônica
+- Pagamentos via pix, boleto e cartão
+- Emissão de NF
+
+------------------------------------------
+
+Puncto Comércio e varejo
+- Vitrine digital
+- Cadastro e histórico de clientes
+- Gestão de fornecedores e ordens de compra
+- Whatsapp automático
+- Relatório financeiro
+- Gestão de cupons de desconto
+- Gestão de trocas e devoluções
+- Controle de estoque
+- Programa de fidelidade
+- Ponto eletrônico
+- Pagamentos via pix, boleto e cartão
+- Emissão de NF
+
+------------------------------------------
+
+Puncto Gestão corporativa
+- Agendamento de reuniões
+- Cadastro e histórico de clientes
+- Equipes
+- Ponto eletrônico
+- Relatório financeiro
+- Emissão de propostas comerciais
+- Portal do cliente
+- Gestão de contratos
+- Assinatura eletrônica
+- Whatsapp automático
+- Pagamentos via pix, boleto e cartão
+- Emissão de NF
+
+------------------------------------------
