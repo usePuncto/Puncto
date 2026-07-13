@@ -21,7 +21,6 @@ import {
 const businessTypeToIndustrySlug: Record<BusinessTypeKey, string> = {
   servicos: 'servicos',
   comercio: 'varejo',
-  empresas: 'empresas',
   saude: 'saude',
   corporativo: 'corporativo',
   educacao: 'educacao',

@@ -8,8 +8,7 @@ import {
   type PlanId,
   PLAN_LABELS,
   PLAN_MODULE_LIMITS,
-  erpModules,
-  getMinPlanLabel,
+  getModulesForIndustry,
   isModuleAvailableForPlan,
   buildModuleSelectionMessage,
   buildModuleSelectionSubject,
@@ -22,8 +21,10 @@ interface ModulePickerProps {
 }
 
 export default function ModulePicker({ planId, industry, billing }: ModulePickerProps) {
+  const industrySlug = industry || 'servicos';
   const [selected, setSelected] = useState<string[]>([]);
   const limit = PLAN_MODULE_LIMITS[planId];
+  const modules = getModulesForIndustry(industrySlug);
 
   const contactHref = useMemo(() => {
     if (selected.length === 0) return null;
@@ -38,8 +39,8 @@ export default function ModulePicker({ planId, industry, billing }: ModulePicker
     return `/contact?${params.toString()}`;
   }, [planId, selected, industry, billing]);
 
-  const toggleModule = (moduleId: string, available: boolean) => {
-    if (!available) return;
+  const toggleModule = (moduleId: string) => {
+    if (!isModuleAvailableForPlan(industrySlug, moduleId, planId)) return;
 
     setSelected((current) => {
       if (current.includes(moduleId)) {
@@ -57,7 +58,15 @@ export default function ModulePicker({ planId, industry, billing }: ModulePicker
           <p className="text-sm text-slate-500 mb-1">Plano selecionado</p>
           <h2 className="text-2xl font-bold text-slate-900">{PLAN_LABELS[planId]}</h2>
           <p className="text-slate-600 text-sm mt-1">
-            Selecione até <strong>{limit} módulos</strong> para montar seu ERP.
+            {planId === 'gratis' ? (
+              <>
+                O plano Grátis inclui os <strong>2 primeiros módulos</strong> do catálogo do seu segmento.
+              </>
+            ) : (
+              <>
+                Selecione até <strong>{limit} módulos</strong> do catálogo do seu segmento.
+              </>
+            )}
           </p>
         </div>
         <div className="bg-primary-50 border border-primary-100 rounded-xl px-5 py-3 text-center sm:text-right">
@@ -69,10 +78,11 @@ export default function ModulePicker({ planId, industry, billing }: ModulePicker
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-        {erpModules.map((module, index) => {
-          const available = isModuleAvailableForPlan(module, planId);
+        {modules.map((module, index) => {
+          const available = isModuleAvailableForPlan(industrySlug, module.id, planId);
           const isSelected = selected.includes(module.id);
           const isFull = selected.length >= limit && !isSelected;
+          const isFreeIncluded = planId === 'gratis' && index < PLAN_MODULE_LIMITS.gratis;
 
           return (
             <motion.button
@@ -81,7 +91,7 @@ export default function ModulePicker({ planId, industry, billing }: ModulePicker
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.03 }}
-              onClick={() => toggleModule(module.id, available && !isFull)}
+              onClick={() => available && !isFull && toggleModule(module.id)}
               disabled={!available || isFull}
               className={`text-left rounded-xl border p-5 transition-all ${
                 isSelected
@@ -112,7 +122,12 @@ export default function ModulePicker({ planId, industry, billing }: ModulePicker
               <p className="text-slate-600 text-xs leading-relaxed mb-3">{module.description}</p>
               {!available && (
                 <span className="inline-flex text-xs font-medium px-2 py-1 rounded-full bg-amber-100 text-amber-800">
-                  {getMinPlanLabel(module.minPlan)}
+                  A partir do Starter
+                </span>
+              )}
+              {isFreeIncluded && (
+                <span className="inline-flex text-xs font-medium px-2 py-1 rounded-full bg-secondary-100 text-secondary-800">
+                  Incluído no Grátis
                 </span>
               )}
             </motion.button>

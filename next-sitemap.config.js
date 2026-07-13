@@ -55,7 +55,7 @@ module.exports = {
     const paths = [];
     
     // Add industry pages (must match `src/content/industries.ts` slugs)
-    const industries = ['servicos', 'varejo', 'empresas', 'saude', 'corporativo', 'educacao'];
+    const industries = ['servicos', 'varejo', 'saude', 'corporativo', 'educacao'];
     industries.forEach((industry) => {
       paths.push({
         loc: `/industries/${industry}`,

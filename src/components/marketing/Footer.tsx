@@ -15,9 +15,9 @@ const footerLinks = {
   setores: [
     { name: 'Prestadores de Serviço', href: '/industries/servicos' },
     { name: 'Comércio e Varejo', href: '/industries/varejo' },
-    { name: 'Empresas', href: '/industries/empresas' },
     { name: 'Saúde', href: '/industries/saude' },
     { name: 'Gestão Corporativa', href: '/industries/corporativo' },
+    { name: 'Educação', href: '/industries/educacao' },
     { name: 'Todos os Setores', href: '/industries' },
   ],
   empresa: [

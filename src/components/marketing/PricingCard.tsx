@@ -148,7 +148,7 @@ export const pricingPlans: PricingPlan[] = [
   {
     id: 'gratis',
     name: 'Grátis',
-    description: 'Para começar montando seu ERP com os módulos essenciais.',
+    description: 'Inclui os 2 primeiros módulos do catálogo do seu segmento.',
     price: { monthly: 0, annually: 0 },
     customPrice: 'Grátis',
     moduleLimit: PLAN_MODULE_LIMITS.gratis,
@@ -173,7 +173,7 @@ export const pricingPlans: PricingPlan[] = [
   {
     id: 'growth',
     name: 'Growth',
-    description: 'Módulos avançados: fiscal, estoque, ponto e automação.',
+    description: 'Mais módulos do catálogo do seu segmento.',
     price: { monthly: 189.9, annually: 151.92 },
     popular: true,
     moduleLimit: PLAN_MODULE_LIMITS.growth,
@@ -186,7 +186,7 @@ export const pricingPlans: PricingPlan[] = [
   {
     id: 'pro',
     name: 'Pro',
-    description: 'Máximo de módulos, incluindo integrações e produção (KDS).',
+    description: 'Máximo de módulos do catálogo do seu segmento.',
     price: { monthly: 399.9, annually: 319.92 },
     moduleLimit: PLAN_MODULE_LIMITS.pro,
     features: getPlanCardHighlights('pro'),

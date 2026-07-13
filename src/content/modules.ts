@@ -1,3 +1,9 @@
+import {
+  getModuleById as getBusinessModuleById,
+  getModulesForIndustry,
+  type BusinessModule,
+} from '@/content/businessModules';
+
 export type PlanId = 'gratis' | 'starter' | 'growth' | 'pro';
 
 export const PLAN_MODULE_LIMITS: Record<PlanId, number> = {
@@ -14,159 +20,52 @@ export const PLAN_LABELS: Record<PlanId, string> = {
   pro: 'Pro',
 };
 
-const PLAN_RANK: Record<PlanId, number> = {
-  gratis: 0,
-  starter: 1,
-  growth: 2,
-  pro: 3,
-};
+/** @deprecated Prefer getModulesForIndustry — kept for any legacy references */
+export type ErpModule = BusinessModule & { minPlan?: PlanId };
 
-export interface ErpModule {
-  id: string;
-  name: string;
-  description: string;
-  minPlan: PlanId;
+export function getModuleById(id: string): BusinessModule | undefined {
+  return getBusinessModuleById(id);
 }
 
-export const erpModules: ErpModule[] = [
-  {
-    id: 'agendamento',
-    name: 'Agendamento e Multi-agendas',
-    description: 'Agenda online, link na bio e gestão de horários da equipe.',
-    minPlan: 'gratis',
-  },
-  {
-    id: 'crm',
-    name: 'CRM e Clientes',
-    description: 'Cadastro, histórico de atendimentos e relacionamento.',
-    minPlan: 'gratis',
-  },
-  {
-    id: 'relatorios',
-    name: 'Relatórios e Analytics',
-    description: 'Indicadores, DRE gerencial e visão da saúde do negócio.',
-    minPlan: 'starter',
-  },
-  {
-    id: 'pagamentos',
-    name: 'Pagamentos',
-    description: 'PIX, cartão e conciliação financeira integrada.',
-    minPlan: 'starter',
-  },
-  {
-    id: 'financeiro',
-    name: 'Gestão Financeira',
-    description: 'Contas a pagar/receber, fluxo de caixa e inadimplência.',
-    minPlan: 'starter',
-  },
-  {
-    id: 'vitrine',
-    name: 'Vitrine Digital',
-    description: 'Catálogo online, link na bio e vitrine de serviços/produtos.',
-    minPlan: 'starter',
-  },
-  {
-    id: 'equipe',
-    name: 'Gestão de Equipe',
-    description: 'Comissões, permissões e controle por colaborador.',
-    minPlan: 'starter',
-  },
-  {
-    id: 'automacao',
-    name: 'Automação (WhatsApp/Email)',
-    description: 'Lembretes, confirmações e mensagens automáticas.',
-    minPlan: 'growth',
-  },
-  {
-    id: 'cardapio',
-    name: 'Cardápio e Pedidos',
-    description: 'Cardápio QR Code, comanda virtual e pedidos integrados.',
-    minPlan: 'growth',
-  },
-  {
-    id: 'estoque',
-    name: 'Controle de Estoque',
-    description: 'Entrada/saída, alertas de reposição e multi-depósitos.',
-    minPlan: 'growth',
-  },
-  {
-    id: 'ponto',
-    name: 'Ponto Eletrônico',
-    description: 'Registro de jornada, banco de horas e relatórios de RH.',
-    minPlan: 'growth',
-  },
-  {
-    id: 'fiscal',
-    name: 'Emissão Fiscal',
-    description: 'NFS-e, NFC-e e integração com emissores fiscais.',
-    minPlan: 'growth',
-  },
-  {
-    id: 'campanhas',
-    name: 'Campanhas e Fidelidade',
-    description: 'Marketing, segmentação e programas de retenção.',
-    minPlan: 'growth',
-  },
-  {
-    id: 'integracao',
-    name: 'Integrações e API',
-    description: 'API REST, webhooks e conexão com outros sistemas.',
-    minPlan: 'pro',
-  },
-  {
-    id: 'producao',
-    name: 'Produção (KDS)',
-    description: 'Telas de produção, checklists e rastreabilidade industrial.',
-    minPlan: 'pro',
-  },
-];
-
-export function isModuleAvailableForPlan(module: ErpModule, planId: PlanId): boolean {
-  return PLAN_RANK[planId] >= PLAN_RANK[module.minPlan];
+/** Free plan includes only the first N modules of the segment catalog (tiersModulos order). */
+export function isModuleAvailableForPlan(
+  industry: string,
+  moduleId: string,
+  planId: PlanId
+): boolean {
+  const modules = getModulesForIndustry(industry);
+  const index = modules.findIndex((m) => m.id === moduleId);
+  if (index === -1) return false;
+  if (planId === 'gratis') return index < PLAN_MODULE_LIMITS.gratis;
+  return true;
 }
 
-export function getModulesForPlan(planId: PlanId): ErpModule[] {
-  return erpModules.filter((module) => isModuleAvailableForPlan(module, planId));
-}
-
-export function getGrowthOnlyModules(): ErpModule[] {
-  return erpModules.filter((module) => module.minPlan === 'growth');
-}
-
-export function getProOnlyModules(): ErpModule[] {
-  return erpModules.filter((module) => module.minPlan === 'pro');
-}
-
-export function getModuleById(id: string): ErpModule | undefined {
-  return erpModules.find((module) => module.id === id);
-}
-
-export function getMinPlanLabel(minPlan: PlanId): string {
-  if (minPlan === 'growth') return 'A partir do Growth';
-  if (minPlan === 'pro') return 'Apenas no Pro';
-  if (minPlan === 'starter') return 'A partir do Starter';
-  return 'Disponível no Grátis';
+export function getModulesAvailableForPlan(industry: string, planId: PlanId): BusinessModule[] {
+  const modules = getModulesForIndustry(industry);
+  if (planId === 'gratis') return modules.slice(0, PLAN_MODULE_LIMITS.gratis);
+  return modules;
 }
 
 export function getPlanCardHighlights(planId: PlanId): string[] {
   const limit = PLAN_MODULE_LIMITS[planId];
-  const available = getModulesForPlan(planId).length;
 
   const highlights: string[] = [
-    `Escolha até ${limit} módulos`,
-    `${available} módulos disponíveis para seleção`,
+    planId === 'gratis'
+      ? 'Inclui os 2 primeiros módulos do catálogo do seu segmento'
+      : `Escolha até ${limit} módulos do seu segmento`,
+    'Catálogo de módulos alinhado ao seu tipo de negócio',
     'Até 2h/mês de pequenas customizações incluídas',
     'Implementação customizada incluída',
   ];
 
   if (planId === 'gratis') {
-    highlights.push('Módulos essenciais: agendamento e CRM');
+    highlights.push('Demais módulos disponíveis a partir do Starter');
   } else if (planId === 'starter') {
-    highlights.push('Inclui pagamentos, financeiro e vitrine');
+    highlights.push('Mais módulos para organizar a operação');
   } else if (planId === 'growth') {
-    highlights.push('Módulos avançados: fiscal, estoque, ponto e automação');
+    highlights.push('Quase todo o catálogo do seu segmento');
   } else {
-    highlights.push('Todos os módulos + integrações e produção (KDS)');
+    highlights.push('Todos os 12 módulos do seu segmento');
   }
 
   return highlights;
@@ -187,3 +86,5 @@ export function buildModuleSelectionMessage(planId: PlanId, moduleIds: string[])
     .join('\n- ');
   return `Olá! Tenho interesse no plano ${PLAN_LABELS[planId]} e gostaria de montar meu ERP com os seguintes módulos:\n\n- ${names}\n\nAguardo contato para o diagnóstico e customização.`;
 }
+
+export { getModulesForIndustry };

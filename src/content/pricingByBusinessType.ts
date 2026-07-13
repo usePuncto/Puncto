@@ -1,13 +1,18 @@
 /**
  * Feature summary per plan, by business type.
- * Used on index and pricing pages to show plan features relevant to each segment.
+ * Module lists come from public/tiersModulos.txt via businessModules.
  */
-export type BusinessTypeKey = 'servicos' | 'comercio' | 'empresas' | 'saude' | 'corporativo' | 'educacao';
+import {
+  MODULES_BY_SEGMENT,
+  type BusinessModuleSegment,
+} from '@/content/businessModules';
+import { PLAN_MODULE_LIMITS, type PlanId } from '@/content/modules';
+
+export type BusinessTypeKey = 'servicos' | 'comercio' | 'saude' | 'corporativo' | 'educacao';
 
 export const businessTypeLabels: Record<BusinessTypeKey, string> = {
   servicos: 'Serviços',
   comercio: 'Comércio',
-  empresas: 'Empresas',
   saude: 'Saúde',
   corporativo: 'Corporativo',
   educacao: 'Educação',
@@ -16,166 +21,53 @@ export const businessTypeLabels: Record<BusinessTypeKey, string> = {
 export const businessTypeOptions: { id: BusinessTypeKey; label: string }[] = [
   { id: 'servicos', label: 'Serviços' },
   { id: 'comercio', label: 'Comércio' },
-  { id: 'empresas', label: 'Indústria' },
   { id: 'saude', label: 'Saúde' },
   { id: 'corporativo', label: 'Corporativo' },
   { id: 'educacao', label: 'Educação' },
 ];
 
-type PlanId = 'gratis' | 'starter' | 'growth' | 'pro';
+const businessTypeToSegment: Record<BusinessTypeKey, BusinessModuleSegment> = {
+  servicos: 'servicos',
+  comercio: 'comercio',
+  saude: 'saude',
+  corporativo: 'corporativo',
+  educacao: 'educacao',
+};
 
+/** Module names available for a business type (from tiersModulos.txt) */
+export function getModuleNamesForBusinessType(type: BusinessTypeKey): string[] {
+  return MODULES_BY_SEGMENT[businessTypeToSegment[type]].map((m) => m.name);
+}
+
+/**
+ * Plan card bullets: module limit + sample of segment modules.
+ * Plans differ by how many modules you can pick, not by a separate catalog.
+ */
 export const planFeaturesByBusinessType: Record<
   BusinessTypeKey,
   Record<PlanId, string[]>
-> = {
-  servicos: {
-    gratis: [
-      'Agendamentos digitais ilimitados (Link na Bio)',
-      'Cadastro e histórico de clientes',
-    ],
-    starter: [
-      'Tudo do Grátis',
-      'Lembretes automáticos por e-mail + manuais por WhatsApp',
-      'Relatório financeiro',
-    ],
-    growth: [
-      'Tudo do Starter',
-      'Lista de espera',
-      'WhatsApp Automático',
-      'CRM (Aniversário/Retenção)',
-      'Emissão de NFS-e',
-    ],
-    pro: [
-      'Tudo do Growth',
-      'Multi-agendas (Equipes)',
-      'DRE Gerencial + Metas',
-      'Ponto eletrônico',
-      'Controle de estoque completo',
-    ],
+> = (Object.keys(businessTypeToSegment) as BusinessTypeKey[]).reduce(
+  (acc, type) => {
+    const names = getModuleNamesForBusinessType(type);
+    acc[type] = {
+      gratis: [
+        `Inclui os ${PLAN_MODULE_LIMITS.gratis} primeiros módulos do catálogo`,
+        ...names.slice(0, PLAN_MODULE_LIMITS.gratis),
+      ],
+      starter: [
+        `Escolha até ${PLAN_MODULE_LIMITS.starter} módulos`,
+        ...names.slice(0, 4),
+      ],
+      growth: [
+        `Escolha até ${PLAN_MODULE_LIMITS.growth} módulos`,
+        ...names.slice(0, 5),
+      ],
+      pro: [
+        `Escolha até ${PLAN_MODULE_LIMITS.pro} módulos (catálogo completo)`,
+        ...names.slice(0, 5),
+      ],
+    };
+    return acc;
   },
-  comercio: {
-    gratis: [
-      'Vitrine digital (Link na Bio)',
-      'Cadastro e histórico de clientes',
-    ],
-    starter: [
-      'Tudo do Grátis',
-      'Controle de estoque simples',
-      'Relatório financeiro',
-    ],
-    growth: [
-      'Tudo do Starter',
-      'Cardápio/Catálogo QR Code + Pedidos',
-      'WhatsApp Automático',
-      'Pagamentos PIX e cartão',
-      'Emissão NFC-e/NFE',
-    ],
-    pro: [
-      'Tudo do Growth',
-      'Multi-estoque/Depósitos',
-      'Ponto eletrônico',
-      'DRE Gerencial + Metas',
-      'Controle de estoque completo',
-    ],
-  },
-  empresas: {
-    gratis: [
-      'Relatórios simples',
-      'Cadastro de funcionários',
-    ],
-    starter: [
-      'Tudo do Grátis',
-      'Controle de estoque simples',
-      'Ponto eletrônico',
-    ],
-    growth: [
-      'Tudo do Starter',
-      'Gestão de contratos',
-      'Ordem de produção automática',
-      'Banco de horas',
-      'Emissão NFC-e/NFE',
-    ],
-    pro: [
-      'Tudo do Growth',
-      'Multi-estoque/Depósitos',
-      'Integração com outras plataformas',
-      'Relatório financeiro completo',
-      'Controle de estoque completo',
-    ],
-  },
-  saude: {
-    gratis: [
-      'Agendamentos digitais ilimitados (Link na Bio)',
-      'Cadastro e histórico de pacientes',
-    ],
-    starter: [
-      'Tudo do Grátis',
-      'Lembretes automáticos por e-mail + manuais por WhatsApp',
-      'Relatório financeiro',
-    ],
-    growth: [
-      'Tudo do Starter',
-      'Lista de espera',
-      'WhatsApp Automático',
-      'Pagamentos PIX e cartão',
-      'Emissão de NFS-e',
-    ],
-    pro: [
-      'Tudo do Growth',
-      'Multi-agendas (Equipes)',
-      'DRE Gerencial + Metas',
-      'CRM (Aniversário/Retenção)',
-      'Controle de estoque completo',
-    ],
-  },
-  corporativo: {
-    gratis: [
-      'Relatórios simples',
-      'Cadastro de funcionários',
-    ],
-    starter: [
-      'Tudo do Grátis',
-      'Contatos automáticos por e-mail + manuais por WhatsApp',
-      'Ponto eletrônico',
-    ],
-    growth: [
-      'Tudo do Starter',
-      'Gestão de contratos',
-      'WhatsApp Automático',
-      'Banco de horas',
-      'Emissão NFC-e/NFE',
-    ],
-    pro: [
-      'Tudo do Growth',
-      'DRE Gerencial + Metas',
-      'Integração com outras plataformas',
-      'Centros de Custo',
-      'Gestão de Franquia',
-    ],
-  },
-  educacao: {
-    gratis: [
-      'Agendamentos e solicitações (Link na Bio)',
-      'Cadastro e histórico de alunos',
-    ],
-    starter: [
-      'Tudo do Grátis',
-      'Lembretes automáticos por e-mail + manuais por WhatsApp',
-      'Relatório financeiro',
-    ],
-    growth: [
-      'Tudo do Starter',
-      'Lista de espera',
-      'WhatsApp Automático',
-      'Pagamentos PIX e cartão',
-      'Emissão de NFS-e',
-    ],
-    pro: [
-      'Tudo do Growth',
-      'Rematrícula automática (CRM)',
-      'DRE Gerencial + Metas',
-      'CRM (Retenção e Reengajamento)',
-      'Controle de estoque/insumos completo',
-    ],
-  },
-};
+  {} as Record<BusinessTypeKey, Record<PlanId, string[]>>
+);

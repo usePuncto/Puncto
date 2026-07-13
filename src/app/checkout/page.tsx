@@ -53,7 +53,7 @@ function BetaNoticeModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => 
 }
 
 const VALID_PLANS = ['gratis', 'starter', 'growth', 'pro'];
-const VALID_INDUSTRIES = ['servicos', 'varejo', 'empresas', 'saude', 'corporativo', 'educacao'];
+const VALID_INDUSTRIES = ['servicos', 'varejo', 'saude', 'corporativo', 'educacao'];
 
 const PASSWORD_REQUIREMENTS = [
   { id: 'length', label: 'Mínimo 8 caracteres', test: (p: string) => p.length >= 8 },

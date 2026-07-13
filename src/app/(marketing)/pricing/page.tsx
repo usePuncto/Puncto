@@ -12,19 +12,18 @@ import {
   type BusinessTypeKey,
 } from '@/content/pricingByBusinessType';
 import {
-  erpModules,
-  getMinPlanLabel,
+  getModulesForIndustry,
   isModuleAvailableForPlan,
   PLAN_LABELS,
   PLAN_MODULE_LIMITS,
   type PlanId,
 } from '@/content/modules';
+import { SEGMENT_LABELS, industryToModuleSegment } from '@/content/businessModules';
 import ServiceTermsSection from '@/components/marketing/ServiceTermsSection';
 
 const businessTypeToIndustrySlug: Record<BusinessTypeKey, string> = {
   servicos: 'servicos',
   comercio: 'varejo',
-  empresas: 'empresas',
   saude: 'saude',
   corporativo: 'corporativo',
   educacao: 'educacao',
@@ -34,12 +33,12 @@ const pricingFAQ = [
   {
     question: 'Como funciona o modelo da Puncto?',
     answer:
-      'Somos um ERP modular customizado. Você escolhe os módulos que precisa — agendamento, estoque, ponto, fiscal, CRM e outros — e nós adaptamos cada implementação aos seus processos e regras de negócio. Não vendemos um sistema pronto de prateleira: o sistema se adapta a você, não o contrário.',
+      'Somos um ERP modular customizado. Você escolhe os módulos do catálogo do seu segmento — serviços, comércio, saúde, educação ou gestão corporativa — e nós adaptamos cada implementação aos seus processos. Não vendemos um sistema pronto de prateleira: o sistema se adapta a você, não o contrário.',
   },
   {
     question: 'Quantos módulos posso escolher em cada plano?',
     answer:
-      'No plano Grátis você escolhe até 2 módulos. No Starter, até 8. No Growth, até 10. No Pro, até 12. Alguns módulos avançados — como emissão fiscal, estoque, ponto eletrônico e automação — só ficam disponíveis a partir do plano Growth. Integrações/API e Produção (KDS) são exclusivos do Pro.',
+      'No plano Grátis estão incluídos apenas os 2 primeiros módulos do catálogo do seu segmento. No Starter, você escolhe até 8 módulos de todo o catálogo. No Growth, até 10. No Pro, até 12 — o catálogo completo.',
   },
   {
     question: 'O que está incluído em pequenas customizações?',
@@ -69,7 +68,7 @@ const pricingFAQ = [
   {
     question: 'O sistema emite nota fiscal?',
     answer:
-      'Sim! Nos planos Growth e Pro, você pode emitir NFS-e (serviços) e NFC-e (produtos) com uma cota por mês correspondente ao seu plano. Temos integração com os principais sistemas de emissão de nota fiscal do Brasil.',
+      'Sim. Emissão de NF está no catálogo de módulos de cada segmento. Você pode incluí-la na seleção conforme o limite do seu plano.',
   },
   {
     question: 'Posso usar o Puncto em mais de uma unidade?',
@@ -88,6 +87,8 @@ export default function PricingPage() {
   const [selectedBusinessType, setSelectedBusinessType] = useState<BusinessTypeKey>('servicos');
 
   const industrySlug = businessTypeToIndustrySlug[selectedBusinessType];
+  const segmentModules = getModulesForIndustry(industrySlug);
+  const segmentLabel = SEGMENT_LABELS[industryToModuleSegment(industrySlug)];
   const planIds: PlanId[] = ['gratis', 'starter', 'growth', 'pro'];
 
   const plansWithFeaturesForType = pricingPlans.map((plan) => {
@@ -116,12 +117,11 @@ export default function PricingPage() {
               Pacotes modulares de referência
             </h1>
             <p className="body-lg mb-6">
-              Escolha o plano, selecione os módulos que fazem sentido para sua operação
+              Escolha o plano, selecione os módulos do catálogo do seu segmento
               e receba uma implementação customizada.
             </p>
 
-            {/* Business type selector */}
-            <p className="text-sm text-slate-600 mb-2">Recursos mostrados para:</p>
+            <p className="text-sm text-slate-600 mb-2">Catálogo de módulos para:</p>
             <div className="flex flex-wrap justify-center gap-2 mb-6">
               {businessTypeOptions.map((option) => (
                 <button
@@ -138,7 +138,6 @@ export default function PricingPage() {
               ))}
             </div>
 
-            {/* Billing toggle */}
             <div className="inline-flex items-center gap-4 bg-white rounded-full p-1.5 shadow-soft border border-slate-200">
               <button
                 onClick={() => setIsAnnual(false)}
@@ -194,11 +193,11 @@ export default function PricingPage() {
             className="text-center mb-12"
           >
             <h2 className="heading-lg text-slate-900 mb-4">
-              Módulos disponíveis por plano
+              Módulos de {segmentLabel}
             </h2>
             <p className="body-lg max-w-2xl mx-auto">
-              Cada plano define quantos módulos você pode escolher e quais ficam
-              disponíveis para seleção.
+              Catálogo do segmento selecionado. Cada plano define quantos módulos
+              você pode escolher (até {PLAN_MODULE_LIMITS.pro} no Pro).
             </p>
           </motion.div>
 
@@ -215,20 +214,20 @@ export default function PricingPage() {
               ))}
             </div>
 
-            {erpModules.map((module) => (
+            {segmentModules.map((module) => (
               <div
                 key={module.id}
                 className="grid grid-cols-5 min-w-[720px] border-b border-slate-100 hover:bg-slate-50 transition-colors"
               >
                 <div className="p-4">
                   <div className="text-sm font-medium text-slate-900">{module.name}</div>
-                  <div className="text-xs text-slate-500 mt-1">{getMinPlanLabel(module.minPlan)}</div>
+                  <div className="text-xs text-slate-500 mt-1">{module.description}</div>
                 </div>
                 {planIds.map((planId) => {
-                  const available = isModuleAvailableForPlan(module, planId);
+                  const included = isModuleAvailableForPlan(industrySlug, module.id, planId);
                   return (
                     <div key={planId} className="p-4 flex justify-center items-center">
-                      {available ? (
+                      {included ? (
                         <svg className="w-5 h-5 text-secondary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
@@ -241,6 +240,10 @@ export default function PricingPage() {
               </div>
             ))}
           </div>
+          <p className="text-sm text-slate-500 text-center mt-4">
+            No plano Grátis, apenas os 2 primeiros módulos do catálogo estão incluídos.
+            Nos demais planos, você escolhe até o limite do pacote entre todos os módulos do segmento.
+          </p>
         </div>
       </section>
 
@@ -283,9 +286,9 @@ export default function PricingPage() {
                 Cada projeto é único
               </h2>
               <p className="text-slate-300 text-lg mb-6">
-                Os pacotes acima são referências. Na prática, cada implementação 
-                é customizada para os processos, integrações e regras de negócio 
-                do seu cliente. É assim que garantimos que o sistema se adapta 
+                Os pacotes acima são referências. Na prática, cada implementação
+                é customizada para os processos, integrações e regras de negócio
+                do seu cliente. É assim que garantimos que o sistema se adapta
                 à operação — e não o contrário.
               </p>
               <ul className="space-y-3 mb-8">
@@ -329,7 +332,6 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* Final CTA */}
       <CTASection
         title="Pronto para montar seu ERP?"
         description="Agende um diagnóstico gratuito e receba uma proposta customizada para a sua operação."

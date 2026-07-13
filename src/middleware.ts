@@ -177,6 +177,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/industries', request.url), 301);
   }
 
+  // Deprecated industry: Grandes Empresas e Indústrias (no longer offered)
+  if (url.pathname === '/industries/empresas' || url.pathname.startsWith('/industries/empresas/')) {
+    return NextResponse.redirect(new URL('/industries', request.url), 301);
+  }
+
   // Auth routes - allow to proceed
   if (url.pathname.startsWith('/auth/')) {
     return NextResponse.next();

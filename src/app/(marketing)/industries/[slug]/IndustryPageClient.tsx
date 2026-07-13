@@ -5,8 +5,9 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 
 import { Industry, industryIcons } from '@/content/industries';
-import { features } from '@/content/features';
-import { featureDetailsByIndustry, addOnContentByIndustry } from '@/content/featureDetailsByIndustry';
+import { getModulesForIndustry } from '@/content/businessModules';
+import { PLAN_MODULE_LIMITS } from '@/content/modules';
+import { planIntrosByIndustry, addOnContentByIndustry } from '@/content/featureDetailsByIndustry';
 import PricingCard, { pricingPlans } from '@/components/marketing/PricingCard';
 import type { PricingPlan } from '@/components/marketing/PricingCard';
 import TestimonialCard, { testimonials } from '@/components/marketing/TestimonialCard';
@@ -16,33 +17,18 @@ interface IndustryPageClientProps {
   industry: Industry;
 }
 
-// Map industries to relevant features
-const industryFeatureMap: Record<string, string[]> = {
-  services: ['scheduling', 'payments', 'crm', 'analytics'],
-  retail: ['restaurant', 'payments', 'inventory', 'timeClock'],
-  corporate: ['scheduling', 'payments', 'crm', 'analytics'],
-  health: ['scheduling', 'payments', 'crm', 'analytics'],
-  corporativo: ['scheduling', 'payments', 'crm', 'analytics'],
-  education: ['scheduling', 'payments', 'crm', 'analytics'],
-};
-
-const planIds = ['gratis', 'starter', 'growth', 'pro'] as const;
-
 export default function IndustryPageClient({ industry }: IndustryPageClientProps) {
   const [isAnnual, setIsAnnual] = useState(true);
-  const relevantFeatureIds = industryFeatureMap[industry.id] || [];
-  const relevantFeatures = features.filter((f) =>
-    relevantFeatureIds.includes(f.id)
-  );
+  const segmentModules = getModulesForIndustry(industry.slug);
 
-  const detailsForIndustry = featureDetailsByIndustry[industry.slug];
+  const introsForIndustry = planIntrosByIndustry[industry.slug];
   const billingParam = isAnnual ? 'annual' : 'monthly';
   const plansForIndustry: PricingPlan[] = pricingPlans.map((plan) => {
-    const details = detailsForIndustry?.[plan.id];
+    const intro = introsForIndustry?.[plan.id];
     const chooseModulesUrl = `/pricing/choose-modules?plan=${plan.id}&industry=${industry.slug}&billing=${billingParam}`;
     return {
       ...plan,
-      description: details?.intro ?? plan.description,
+      description: intro?.intro ?? plan.description,
       cta: {
         text: 'Escolher Módulos',
         href: chooseModulesUrl,
@@ -206,73 +192,51 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
               Benefícios para seu negócio
             </h2>
             <p className="body-lg max-w-2xl mx-auto">
-              Funcionalidades pensadas especificamente para as necessidades de{' '}
+              Catálogo de módulos pensado para as necessidades de{' '}
               {industry.name.toLowerCase()}.
             </p>
           </motion.div>
 
-          {/* Detailed feature descriptions - BEFORE plan cards */}
-          {detailsForIndustry && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="mb-12"
-            >
-              <h3 className="heading-md text-slate-900 mb-6 text-center">
-                Detalhes de cada funcionalidade
-              </h3>
-              <p className="body-md text-slate-600 text-center max-w-2xl mx-auto mb-8">
-                Entenda em profundidade o que cada plano oferece para {industry.name.toLowerCase()}.
-              </p>
-              <div className="space-y-6">
-                {planIds.map((planId) => {
-                  const planDetails = detailsForIndustry[planId];
-                  if (!planDetails) return null;
-                  const planLabels: Record<string, string> = {
-                    gratis: 'Grátis',
-                    starter: 'Starter',
-                    growth: 'Growth',
-                    pro: 'Pro',
-                  };
-                  const planColors: Record<string, string> = {
-                    gratis: 'from-slate-50 to-slate-100 border-slate-200',
-                    starter: 'from-primary-50 to-primary-100/50 border-primary-200',
-                    growth: 'from-secondary-50 to-secondary-100/50 border-secondary-200',
-                    pro: 'from-amber-50 to-amber-100/50 border-amber-200',
-                  };
-                  return (
-                    <motion.div
-                      key={planId}
-                      initial={{ opacity: 0, y: 10 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      className={`rounded-2xl border bg-gradient-to-br ${planColors[planId]} p-6 md:p-8 shadow-sm hover:shadow-md transition-shadow`}
-                    >
-                      <h4 className="font-bold text-slate-900 text-lg mb-2">
-                        Plano {planLabels[planId]}
-                      </h4>
-                      <p className="text-slate-600 text-sm mb-6">
-                        {planDetails.intro}
-                      </p>
-                      <div className="space-y-4">
-                        {planDetails.features.map((feat, i) => (
-                          <div key={i} className="bg-white/90 rounded-xl p-4 shadow-sm border border-slate-100">
-                            <h5 className="font-semibold text-slate-800 text-base mb-2">
-                              {feat.title}
-                            </h5>
-                            <p className="text-slate-600 text-sm leading-relaxed">
-                              {feat.description}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
+          {/* Module catalog from tiersModulos.txt */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="mb-12"
+          >
+            <h3 className="heading-md text-slate-900 mb-6 text-center">
+              Módulos do catálogo
+            </h3>
+            <p className="body-md text-slate-600 text-center max-w-2xl mx-auto mb-8">
+              Estes são os módulos disponíveis para {industry.name.toLowerCase()}.
+            </p>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {segmentModules.map((mod, i) => (
+                <motion.div
+                  key={mod.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.03 }}
+                  className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h5 className="font-semibold text-slate-800 text-base">
+                      {mod.name}
+                    </h5>
+                    {i < PLAN_MODULE_LIMITS.gratis && (
+                      <span className="inline-flex text-xs font-medium px-2 py-1 rounded-full bg-secondary-100 text-secondary-800 flex-shrink-0">
+                        Grátis
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-slate-600 text-sm leading-relaxed">
+                    {mod.description}
+                  </p>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
 
           {/* Plan cards - same style as index page */}
           {'planFeatures' in industry && industry.planFeatures && (
@@ -384,103 +348,11 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
 
             </motion.div>
           )}
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {industry.benefits.map((benefit, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-white rounded-xl border border-slate-200 p-6 hover:shadow-soft-lg transition-shadow"
-              >
-                <div className="w-10 h-10 bg-secondary-100 rounded-lg flex items-center justify-center mb-4">
-                  <svg
-                    className="w-5 h-5 text-secondary-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                </div>
-                <p className="text-slate-700 font-medium">{benefit}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Relevant Features */}
-      <section className="section bg-slate-50">
-        <div className="container-marketing">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-12"
-          >
-            <h2 className="heading-lg text-slate-900 mb-4">
-              Funcionalidades principais
-            </h2>
-            <p className="body-lg max-w-2xl mx-auto">
-              As ferramentas mais utilizadas por {industry.name.toLowerCase()}.
-            </p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {relevantFeatures.map((feature, index) => (
-              <motion.div
-                key={feature.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: index * 0.1 }}
-                className="bg-white rounded-xl border border-slate-200 p-6"
-              >
-                <h3 className="heading-sm text-slate-900 mb-2">
-                  {feature.title}
-                </h3>
-                <p className="body-md mb-4">{feature.description}</p>
-                <Link
-                  href={`/features#${feature.id}`}
-                  className="text-primary-600 font-medium hover:text-primary-700 inline-flex items-center gap-1"
-                >
-                  Saiba mais
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
-
-          <div className="text-center mt-8">
-            <Link href="/features" className="btn-secondary">
-              Ver todas as funcionalidades
-            </Link>
-          </div>
         </div>
       </section>
 
       {/* Use Cases */}
-      <section className="section bg-white">
+      <section className="section bg-slate-50">
         <div className="container-marketing">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
