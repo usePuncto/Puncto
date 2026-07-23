@@ -54,12 +54,16 @@ export async function GET(request: NextRequest) {
       description: string;
       date: string;
       createdAt: string;
+      referenceType?: string;
+      editable: boolean;
     }> = [];
 
     const addEntry = (doc: { id: string; data: () => Record<string, unknown> }) => {
       const data = doc.data() as any;
       const dateMs = toMillis(data.date);
       if (!inRange(dateMs)) return;
+      const referenceType = data.referenceType as string | undefined;
+      const editable = !referenceType || referenceType === 'manual' || referenceType === 'expense';
       entries.push({
         id: doc.id,
         type: data.account === 'expenses' ? 'expense' : 'revenue',
@@ -68,6 +72,8 @@ export async function GET(request: NextRequest) {
         description: data.description || '',
         date: dateMs ? new Date(dateMs).toISOString().split('T')[0] : '',
         createdAt: data.createdAt?.toDate?.()?.toISOString?.() || '',
+        referenceType,
+        editable,
       });
     };
 

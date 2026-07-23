@@ -11,18 +11,64 @@ export default function FinancialPage() {
   const isEducation = business?.industry === 'education';
   const [financialTab, setFinancialTab] = useState<'reports' | 'tuitions'>('reports');
   const queryClient = useQueryClient();
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [addForm, setAddForm] = useState({
+  type LedgerOccurrence = {
+    id: string;
+    type: 'expense' | 'revenue';
+    description: string;
+    amount: number;
+    date: string;
+    editable?: boolean;
+  };
+
+  const emptyForm = () => ({
     type: 'expense' as 'expense' | 'revenue',
     account: 'expenses',
     amount: '',
     description: '',
     date: new Date().toISOString().split('T')[0],
   });
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<LedgerOccurrence | null>(null);
+  const [addForm, setAddForm] = useState(emptyForm);
   const [addError, setAddError] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const handleAddOccurrence = async (e: React.FormEvent) => {
+  const resetOccurrenceForm = () => {
+    setShowAddForm(false);
+    setEditingEntry(null);
+    setAddForm(emptyForm());
+    setAddError(null);
+  };
+
+  const openAddForm = () => {
+    setEditingEntry(null);
+    setAddForm(emptyForm());
+    setAddError(null);
+    setShowAddForm(true);
+  };
+
+  const openEditForm = (entry: LedgerOccurrence) => {
+    setEditingEntry(entry);
+    setAddForm({
+      type: entry.type,
+      account: entry.type === 'expense' ? 'expenses' : 'revenue',
+      amount: (entry.amount / 100).toFixed(2),
+      description: entry.description,
+      date: entry.date || new Date().toISOString().split('T')[0],
+    });
+    setAddError(null);
+    setShowAddForm(true);
+  };
+
+  const invalidateFinancialQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['pnl', business.id] });
+    queryClient.invalidateQueries({ queryKey: ['cashflow', business.id] });
+    queryClient.invalidateQueries({ queryKey: ['ledgerEntries', business.id] });
+  };
+
+  const handleSaveOccurrence = async (e: React.FormEvent) => {
     e.preventDefault();
     setAddError(null);
     const amount = parseFloat(addForm.amount);
@@ -36,33 +82,59 @@ export default function FinancialPage() {
     }
     setAddLoading(true);
     try {
-      const res = await fetch('/api/ledger/entries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessId: business.id,
-          entry: {
-            account: addForm.type === 'expense' ? 'expenses' : 'revenue',
-            type: addForm.type === 'expense' ? 'debit' : 'credit',
-            amount: amount,
-            description: addForm.description.trim(),
-            date: addForm.date,
-          },
-        }),
-      });
+      const entryPayload = {
+        account: addForm.type === 'expense' ? 'expenses' : 'revenue',
+        type: addForm.type === 'expense' ? 'debit' : 'credit',
+        amount,
+        description: addForm.description.trim(),
+        date: addForm.date,
+      };
+
+      const res = editingEntry
+        ? await fetch(`/api/ledger/entries/${editingEntry.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ businessId: business.id, entry: entryPayload }),
+          })
+        : await fetch('/api/ledger/entries', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ businessId: business.id, entry: entryPayload }),
+          });
+
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || 'Erro ao salvar');
       }
-      setShowAddForm(false);
-      setAddForm({ type: 'expense', account: 'expenses', amount: '', description: '', date: new Date().toISOString().split('T')[0] });
-      queryClient.invalidateQueries({ queryKey: ['pnl', business.id] });
-      queryClient.invalidateQueries({ queryKey: ['cashflow', business.id] });
-      queryClient.invalidateQueries({ queryKey: ['ledgerEntries', business.id] });
+      resetOccurrenceForm();
+      invalidateFinancialQueries();
     } catch (err: any) {
-      setAddError(err.message || 'Erro ao adicionar');
+      setAddError(err.message || (editingEntry ? 'Erro ao atualizar' : 'Erro ao adicionar'));
     } finally {
       setAddLoading(false);
+    }
+  };
+
+  const handleDeleteOccurrence = async (entry: LedgerOccurrence) => {
+    if (!business?.id) return;
+    if (!confirm(`Excluir a ocorrência "${entry.description}"?`)) return;
+
+    setDeletingId(entry.id);
+    try {
+      const res = await fetch(
+        `/api/ledger/entries/${entry.id}?businessId=${encodeURIComponent(business.id)}`,
+        { method: 'DELETE' }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || 'Erro ao excluir');
+      }
+      if (editingEntry?.id === entry.id) resetOccurrenceForm();
+      invalidateFinancialQueries();
+    } catch (err: any) {
+      alert(err.message || 'Erro ao excluir ocorrência');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -191,7 +263,7 @@ export default function FinancialPage() {
           {(!isEducation || financialTab === 'reports') && (
             <>
               <button
-                onClick={() => setShowAddForm(true)}
+                onClick={openAddForm}
                 className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
               >
                 + Adicionar ocorrência
@@ -232,7 +304,7 @@ export default function FinancialPage() {
               type="button"
               onClick={() => {
                 setFinancialTab(tab.id);
-                setShowAddForm(false);
+                resetOccurrenceForm();
               }}
               className={`rounded-t-lg px-4 py-2.5 text-sm font-medium transition-colors ${
                 financialTab === tab.id
@@ -322,10 +394,11 @@ export default function FinancialPage() {
                   <th className="py-2 pr-4">Tipo</th>
                   <th className="py-2 pr-4">Descrição</th>
                   <th className="py-2 text-right">Valor</th>
+                  <th className="py-2 pl-4 text-right">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {ledgerData.entries.map((entry: { id: string; type: string; description: string; amount: number; date: string }) => (
+                {ledgerData.entries.map((entry: LedgerOccurrence) => (
                   <tr key={entry.id} className="border-b border-neutral-100">
                     <td className="py-3 pr-4">{new Date(entry.date + 'T12:00:00').toLocaleDateString('pt-BR')}</td>
                     <td className="py-3 pr-4">
@@ -336,6 +409,29 @@ export default function FinancialPage() {
                     <td className="py-3 pr-4">{entry.description}</td>
                     <td className={`py-3 text-right font-medium ${entry.type === 'revenue' ? 'text-green-600' : 'text-red-600'}`}>
                       {entry.type === 'revenue' ? '' : '-'}{formatAmount(entry.amount)}
+                    </td>
+                    <td className="py-3 pl-4 text-right whitespace-nowrap">
+                      {entry.editable !== false ? (
+                        <div className="inline-flex items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => openEditForm(entry)}
+                            className="text-sm text-blue-600 hover:text-blue-800"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteOccurrence(entry)}
+                            disabled={deletingId === entry.id}
+                            className="text-sm text-red-600 hover:text-red-800 disabled:opacity-50"
+                          >
+                            {deletingId === entry.id ? 'Excluindo...' : 'Excluir'}
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-neutral-400">—</span>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -348,71 +444,86 @@ export default function FinancialPage() {
       </div>
 
       {showAddForm && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-6">
-          <h2 className="text-lg font-semibold text-neutral-900 mb-4">Nova ocorrência financeira</h2>
-          <form onSubmit={handleAddOccurrence} className="space-y-4 max-w-md">
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Tipo</label>
-              <select
-                value={addForm.type}
-                onChange={(e) => setAddForm({ ...addForm, type: e.target.value as 'expense' | 'revenue' })}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-              >
-                <option value="expense">Despesa</option>
-                <option value="revenue">Receita</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Valor (R$)</label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                value={addForm.amount}
-                onChange={(e) => setAddForm({ ...addForm, amount: e.target.value })}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                placeholder="0,00"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Descrição</label>
-              <input
-                type="text"
-                value={addForm.description}
-                onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                placeholder="Ex: Aluguel do mês"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Data</label>
-              <input
-                type="date"
-                value={addForm.date}
-                onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
-                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-              />
-            </div>
-            {addError && <p className="text-sm text-red-600">{addError}</p>}
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={addLoading}
-                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
-              >
-                {addLoading ? 'Salvando...' : 'Salvar'}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowAddForm(false); setAddError(null); }}
-                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-              >
-                Cancelar
-              </button>
-            </div>
-          </form>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={resetOccurrenceForm}
+          role="presentation"
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="occurrence-modal-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 id="occurrence-modal-title" className="text-lg font-semibold text-neutral-900">
+              {editingEntry ? 'Editar ocorrência financeira' : 'Nova ocorrência financeira'}
+            </h2>
+            <form onSubmit={handleSaveOccurrence} className="mt-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Tipo</label>
+                <select
+                  value={addForm.type}
+                  onChange={(e) => setAddForm({ ...addForm, type: e.target.value as 'expense' | 'revenue' })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                >
+                  <option value="expense">Despesa</option>
+                  <option value="revenue">Receita</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Valor (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={addForm.amount}
+                  onChange={(e) => setAddForm({ ...addForm, amount: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  placeholder="0,00"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Descrição</label>
+                <input
+                  type="text"
+                  value={addForm.description}
+                  onChange={(e) => setAddForm({ ...addForm, description: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                  placeholder="Ex: Aluguel do mês"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-neutral-700 mb-1">Data</label>
+                <input
+                  type="date"
+                  value={addForm.date}
+                  onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+                />
+              </div>
+              {addError && <p className="text-sm text-red-600">{addError}</p>}
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="submit"
+                  disabled={addLoading}
+                  className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                >
+                  {addLoading ? 'Salvando...' : editingEntry ? 'Salvar alterações' : 'Salvar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={resetOccurrenceForm}
+                  className="rounded-lg border border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
