@@ -144,7 +144,11 @@ export async function POST(request: NextRequest) {
       phone,
       slug,
       industry,
-      tier = 'free',
+      taxId,
+      planId,
+      tier: tierInput,
+      status = 'active',
+      enabledModules,
     } = body;
 
     // Validate required fields
@@ -163,35 +167,74 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const normalizedSlug = String(slug)
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
+    if (!normalizedSlug) {
+      return NextResponse.json({ error: 'Slug inválido' }, { status: 400 });
+    }
+
     // Check if slug already exists
-    const existingSlug = await db.collection('businesses').where('slug', '==', slug).get();
+    const existingSlug = await db.collection('businesses').where('slug', '==', normalizedSlug).get();
     if (!existingSlug.empty) {
       return NextResponse.json(
-        { error: 'Business with this slug already exists' },
+        { error: 'Já existe um negócio com este identificador (slug)' },
         { status: 409 }
       );
     }
 
-    // Get tier features
+    const {
+      planIdToTier,
+      defaultEnabledModules,
+      featuresFromEnabledModules,
+    } = await import('@/content/businessModules');
+
+    const resolvedPlanId =
+      planId && ['gratis', 'starter', 'growth', 'pro'].includes(planId)
+        ? planId
+        : undefined;
+    const tier = resolvedPlanId
+      ? planIdToTier(resolvedPlanId)
+      : (['free', 'basic', 'pro', 'enterprise'].includes(tierInput) ? tierInput : 'free');
+
     const { TIER_FEATURES } = await import('@/types/features');
     const tierFeatures = TIER_FEATURES[tier as keyof typeof TIER_FEATURES] || TIER_FEATURES.free;
 
+    const modules =
+      enabledModules && typeof enabledModules === 'object'
+        ? enabledModules
+        : defaultEnabledModules(industry);
+    const features = featuresFromEnabledModules(industry, modules, tierFeatures as any);
+
+    const now = new Date();
+    const businessRef = db.collection('businesses').doc();
+
     // Create business document
     const businessData: Partial<Business> = {
-      slug,
-      displayName,
-      legalName: legalName || displayName,
-      email,
+      id: businessRef.id,
+      slug: normalizedSlug,
+      displayName: String(displayName).trim(),
+      legalName: (legalName || displayName).trim(),
+      email: String(email).trim().toLowerCase(),
       phone: phone || '',
-      industry: industry || 'general',
+      industry,
+      taxId: taxId || '',
       subscription: {
         tier: tier as any,
-        status: 'active',
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        billingEmail: email,
+        ...(resolvedPlanId ? { planId: resolvedPlanId } : {}),
+        status: (['active', 'trial', 'suspended', 'cancelled', 'pending_payment'].includes(status)
+          ? status
+          : 'active') as any,
+        currentPeriodStart: now,
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        billingEmail: String(email).trim().toLowerCase(),
       },
-      features: tierFeatures as any,
+      features: features as any,
+      enabledModules: modules,
       settings: {
         timezone: 'America/Sao_Paulo',
         locale: 'pt-BR',
@@ -201,7 +244,15 @@ export async function POST(request: NextRequest) {
           enabled: false,
           hoursBeforeService: 24,
         },
-        workingHours: {},
+        workingHours: {
+          monday: { open: '09:00', close: '18:00', closed: false },
+          tuesday: { open: '09:00', close: '18:00', closed: false },
+          wednesday: { open: '09:00', close: '18:00', closed: false },
+          thursday: { open: '09:00', close: '18:00', closed: false },
+          friday: { open: '09:00', close: '18:00', closed: false },
+          saturday: { open: '09:00', close: '14:00', closed: false },
+          sunday: { open: '09:00', close: '14:00', closed: true },
+        },
       },
       branding: {
         gallery: [],
@@ -216,15 +267,15 @@ export async function POST(request: NextRequest) {
         country: 'BR',
       },
       about: '',
-      taxId: '',
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: now,
+      updatedAt: now,
       createdBy: admin.uid,
       dataRetentionDays: 365,
       consentVersion: '1.0',
+      marketplaceEnabled: false,
     };
 
-    const businessRef = await db.collection('businesses').add(businessData);
+    await businessRef.set(businessData);
 
     return NextResponse.json({
       id: businessRef.id,

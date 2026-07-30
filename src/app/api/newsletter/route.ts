@@ -61,13 +61,24 @@ export async function POST(request: NextRequest) {
     await db.collection('leads').add({
       type: 'newsletter',
       email: email.toLowerCase(),
+      name: null,
+      phone: null,
+      company: null,
+      message: null,
+      subject: 'Inscrição newsletter',
       source: {
+        page: body.page || '/newsletter',
         utmSource,
         utmMedium,
         utmCampaign,
+        referrer: request.headers.get('referer') || null,
+        userAgent: request.headers.get('user-agent') || null,
       },
       status: 'new',
+      priority: 'normal',
+      notes: null,
       createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     // TODO: Send welcome email

@@ -20,6 +20,9 @@ function ContactContent() {
   const subject = searchParams.get('subject') || undefined;
   const plan = searchParams.get('plan') || undefined;
   const message = searchParams.get('message') || undefined;
+  const industry = searchParams.get('industry') || undefined;
+  const billingParam = searchParams.get('billing');
+  const billing = billingParam === 'annual' || billingParam === 'monthly' ? billingParam : undefined;
   const modulesParam = searchParams.get('modules') || '';
   const selectedModuleIds = modulesParam.split(',').filter(Boolean);
   const selectedModules = selectedModuleIds
@@ -216,6 +219,18 @@ function ContactContent() {
                 variant="contact"
                 subject={subject || (plan ? `Interesse no plano ${plan}` : undefined)}
                 defaultMessage={message}
+                plan={plan}
+                modules={selectedModuleIds}
+                industry={industry}
+                billing={billing}
+                page="/contact"
+                leadType={
+                  plan === 'enterprise'
+                    ? 'enterprise'
+                    : plan && selectedModuleIds.length > 0
+                      ? 'module_interest'
+                      : 'contact'
+                }
               />
             </motion.div>
           </div>

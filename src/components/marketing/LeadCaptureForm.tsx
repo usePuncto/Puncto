@@ -21,6 +21,12 @@ interface LeadCaptureFormProps {
   variant?: 'contact' | 'demo' | 'compact';
   subject?: string;
   defaultMessage?: string;
+  plan?: string;
+  modules?: string[];
+  industry?: string;
+  billing?: 'monthly' | 'annual';
+  page?: string;
+  leadType?: 'contact' | 'demo_request' | 'webinar' | 'module_interest' | 'enterprise';
   onSuccess?: () => void;
 }
 
@@ -28,6 +34,12 @@ export default function LeadCaptureForm({
   variant = 'contact',
   subject,
   defaultMessage,
+  plan,
+  modules,
+  industry,
+  billing,
+  page,
+  leadType,
   onSuccess,
 }: LeadCaptureFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,7 +68,23 @@ export default function LeadCaptureForm({
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          ...data,
+          plan: plan || undefined,
+          modules: modules?.length ? modules : undefined,
+          industry: industry || undefined,
+          billing: billing || undefined,
+          page: page || (variant === 'demo' ? '/demo' : '/contact'),
+          leadType:
+            leadType ||
+            (variant === 'demo'
+              ? 'demo_request'
+              : plan === 'enterprise'
+                ? 'enterprise'
+                : plan && modules?.length
+                  ? 'module_interest'
+                  : undefined),
+        }),
       });
 
       if (!res.ok) {
@@ -118,7 +146,6 @@ export default function LeadCaptureForm({
       )}
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Name */}
         <div>
           <label htmlFor="name" className="label">
             Nome completo *
@@ -135,7 +162,6 @@ export default function LeadCaptureForm({
           )}
         </div>
 
-        {/* Email */}
         <div>
           <label htmlFor="email" className="label">
             Email *
@@ -155,7 +181,6 @@ export default function LeadCaptureForm({
 
       {variant !== 'compact' && (
         <div className="grid md:grid-cols-2 gap-6">
-          {/* Phone */}
           <div>
             <label htmlFor="phone" className="label">
               Telefone / WhatsApp
@@ -169,7 +194,6 @@ export default function LeadCaptureForm({
             />
           </div>
 
-          {/* Company */}
           <div>
             <label htmlFor="company" className="label">
               Nome do negócio
@@ -205,7 +229,6 @@ export default function LeadCaptureForm({
         </div>
       )}
 
-      {/* Message */}
       <div>
         <label htmlFor="message" className="label">
           {variant === 'demo'

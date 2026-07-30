@@ -7,11 +7,23 @@ const demoRequestSchema = z.object({
   email: z.string().email('Email inválido'),
   phone: z.string().optional(),
   company: z.string().optional(),
-  businessType: z.enum(['salon', 'restaurant', 'clinic', 'bakery', 'other', '']).optional(),
+  businessType: z.string().optional(),
   message: z.string().optional(),
   preferredDate: z.string().optional(),
   preferredTime: z.string().optional(),
+  plan: z.string().optional(),
+  modules: z.union([z.array(z.string()), z.string()]).optional(),
+  industry: z.string().optional(),
+  billing: z.enum(['monthly', 'annual']).optional(),
+  page: z.string().optional(),
+  subject: z.string().optional(),
 });
+
+function normalizeModules(modules: string[] | string | undefined): string[] {
+  if (!modules) return [];
+  if (Array.isArray(modules)) return modules.filter(Boolean);
+  return modules.split(',').map((m) => m.trim()).filter(Boolean);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -27,6 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = result.data;
+    const modules = normalizeModules(data.modules);
 
     // Get UTM parameters
     const utmSource = request.headers.get('x-utm-source') || body.utmSource || null;
@@ -37,14 +50,20 @@ export async function POST(request: NextRequest) {
     const demoRef = await db.collection('leads').add({
       type: 'demo_request',
       name: data.name,
-      email: data.email,
+      email: data.email.toLowerCase(),
       phone: data.phone || null,
       company: data.company || null,
       businessType: data.businessType || null,
       message: data.message || null,
+      subject: data.subject || 'Solicitação de demonstração',
       preferredDate: data.preferredDate || null,
       preferredTime: data.preferredTime || null,
+      plan: data.plan || null,
+      modules,
+      industry: data.industry || null,
+      billing: data.billing || null,
       source: {
+        page: data.page || '/demo',
         utmSource,
         utmMedium,
         utmCampaign,
@@ -52,25 +71,31 @@ export async function POST(request: NextRequest) {
         userAgent: request.headers.get('user-agent') || null,
       },
       status: 'new',
-      priority: 'high', // Demo requests are high priority
+      priority: 'high',
       assignedTo: null,
+      notes: null,
       scheduledAt: null,
       followUpAt: null,
       createdAt: new Date(),
+      updatedAt: new Date(),
     });
 
     // Also create in a dedicated demo_requests collection for sales team
     await db.collection('demo_requests').add({
       leadId: demoRef.id,
       name: data.name,
-      email: data.email,
+      email: data.email.toLowerCase(),
       phone: data.phone || null,
       company: data.company || null,
       businessType: data.businessType || null,
       message: data.message || null,
       preferredDate: data.preferredDate || null,
       preferredTime: data.preferredTime || null,
-      status: 'pending', // pending, scheduled, completed, cancelled, no_show
+      plan: data.plan || null,
+      modules,
+      industry: data.industry || null,
+      billing: data.billing || null,
+      status: 'pending',
       scheduledAt: null,
       completedAt: null,
       notes: null,

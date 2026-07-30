@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type StudentModality = 'presencial' | 'online' | 'vip';
+export type StudentModality = 'presencial' | 'online' | 'vip' | 'bolsista' | 'aula_avulsa';
 
 export interface CustomerData {
   firstName: string;

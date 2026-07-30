@@ -7,16 +7,37 @@ const contactSchema = z.object({
   email: z.string().email('Email inválido'),
   phone: z.string().optional(),
   company: z.string().optional(),
-  businessType: z.enum(['salon', 'restaurant', 'clinic', 'bakery', 'other', '']).optional(),
+  businessType: z.string().optional(),
   message: z.string().min(10, 'Mensagem deve ter pelo menos 10 caracteres'),
   subject: z.string().optional(),
+  plan: z.string().optional(),
+  modules: z.union([z.array(z.string()), z.string()]).optional(),
+  industry: z.string().optional(),
+  billing: z.enum(['monthly', 'annual']).optional(),
+  page: z.string().optional(),
+  leadType: z
+    .enum(['contact', 'demo_request', 'newsletter', 'webinar', 'module_interest', 'enterprise'])
+    .optional(),
 });
+
+function normalizeModules(modules: string[] | string | undefined): string[] {
+  if (!modules) return [];
+  if (Array.isArray(modules)) return modules.filter(Boolean);
+  return modules.split(',').map((m) => m.trim()).filter(Boolean);
+}
+
+function resolveLeadType(data: z.infer<typeof contactSchema>): string {
+  if (data.leadType) return data.leadType;
+  if (data.plan === 'enterprise') return 'enterprise';
+  if (data.plan && normalizeModules(data.modules).length > 0) return 'module_interest';
+  if (data.subject?.toLowerCase().includes('webinar')) return 'webinar';
+  return 'contact';
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate input
     const result = contactSchema.safeParse(body);
     if (!result.success) {
       return NextResponse.json(
@@ -26,23 +47,28 @@ export async function POST(request: NextRequest) {
     }
 
     const data = result.data;
+    const modules = normalizeModules(data.modules);
+    const leadType = resolveLeadType(data);
 
-    // Get UTM parameters from headers or body
     const utmSource = request.headers.get('x-utm-source') || body.utmSource || null;
     const utmMedium = request.headers.get('x-utm-medium') || body.utmMedium || null;
     const utmCampaign = request.headers.get('x-utm-campaign') || body.utmCampaign || null;
 
-    // Store contact submission in Firestore
     const contactRef = await db.collection('leads').add({
-      type: 'contact',
+      type: leadType,
       name: data.name,
-      email: data.email,
+      email: data.email.toLowerCase(),
       phone: data.phone || null,
       company: data.company || null,
       businessType: data.businessType || null,
       message: data.message,
       subject: data.subject || null,
+      plan: data.plan || null,
+      modules,
+      industry: data.industry || null,
+      billing: data.billing || null,
       source: {
+        page: data.page || '/contact',
         utmSource,
         utmMedium,
         utmCampaign,
@@ -50,18 +76,12 @@ export async function POST(request: NextRequest) {
         userAgent: request.headers.get('user-agent') || null,
       },
       status: 'new',
+      priority: leadType === 'enterprise' || leadType === 'module_interest' ? 'high' : 'normal',
+      notes: null,
+      assignedTo: null,
       createdAt: new Date(),
+      updatedAt: new Date(),
     });
-
-    // TODO: Send email notification to sales team
-    // await sendEmail({
-    //   to: 'suporte@puncto.com.br',
-    //   subject: `Novo contato: ${data.name}`,
-    //   body: `...`
-    // });
-
-    // TODO: Add to CRM (HubSpot, Pipedrive, etc.)
-    // await crmIntegration.createLead(data);
 
     return NextResponse.json({
       success: true,

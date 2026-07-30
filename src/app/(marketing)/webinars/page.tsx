@@ -404,6 +404,8 @@ export default function WebinarsPage() {
             <LeadCaptureForm
               variant="compact"
               subject={`Inscrição Webinar: ${selectedWebinar.title}`}
+              page="/webinars"
+              leadType="webinar"
               onSuccess={() => {
                 setShowRegistration(false);
                 alert('Inscrição realizada com sucesso! Você receberá o link de acesso por email.');

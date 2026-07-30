@@ -61,6 +61,16 @@ export default function PlatformLayout({
                   Usuários
                 </Link>
                 <Link
+                  href="/platform/contacts"
+                  className={`px-3 py-2 text-sm font-medium ${
+                    pathname?.startsWith('/platform/contacts')
+                      ? 'text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-700 hover:text-gray-900'
+                  }`}
+                >
+                  Contatos
+                </Link>
+                <Link
                   href="/platform/billing"
                   className={`px-3 py-2 text-sm font-medium ${
                     pathname?.startsWith('/platform/billing')

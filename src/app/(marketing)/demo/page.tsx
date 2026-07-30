@@ -105,7 +105,7 @@ export default function DemoPage() {
                 Preencha o formulário e entraremos em contato para agendar.
               </p>
 
-              <LeadCaptureForm variant="demo" />
+              <LeadCaptureForm variant="demo" page="/demo" leadType="demo_request" />
             </motion.div>
           </div>
         </div>

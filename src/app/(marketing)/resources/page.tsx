@@ -104,7 +104,7 @@ export default function ResourcesPage() {
       await fetch('/api/newsletter', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email, page: `/resources/${resourceId}` }),
       });
 
       // Track download
