@@ -8,71 +8,201 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { LocaleSwitcher } from '@/components/admin/LocaleSwitcher';
 import { useTranslations } from 'next-intl';
-import { getIncludedFeaturesForPlanAndIndustry } from '@/lib/features/businessTypeFeatures';
-import type { FeatureId } from '@/lib/features/businessTypeFeatures';
+import {
+  canAccessAdminCapability,
+  canAccessAdminPath,
+  type AdminNavCapability,
+} from '@/lib/features/moduleAccess';
 import { getBusinessRole } from '@/lib/permissions';
 import { NotificationsBell } from '@/components/notifications/NotificationsBell';
 import { isSubscriptionAccessBlocked } from '@/lib/business/subscription-access';
 import { signOutAndClearSession } from '@/lib/business/check-subscription-client';
+
 interface AdminLayoutProps {
   children: ReactNode;
 }
-
-const TIER_TO_PLAN: Record<string, string> = {
-  free: 'gratis',
-  gratis: 'gratis',
-  basic: 'starter',
-  starter: 'starter',
-  growth: 'growth',
-  pro: 'pro',
-  enterprise: 'enterprise',
-};
 
 type NavItem = {
   href: string;
   key: string;
   icon: string;
-  feature: FeatureId | 'always' | 'enterprise';
+  capability: AdminNavCapability;
 };
 
-/** Default nav (most industries) */
+/** Default nav (most industries) — gated per business via enabledModules */
 const adminNavItems: NavItem[] = [
-  { href: '/tenant/admin/dashboard', key: 'dashboard', icon: '📊', feature: 'always' },
-  { href: '/tenant/admin/notifications', key: 'notifications', icon: '🔔', feature: 'always' },
-  { href: '/tenant/admin/bookings', key: 'bookings', icon: '📅', feature: 'scheduling' },
-  { href: '/tenant/admin/services', key: 'services', icon: '🏥', feature: 'scheduling' },
-  { href: '/tenant/admin/professionals', key: 'professionals', icon: '👥', feature: 'scheduling' },
-  { href: '/tenant/admin/customers', key: 'customers', icon: '👤', feature: 'crm' },
-  { href: '/tenant/admin/payments', key: 'payments', icon: '💳', feature: 'payments' },
-  { href: '/tenant/admin/financial', key: 'financial', icon: '💰', feature: 'analytics' },
-  { href: '/tenant/admin/menu', key: 'menu', icon: '🍽️', feature: 'restaurantMenu' },
-  { href: '/tenant/admin/orders', key: 'orders', icon: '📋', feature: 'tableOrdering' },
-  { href: '/tenant/admin/tables', key: 'tables', icon: '🪑', feature: 'virtualTabs' },
-  { href: '/tenant/admin/inventory', key: 'inventory', icon: '📦', feature: 'inventoryManagement' },
-  { href: '/tenant/admin/purchases', key: 'purchases', icon: '🛒', feature: 'purchaseOrders' },
-  { href: '/tenant/admin/time-clock', key: 'timeClock', icon: '⏰', feature: 'timeClock' },
-  { href: '/tenant/admin/loyalty', key: 'loyalty', icon: '🎁', feature: 'loyaltyPrograms' },
-  { href: '/tenant/admin/whatsapp', key: 'whatsapp', icon: '💬', feature: 'always' },
-  { href: '/tenant/admin/franchise', key: 'franchise', icon: '🏢', feature: 'enterprise' },
-  { href: '/tenant/admin/settings', key: 'settings', icon: '⚙️', feature: 'always' },
+  { href: '/tenant/admin/dashboard', key: 'dashboard', icon: '📊', capability: { always: true } },
+  { href: '/tenant/admin/notifications', key: 'notifications', icon: '🔔', capability: { always: true } },
+  {
+    href: '/tenant/admin/bookings',
+    key: 'bookings',
+    icon: '📅',
+    capability: {
+      modules: ['agendamento_online', 'agendamento_reunioes'],
+      feature: 'scheduling',
+    },
+  },
+  {
+    href: '/tenant/admin/services',
+    key: 'services',
+    icon: '🏥',
+    capability: { modules: ['agendamento_online', 'pacote_servicos'], feature: 'scheduling' },
+  },
+  {
+    href: '/tenant/admin/professionals',
+    key: 'professionals',
+    icon: '👥',
+    capability: { modules: ['equipes', 'agendamento_online'], feature: 'scheduling' },
+  },
+  {
+    href: '/tenant/admin/customers',
+    key: 'customers',
+    icon: '👤',
+    capability: { modules: ['cadastro_clientes'], feature: 'crm' },
+  },
+  {
+    href: '/tenant/admin/payments',
+    key: 'payments',
+    icon: '💳',
+    capability: { modules: ['pagamentos'], feature: 'payments' },
+  },
+  {
+    href: '/tenant/admin/financial',
+    key: 'financial',
+    icon: '💰',
+    capability: { modules: ['relatorio_financeiro'], feature: 'analytics' },
+  },
+  {
+    href: '/tenant/admin/menu',
+    key: 'menu',
+    icon: '🍽️',
+    capability: { modules: ['vitrine_digital'], feature: 'restaurantMenu' },
+  },
+  {
+    href: '/tenant/admin/orders',
+    key: 'orders',
+    icon: '📋',
+    capability: { feature: 'tableOrdering' },
+  },
+  {
+    href: '/tenant/admin/tables',
+    key: 'tables',
+    icon: '🪑',
+    capability: { feature: 'virtualTabs' },
+  },
+  {
+    href: '/tenant/admin/inventory',
+    key: 'inventory',
+    icon: '📦',
+    capability: { modules: ['controle_estoque'], feature: 'inventoryManagement' },
+  },
+  {
+    href: '/tenant/admin/purchases',
+    key: 'purchases',
+    icon: '🛒',
+    capability: { modules: ['fornecedores_compras'], feature: 'purchaseOrders' },
+  },
+  {
+    href: '/tenant/admin/time-clock',
+    key: 'timeClock',
+    icon: '⏰',
+    capability: { modules: ['ponto_eletronico'], feature: 'timeClock' },
+  },
+  {
+    href: '/tenant/admin/loyalty',
+    key: 'loyalty',
+    icon: '🎁',
+    capability: {
+      modules: ['programa_fidelidade', 'cupons_desconto'],
+      feature: 'loyaltyPrograms',
+    },
+  },
+  {
+    href: '/tenant/admin/whatsapp',
+    key: 'whatsapp',
+    icon: '💬',
+    capability: { modules: ['whatsapp_automatico'] },
+  },
+  {
+    href: '/tenant/admin/franchise',
+    key: 'franchise',
+    icon: '🏢',
+    capability: { enterprise: true },
+  },
+  { href: '/tenant/admin/settings', key: 'settings', icon: '⚙️', capability: { always: true } },
 ];
 
-/** Education: school-oriented labels and routes (no cardápio/pedidos/mesas/serviços/estoque/compras/ponto). */
+/** Education: school-oriented labels and routes */
 const educationAdminNavItems: NavItem[] = [
-  { href: '/tenant/admin/dashboard', key: 'dashboard', icon: '📊', feature: 'always' },
-  { href: '/tenant/admin/notifications', key: 'notifications', icon: '🔔', feature: 'always' },
-  { href: '/tenant/admin/bookings', key: 'preEnrollments', icon: '📅', feature: 'scheduling' },
-  { href: '/tenant/admin/eventos', key: 'events', icon: '🎉', feature: 'scheduling' },
-  { href: '/tenant/admin/professionals', key: 'professionals', icon: '👥', feature: 'scheduling' },
-  { href: '/tenant/admin/customers', key: 'students', icon: '👤', feature: 'crm' },
-  { href: '/tenant/admin/aulas-experimentais', key: 'experimentalLessons', icon: '🧪', feature: 'scheduling' },
-  { href: '/tenant/admin/turmas', key: 'turmas', icon: '🎓', feature: 'scheduling' },
-  { href: '/tenant/admin/attendance', key: 'rollCall', icon: '📝', feature: 'scheduling' },
-  { href: '/tenant/admin/payments', key: 'payments', icon: '💳', feature: 'payments' },
-  { href: '/tenant/admin/financial', key: 'financial', icon: '💰', feature: 'analytics' },
-  { href: '/tenant/admin/loyalty', key: 'loyalty', icon: '🎁', feature: 'loyaltyPrograms' },
-  { href: '/tenant/admin/whatsapp', key: 'whatsapp', icon: '💬', feature: 'always' },
-  { href: '/tenant/admin/settings', key: 'settings', icon: '⚙️', feature: 'always' },
+  { href: '/tenant/admin/dashboard', key: 'dashboard', icon: '📊', capability: { always: true } },
+  { href: '/tenant/admin/notifications', key: 'notifications', icon: '🔔', capability: { always: true } },
+  {
+    href: '/tenant/admin/bookings',
+    key: 'preEnrollments',
+    icon: '📅',
+    capability: { modules: ['agendamento_aulas', 'cadastro_alunos'], feature: 'scheduling' },
+  },
+  {
+    href: '/tenant/admin/eventos',
+    key: 'events',
+    icon: '🎉',
+    capability: { modules: ['coleta_eventos'] },
+  },
+  {
+    href: '/tenant/admin/professionals',
+    key: 'professionals',
+    icon: '👥',
+    capability: { modules: ['equipes', 'agendamento_aulas'], feature: 'scheduling' },
+  },
+  {
+    href: '/tenant/admin/customers',
+    key: 'students',
+    icon: '👤',
+    capability: { modules: ['cadastro_alunos'], feature: 'crm' },
+  },
+  {
+    href: '/tenant/admin/aulas-experimentais',
+    key: 'experimentalLessons',
+    icon: '🧪',
+    capability: { modules: ['agendamento_aulas'], feature: 'scheduling' },
+  },
+  {
+    href: '/tenant/admin/turmas',
+    key: 'turmas',
+    icon: '🎓',
+    capability: { modules: ['gestao_turmas'] },
+  },
+  {
+    href: '/tenant/admin/attendance',
+    key: 'rollCall',
+    icon: '📝',
+    capability: { modules: ['lista_presenca'] },
+  },
+  {
+    href: '/tenant/admin/payments',
+    key: 'payments',
+    icon: '💳',
+    capability: { modules: ['pagamentos_mensalidades'], feature: 'payments' },
+  },
+  {
+    href: '/tenant/admin/financial',
+    key: 'financial',
+    icon: '💰',
+    capability: { modules: ['relatorio_financeiro'], feature: 'analytics' },
+  },
+  {
+    href: '/tenant/admin/loyalty',
+    key: 'loyalty',
+    icon: '🎁',
+    capability: { feature: 'loyaltyPrograms' },
+  },
+  {
+    href: '/tenant/admin/whatsapp',
+    key: 'whatsapp',
+    icon: '💬',
+    capability: { modules: ['whatsapp_automatico'] },
+  },
+  { href: '/tenant/admin/settings', key: 'settings', icon: '⚙️', capability: { always: true } },
 ];
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
@@ -106,19 +236,26 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   }, [pathname]);
 
   const visibleNavItems = useMemo(() => {
-    const tier = business?.subscription?.tier || 'free';
-    const planId = TIER_TO_PLAN[tier] || 'gratis';
-    const industry = business?.industry || 'general';
-    const includedFeatures = new Set(getIncludedFeaturesForPlanAndIndustry(planId, industry));
+    if (!business) return [];
+    const items = business.industry === 'education' ? educationAdminNavItems : adminNavItems;
+    return items.filter((item) => canAccessAdminCapability(business, item.capability));
+  }, [
+    business,
+    business?.id,
+    business?.industry,
+    business?.enabledModules,
+    business?.features,
+    business?.subscription?.tier,
+    business?.subscription?.planId,
+  ]);
 
-    const items = industry === 'education' ? educationAdminNavItems : adminNavItems;
-
-    return items.filter((item) => {
-      if (item.feature === 'always') return true;
-      if (item.feature === 'enterprise') return planId === 'enterprise';
-      return includedFeatures.has(item.feature as FeatureId);
-    });
-  }, [business?.subscription?.tier, business?.industry]);
+  // Block deep-links to modules disabled for this business
+  useEffect(() => {
+    if (!business || !pathname) return;
+    if (!canAccessAdminPath(business, pathname)) {
+      router.replace('/tenant/admin/dashboard');
+    }
+  }, [business, pathname, router]);
 
   const getNavLabel = (item: NavItem) => {
     if (item.key === 'customers' && business?.industry === 'clinic') return t('patients');
@@ -176,6 +313,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 <div className="min-w-0">
                   <h2 className="truncate text-base font-semibold text-neutral-900">{business?.displayName || 'Admin'}</h2>
                   <p className="mt-1 text-xs text-neutral-600">{t('adminPanel')}</p>
+                  {business?.id && (
+                    <p className="mt-1 truncate font-mono text-[10px] text-neutral-400" title={business.id}>
+                      ID: {business.id}
+                    </p>
+                  )}
                 </div>
                 <button
                   type="button"
@@ -230,9 +372,14 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <aside className="fixed left-0 top-0 hidden h-full w-64 flex-col border-r border-neutral-200 bg-white print:hidden lg:flex">
           <div className="flex-shrink-0 p-4 border-b border-neutral-200">
             <div className="flex items-start justify-between gap-3">
-              <div>
-                <h1 className="text-xl font-semibold">{business?.displayName || 'Admin'}</h1>
+              <div className="min-w-0">
+                <h1 className="text-xl font-semibold truncate">{business?.displayName || 'Admin'}</h1>
                 <p className="text-sm text-neutral-600 mt-1">{t('adminPanel')}</p>
+                {business?.id && (
+                  <p className="mt-1 truncate font-mono text-[10px] text-neutral-400" title={business.id}>
+                    ID: {business.id}
+                  </p>
+                )}
               </div>
 
               {business?.id && user?.id && (

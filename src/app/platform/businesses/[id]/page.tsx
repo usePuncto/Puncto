@@ -90,6 +90,9 @@ export default function PlatformBusinessDetailPage() {
             ← Voltar aos Negócios
           </Link>
           <h1 className="text-3xl font-bold text-gray-900">{business.displayName}</h1>
+          <p className="mt-1 text-sm text-gray-500 font-mono">
+            ID do negócio: <span className="select-all text-gray-800">{businessId}</span>
+          </p>
         </div>
         <Link
           href={`/platform/businesses/${businessId}/edit`}

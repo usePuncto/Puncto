@@ -46,6 +46,25 @@ export const onClockIn = onDocumentCreated(
     logger.info(`[onClockIn] Processing clock-in ${clockInId} for user ${clockIn.userId}`);
 
     try {
+      // API path (registerImmutableMark) already updates shifts — never duplicate.
+      const data = event.data?.data() as ClockIn & { createdBy?: string; immutable?: boolean };
+      if (data?.immutable || data?.createdBy) {
+        logger.info(`[onClockIn] Skipping ${clockInId} — managed by REP-P API (immutable mark)`);
+        return;
+      }
+
+      const alreadyManaged = await db
+        .collection('businesses')
+        .doc(businessId)
+        .collection('shifts')
+        .where('clockIns', 'array-contains', clockInId)
+        .limit(1)
+        .get();
+      if (!alreadyManaged.empty) {
+        logger.info(`[onClockIn] Skipping ${clockInId} — already attached to a shift by API`);
+        return;
+      }
+
       // Get active shift for this user
       const shiftsRef = db
         .collection('businesses')

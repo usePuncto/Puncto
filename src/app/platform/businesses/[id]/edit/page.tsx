@@ -204,6 +204,9 @@ export default function PlatformBusinessEditPage() {
         </Link>
         <h1 className="text-3xl font-bold text-gray-900">Editar negócio</h1>
         <p className="mt-1 text-gray-600">{business.displayName}</p>
+        <p className="mt-1 text-sm text-gray-500 font-mono">
+          ID: <span className="select-all text-gray-800">{businessId}</span>
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="max-w-3xl space-y-6">

@@ -13,6 +13,12 @@ out
 .env.*
 serviceAccountKey.json
 *.json.key
+# ICP-Brasil / signing secrets (never commit)
+secrets/
+*.pfx
+*.p12
+*.pem
+!punctoFunctions/**/*.pem
 # Mac/OS
 .DS_Store
 

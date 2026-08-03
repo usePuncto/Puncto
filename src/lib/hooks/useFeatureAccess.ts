@@ -2,6 +2,7 @@
 
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { hasFeatureAccess } from '@/lib/features/businessTypeFeatures';
+import { hasModuleAccess } from '@/lib/features/moduleAccess';
 import { Business } from '@/types/business';
 
 /**
@@ -15,6 +16,15 @@ export function useFeatureAccess(feature: keyof Business['features']): boolean {
   }
 
   return hasFeatureAccess(business, feature);
+}
+
+/**
+ * Hook to check if a platform module is enabled for the current business
+ */
+export function useModuleAccess(moduleId: string): boolean {
+  const { business } = useBusiness();
+  if (!business) return false;
+  return hasModuleAccess(business, moduleId);
 }
 
 /**

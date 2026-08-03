@@ -4,6 +4,13 @@ const withNextIntl = createNextIntlPlugin('./src/i18n/request.ts');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  serverExternalPackages: [
+    'node-forge',
+    '@signpdf/signpdf',
+    '@signpdf/signer-p12',
+    '@signpdf/placeholder-pdf-lib',
+    '@signpdf/utils',
+  ],
   webpack: (config) => {
     // Suprime o warning do webpack ao analisar import() dinâmicos no next-intl
     config.ignoreWarnings = [
