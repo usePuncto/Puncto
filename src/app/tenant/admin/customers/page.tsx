@@ -226,14 +226,16 @@ export default function AdminCustomersPage() {
       if (data.emailSent) {
         window.alert(
           data.resent
-            ? `Instruções de acesso reenviadas para ${customer.email}.`
-            : `Convite enviado para ${customer.email}.\n\nA senha inicial é a data de nascimento no formato DDMMAAAA (ex.: ${data.temporaryPassword}).\n\nPeça ao aluno a verificar a caixa de entrada e o spam.`,
+            ? `Instruções de acesso reenviadas para ${customer.email}. O aluno deve definir a senha pelo link do e-mail.`
+            : `Convite enviado para ${customer.email}.\n\nO aluno receberá um e-mail para definir a senha. Peça para verificar a caixa de entrada e o spam.`,
         );
       } else {
         window.alert(
-          `Acesso criado. Senha inicial (DDMMAAAA): ${data.temporaryPassword}\n\n${
-            data.loginUrl ? `Login do aluno: ${data.loginUrl}\n\n` : ''
-          }O e-mail automático não foi enviado — configure o provedor de e-mail (ZeptoMail ou Resend) no servidor ou repasse os dados manualmente.`,
+          `Acesso criado, mas o e-mail automático não foi enviado.\n\n${
+            data.resetLink
+              ? `Envie este link ao aluno para definir a senha:\n${data.resetLink}\n\n`
+              : ''
+          }${data.loginUrl ? `Login do aluno: ${data.loginUrl}\n\n` : ''}Configure o provedor de e-mail (ZeptoMail ou Resend) no servidor.`,
         );
       }
     } catch (err: any) {

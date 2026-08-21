@@ -7,6 +7,7 @@ import {
   MANAGER_ROLES,
   requireBusinessAuth,
 } from '@/lib/auth/requireBusinessAuth';
+import { resolveProfessionalEmailAdmin } from '@/lib/professionals/contact';
 
 /**
  * POST - Invite a professional to get login access
@@ -42,7 +43,12 @@ export async function POST(request: NextRequest) {
     }
 
     const professional = professionalSnap.data();
-    const email = professional?.email?.trim();
+    const email = await resolveProfessionalEmailAdmin(
+      db,
+      businessId,
+      professionalId,
+      professional?.email
+    );
     const accessRole = professional?.accessRole === 'manager' ? 'manager' : 'professional';
     const fullDashboardPermissions = {
       manageServices: true,

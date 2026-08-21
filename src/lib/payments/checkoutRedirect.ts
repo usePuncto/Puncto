@@ -1,5 +1,5 @@
 /**
- * Ensures Checkout success/cancel URLs stay on allowed app origins (anti open-redirect / phishing).
+ * Ensures Checkout / portal return URLs stay on allowed app origins.
  */
 export function isAllowedCheckoutRedirectUrl(rawUrl: string): boolean {
   let parsed: URL;
@@ -22,11 +22,23 @@ export function isAllowedCheckoutRedirectUrl(rawUrl: string): boolean {
   }
 
   const host = parsed.hostname.toLowerCase();
-  if (host === allowedHost) return true;
-  if (host === 'localhost' || host === '127.0.0.1') return true;
+  const isLocalHost = host === 'localhost' || host === '127.0.0.1';
+  const appIsLocal = allowedHost === 'localhost' || allowedHost === '127.0.0.1';
 
-  // Allow tenant subdomains of the configured app host (e.g. slug.app.com)
+  // Only allow localhost redirects when the configured app itself is local (dev)
+  if (isLocalHost) {
+    return appIsLocal && parsed.protocol === 'http:';
+  }
+
+  if (host === allowedHost) {
+    // Production must use https when app URL is https
+    if (appUrl.startsWith('https:') && parsed.protocol !== 'https:') return false;
+    return true;
+  }
+
+  // Allow tenant subdomains of the configured app host (e.g. slug.puncto.com.br)
   if (allowedHost.includes('.') && host.endsWith(`.${allowedHost}`)) {
+    if (appUrl.startsWith('https:') && parsed.protocol !== 'https:') return false;
     return true;
   }
 

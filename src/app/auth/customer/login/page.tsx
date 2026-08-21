@@ -2,17 +2,20 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { safeReturnUrl } from '@/lib/navigation/safeReturnUrl';
 
 export default function CustomerLoginPage() {
   const { login, loading, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnUrl = searchParams.get('returnUrl') || '/';
-
+  const returnUrl = useMemo(
+    () => safeReturnUrl(searchParams.get('returnUrl'), '/'),
+    [searchParams]
+  );
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);

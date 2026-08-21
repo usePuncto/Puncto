@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/firebaseAdmin';
+import { verifyPlatformAdmin } from '@/lib/auth/verifyPlatformAdmin';
 
 const demoRequestSchema = z.object({
   name: z.string().min(2, 'Nome é obrigatório'),
@@ -147,14 +148,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Get demo requests (for internal use / admin)
+// Get demo requests (platform admin only)
 export async function GET(request: NextRequest) {
   try {
-    // TODO: Add authentication check for admin access
-    // const user = await getCurrentUser(request);
-    // if (!user || !user.isAdmin) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
+    const admin = await verifyPlatformAdmin(request);
+    if (!admin) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');

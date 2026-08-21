@@ -40,6 +40,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'O proprietário não pode ser excluído' }, { status: 403 });
     }
 
+    // Remove private contact docs if present
+    const privateSnap = await professionalRef.collection('private').get();
+    await Promise.all(privateSnap.docs.map((d) => d.ref.delete()));
     await professionalRef.delete();
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -65,6 +68,16 @@ export async function PATCH(
     const authResult = await requireBusinessAuth(request, businessId);
     if (authError(authResult)) return authResult.error;
 
+    const { actor } = authResult;
+    const isManager =
+      actor.isPlatformAdmin ||
+      actor.role === 'owner' ||
+      actor.role === 'manager';
+    const isSelf =
+      actor.professionalId != null && actor.professionalId === params.id;
+    if (!isManager && !isSelf) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const body = await request.json();
     const { workingHours } = body;

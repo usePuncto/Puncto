@@ -5,6 +5,7 @@ import {
   MANAGER_ROLES,
   requireBusinessAuth,
 } from '@/lib/auth/requireBusinessAuth';
+import { isAllowedCheckoutRedirectUrl } from '@/lib/payments/checkoutRedirect';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +15,13 @@ export async function POST(request: NextRequest) {
     if (!businessId || !returnUrl) {
       return NextResponse.json(
         { error: 'Missing required fields: businessId, returnUrl' },
+        { status: 400 }
+      );
+    }
+
+    if (!isAllowedCheckoutRedirectUrl(returnUrl)) {
+      return NextResponse.json(
+        { error: 'Invalid returnUrl' },
         { status: 400 }
       );
     }

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp, orderBy, limit, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { Booking, BookingStatus } from '@/types/booking';
 
 /**
@@ -103,9 +103,14 @@ export function useCreateBooking(businessId: string) {
   return useMutation({
     mutationFn: async (bookingData: Omit<Booking, 'id' | 'createdAt' | 'updatedAt'>) => {
       const bookingsRef = collection(db, 'businesses', businessId, 'bookings');
-      
+      const notifyToken =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
       const data = {
         ...bookingData,
+        notifyToken,
         scheduledDateTime: bookingData.scheduledDateTime instanceof Date
           ? Timestamp.fromDate(bookingData.scheduledDateTime)
           : bookingData.scheduledDateTime,
@@ -120,10 +125,13 @@ export function useCreateBooking(businessId: string) {
 
       // Create in-app notifications (fallback when Cloud Functions aren't running)
       try {
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        const idToken = await auth.currentUser?.getIdToken().catch(() => null);
+        if (idToken) headers.Authorization = `Bearer ${idToken}`;
         await fetch('/api/bookings/create-notifications', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ businessId, bookingId: docRef.id }),
+          headers,
+          body: JSON.stringify({ businessId, bookingId: docRef.id, notifyToken }),
         });
       } catch {
         // Non-blocking

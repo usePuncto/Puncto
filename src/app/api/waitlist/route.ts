@@ -3,9 +3,37 @@ import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 
+type WaitlistCustomer = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email?: string;
+};
+
+function sanitizeCustomerData(raw: unknown): WaitlistCustomer | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const data = raw as Record<string, unknown>;
+  const firstName = String(data.firstName || '').trim();
+  const lastName = String(data.lastName || '').trim();
+  const phone = String(data.phone || '').trim();
+  const email = data.email != null ? String(data.email).trim() : undefined;
+
+  if (!firstName || !lastName || !phone) return null;
+  if (firstName.length > 80 || lastName.length > 80 || phone.length > 40) return null;
+  if (email && email.length > 120) return null;
+  if (phone.replace(/\D/g, '').length < 8) return null;
+
+  return {
+    firstName,
+    lastName,
+    phone,
+    ...(email ? { email } : {}),
+  };
+}
+
 /**
  * POST /api/waitlist
- * Add customer to waitlist for a service/professional
+ * Add customer to waitlist for a service/professional (public, hardened)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -19,18 +47,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create waitlist entry
-    const waitlistRef = db
-      .collection('businesses')
-      .doc(businessId)
-      .collection('waitlist')
-      .doc();
+    const customer = sanitizeCustomerData(customerData);
+    if (!customer) {
+      return NextResponse.json(
+        { error: 'Invalid customerData' },
+        { status: 400 }
+      );
+    }
+
+    const dates = Array.isArray(preferredDates)
+      ? preferredDates
+          .filter((d: unknown) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+          .slice(0, 10)
+      : [];
+
+    const businessRef = db.collection('businesses').doc(businessId);
+    const businessSnap = await businessRef.get();
+    if (!businessSnap.exists) {
+      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
+    }
+
+    const serviceSnap = await businessRef.collection('services').doc(serviceId).get();
+    if (!serviceSnap.exists) {
+      return NextResponse.json({ error: 'Service not found' }, { status: 404 });
+    }
+
+    let resolvedProfessionalId: string | null = null;
+    if (typeof professionalId === 'string' && professionalId.trim()) {
+      const proSnap = await businessRef
+        .collection('professionals')
+        .doc(professionalId.trim())
+        .get();
+      if (!proSnap.exists) {
+        return NextResponse.json({ error: 'Professional not found' }, { status: 404 });
+      }
+      resolvedProfessionalId = professionalId.trim();
+    }
+
+    const waitlistRef = businessRef.collection('waitlist').doc();
 
     await waitlistRef.set({
       serviceId,
-      professionalId: professionalId || null,
-      customerData,
-      preferredDates: preferredDates || [],
+      professionalId: resolvedProfessionalId,
+      customerData: customer,
+      preferredDates: dates,
       status: 'pending',
       notified: false,
       createdAt: Timestamp.now(),

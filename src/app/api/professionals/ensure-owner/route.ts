@@ -6,6 +6,7 @@ import {
   MANAGER_ROLES,
   requireBusinessAuth,
 } from '@/lib/auth/requireBusinessAuth';
+import { writeProfessionalContactAdmin } from '@/lib/professionals/contact';
 
 /**
  * POST - Ensure owner has a Professional document (creates if missing)
@@ -66,8 +67,6 @@ export async function POST(request: NextRequest) {
       businessId,
       userId,
       name: displayName,
-      email: userEmail,
-      phone: businessData?.phone || '',
       specialties: [],
       locationIds: [],
       active: true,
@@ -87,6 +86,12 @@ export async function POST(request: NextRequest) {
     };
 
     const docRef = await prosRef.add(professionalData);
+    if (userEmail || businessData?.phone) {
+      await writeProfessionalContactAdmin(db, businessId, docRef.id, {
+        email: userEmail || '',
+        phone: businessData?.phone || '',
+      });
+    }
 
     return NextResponse.json({
       professionalId: docRef.id,

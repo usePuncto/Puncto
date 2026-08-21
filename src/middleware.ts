@@ -156,14 +156,13 @@ export async function middleware(request: NextRequest) {
 
   // Early redirect for primazia on localhost/ngrok (unauthenticated)
   const hasPrimaziaSubdomain = rawUrl.includes('subdomain=primazia') || rawUrl.includes('subdomain%3Dprimazia');
-  if (useQuerySubdomain && hasPrimaziaSubdomain && url.pathname === '/' && !request.cookies.has('__session') && !request.cookies.has('firebase-auth-token') && !request.cookies.has('firebaseIdToken')) {
+  if (useQuerySubdomain && hasPrimaziaSubdomain && url.pathname === '/' && !request.cookies.has('__session') && !request.cookies.has('firebase-auth-token')) {
     return NextResponse.redirect(new URL('/auth/platform/login?subdomain=primazia&returnUrl=/platform/dashboard', request.url));
   }
 
   // Check if user is authenticated (has Firebase auth cookie)
   const hasAuthCookie = request.cookies.has('__session') ||
-                        request.cookies.has('firebase-auth-token') ||
-                        request.cookies.has('firebaseIdToken');
+                        request.cookies.has('firebase-auth-token');
 
   const customClaims = hasAuthCookie ? await getCustomClaimsFromRequest(request) : null;
 

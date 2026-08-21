@@ -203,6 +203,11 @@ export default function PublicBusinessPage() {
     }
     setSubmitting(true);
     try {
+      const notifyToken =
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
       // Ensure customer exists in business (auto-register from booking form data)
       let customerId: string | null = null;
       try {
@@ -245,6 +250,7 @@ export default function PublicBusinessPage() {
         currency: currentService.currency,
         notes,
         reminders: {},
+        notifyToken,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now(),
       });
@@ -255,7 +261,11 @@ export default function PublicBusinessPage() {
         await fetch('/api/bookings/create-notifications', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ businessId: business!.id, bookingId: docRef.id }),
+          body: JSON.stringify({
+            businessId: business!.id,
+            bookingId: docRef.id,
+            notifyToken,
+          }),
         });
       } catch {
         // Non-blocking: notifications may also be created by Cloud Function

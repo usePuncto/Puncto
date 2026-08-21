@@ -3,10 +3,13 @@ import { db } from '@/lib/firebaseAdmin';
 import { generateICS, CalendarEventData } from '@/lib/calendar/ics';
 import { Booking } from '@/types/booking';
 import { Business } from '@/types/business';
+import { verifyCalendarAccess } from '@/lib/calendar/signedAccess';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 
 /**
  * GET /api/bookings/[bookingId]/calendar
- * Download .ics file for a booking
+ * Download .ics file for a booking.
+ * Requires staff Bearer auth OR a signed `sig` query param.
  */
 export async function GET(
   request: NextRequest,
@@ -16,9 +19,18 @@ export async function GET(
     const { bookingId } = params;
     const searchParams = request.nextUrl.searchParams;
     const businessId = searchParams.get('businessId');
+    const sig = searchParams.get('sig');
 
     if (!businessId) {
       return NextResponse.json({ error: 'businessId is required' }, { status: 400 });
+    }
+
+    const hasSig = verifyCalendarAccess(businessId, bookingId, sig);
+    if (!hasSig) {
+      const authResult = await requireBusinessAuth(request, businessId);
+      if (authError(authResult)) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
     }
 
     // Fetch booking

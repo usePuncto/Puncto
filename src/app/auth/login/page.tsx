@@ -15,14 +15,16 @@ import {
   fetchBusinessAccessBlocked,
   signOutAndClearSession,
 } from '@/lib/business/check-subscription-client';
+import { safeReturnUrl } from '@/lib/navigation/safeReturnUrl';
 
 function getRedirectUrl(
   user: { type?: string; primaryBusinessId?: string; businessId?: string; customClaims?: { primaryBusinessId?: string } } | null,
   explicitReturnUrl: string | null,
   subdomain: string | null
 ): string {
-  if (explicitReturnUrl && explicitReturnUrl !== '/') {
-    return explicitReturnUrl;
+  const safe = safeReturnUrl(explicitReturnUrl, '');
+  if (safe && safe !== '/') {
+    return safe;
   }
   if (user?.type === 'business_user') {
     const businessId =
@@ -46,7 +48,7 @@ export default function LoginPage() {
   const appParam = searchParams.get('app');
   const subscriptionEnded = searchParams.get('subscriptionEnded') === '1';
   const returnUrl =
-    returnUrlParam ||
+    safeReturnUrl(returnUrlParam, '') ||
     (subdomain ? `/tenant/admin/dashboard?subdomain=${subdomain}${appParam === 'gestao' ? '&app=gestao' : ''}` : '/tenant/admin/dashboard');
 
   const [email, setEmail] = useState('');

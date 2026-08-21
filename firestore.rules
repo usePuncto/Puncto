@@ -68,6 +68,69 @@ service cloud.firestore {
               get(/databases/$(database)/documents/businesses/$(businessId)/staff/$(request.auth.uid)).data.permissions[permission] == true);
     }
 
+    // Public guest booking create — constrained schema (anti spam / mass assignment)
+    function isValidGuestBookingCreate(businessId) {
+      let d = request.resource.data;
+      return d.businessId == businessId
+             && d.status == 'pending'
+             && d.keys().hasAll([
+               'businessId',
+               'serviceId',
+               'professionalId',
+               'scheduledDateTime',
+               'status',
+               'customerData',
+               'createdAt',
+               'updatedAt'
+             ])
+             && d.keys().size() <= 24
+             && !d.keys().hasAny([
+               'amountPaid',
+               'paymentId',
+               'stripePaymentIntentId',
+               'paymentStatus',
+               'refundedAmount'
+             ])
+             && d.serviceId is string
+             && d.serviceId.size() > 0
+             && d.serviceId.size() <= 128
+             && d.professionalId is string
+             && d.professionalId.size() > 0
+             && d.professionalId.size() <= 128
+             && d.scheduledDateTime is timestamp
+             && d.createdAt is timestamp
+             && d.updatedAt is timestamp
+             && d.customerData is map
+             && d.customerData.keys().hasAll(['firstName', 'lastName', 'phone'])
+             && d.customerData.firstName is string
+             && d.customerData.firstName.size() >= 1
+             && d.customerData.firstName.size() <= 80
+             && d.customerData.lastName is string
+             && d.customerData.lastName.size() >= 1
+             && d.customerData.lastName.size() <= 80
+             && d.customerData.phone is string
+             && d.customerData.phone.size() >= 8
+             && d.customerData.phone.size() <= 40
+             && (!('email' in d.customerData)
+                 || (d.customerData.email is string && d.customerData.email.size() <= 120))
+             && (!('notes' in d) || (d.notes is string && d.notes.size() <= 2000))
+             && (!('notifyToken' in d)
+                 || (d.notifyToken is string
+                     && d.notifyToken.size() >= 16
+                     && d.notifyToken.size() <= 64))
+             && (!('price' in d)
+                 || (d.price is number
+                     && exists(/databases/$(database)/documents/businesses/$(businessId)/services/$(d.serviceId))
+                     && d.price == get(/databases/$(database)/documents/businesses/$(businessId)/services/$(d.serviceId)).data.price))
+             && (!('currency' in d) || (d.currency is string && d.currency.size() <= 8));
+    }
+
+    // Professional public docs must not store email/phone (use private/contact)
+    function professionalPublicDocHasNoContactPii() {
+      return !('email' in request.resource.data)
+             && !('phone' in request.resource.data);
+    }
+
     // Global Collections
 
     match /businesses/{businessId} {
@@ -91,9 +154,15 @@ service cloud.firestore {
       }
 
       match /professionals/{professionalId} {
-        // Anyone can read (for public booking page)
+        // Public booking page: profile only (email/phone live under private/contact)
         allow read: if true;
-        allow write: if isBusinessOwner(businessId) || hasPermission(businessId, 'manageProfessionals') || isPlatformAdmin();
+        allow write: if (isBusinessOwner(businessId) || hasPermission(businessId, 'manageProfessionals') || isPlatformAdmin())
+                       && professionalPublicDocHasNoContactPii();
+
+        // Contact PII — staff only
+        match /private/{docId} {
+          allow read, write: if isBusinessStaff(businessId) || isPlatformAdmin();
+        }
       }
 
       match /services/{serviceId} {
@@ -111,8 +180,12 @@ service cloud.firestore {
                       (resource.data.customerId == request.auth.uid ||
                        resource.data.createdBy == request.auth.uid);
 
-        // Anyone can create bookings (guest or authenticated)
-        allow create: if true;
+        // Guests: constrained create. Staff: same constraints or staff role.
+        allow create: if isValidGuestBookingCreate(businessId) ||
+                        ((isBusinessOwner(businessId) ||
+                          hasPermission(businessId, 'manageBookings') ||
+                          isPlatformAdmin()) &&
+                         request.resource.data.businessId == businessId);
 
         // Staff with permission can update
         allow update: if isBusinessOwner(businessId) ||
@@ -207,8 +280,10 @@ service cloud.firestore {
 
       // Educação: eventos e coletor de cadastros do evento
       match /events/{eventId} {
-        // Eventos publicados devem aparecer na página pública de pré-cadastro.
-        allow read: if true;
+        // Public: only active/soon; staff can read drafts/inactive
+        allow read: if (resource.data.status in ['active', 'soon']) ||
+                      isBusinessStaff(businessId) ||
+                      isPlatformAdmin();
         allow write: if isBusinessOwner(businessId) ||
                        hasPermission(businessId, 'manageBookings') ||
                        isPlatformAdmin();
@@ -372,8 +447,8 @@ service cloud.firestore {
       }
 
       match /orders/{orderId} {
-        // Public can create orders (table ordering)
-        allow create: if true;
+        // Client create disabled — use /api/orders/create (Admin SDK + server pricing)
+        allow create: if false;
         // Staff can read all orders
         allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
         // Staff can update orders
@@ -435,14 +510,13 @@ service cloud.firestore {
 
       // Phase 3: CRM Module
       match /customerSegments/{segmentId} {
-        // Public read for customer-facing features
-        allow read: if true;
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
         allow write: if isBusinessOwner(businessId) || hasPermission(businessId, 'manageBookings') || isPlatformAdmin();
       }
 
       match /loyaltyPrograms/{programId} {
-        // Public read for customer-facing features
-        allow read: if true;
+        // Public may see active program name via API; client SDK is staff-only
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
         allow write: if isBusinessOwner(businessId) || hasPermission(businessId, 'manageBookings') || isPlatformAdmin();
       }
 

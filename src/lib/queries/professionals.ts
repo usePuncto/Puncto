@@ -1,11 +1,28 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp, getDoc } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  updateDoc,
+  doc,
+  Timestamp,
+  getDoc,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Professional } from '@/types/business';
 import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
+import {
+  deleteContactFields,
+  readProfessionalContactClient,
+  withoutContactPii,
+  writeProfessionalContactClient,
+} from '@/lib/professionals/contact';
 
 /**
- * Fetch professionals for a business
+ * Fetch professionals for a business.
+ * Staff sessions also merge private contact (email/phone).
  */
 export function useProfessionals(businessId: string, filters?: { active?: boolean; canBookOnline?: boolean }) {
   return useQuery({
@@ -23,15 +40,27 @@ export function useProfessionals(businessId: string, filters?: { active?: boolea
       }
 
       const snapshot = await getDocs(q);
-      return snapshot.docs.map((doc) => {
-        const data = doc.data() as Record<string, any>;
+      const base = snapshot.docs.map((docSnap) => {
+        const data = docSnap.data() as Record<string, any>;
         return {
-          id: doc.id,
+          id: docSnap.id,
           ...data,
           createdAt: data.createdAt?.toDate?.() || data.createdAt,
           updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
         } as Professional;
       });
+
+      // Best-effort merge of private contact for staff (public guests get empty on denied)
+      return Promise.all(
+        base.map(async (pro) => {
+          const contact = await readProfessionalContactClient(db, businessId, pro.id);
+          return {
+            ...pro,
+            email: contact.email ?? pro.email,
+            phone: contact.phone ?? pro.phone,
+          };
+        })
+      );
     },
     enabled: !!businessId,
   });
@@ -46,15 +75,18 @@ export function useProfessional(businessId: string, professionalId: string) {
     queryFn: async () => {
       const professionalRef = doc(db, 'businesses', businessId, 'professionals', professionalId);
       const snapshot = await getDoc(professionalRef);
-      
+
       if (!snapshot.exists()) {
         throw new Error('Professional not found');
       }
 
       const data = snapshot.data() as Record<string, any>;
+      const contact = await readProfessionalContactClient(db, businessId, professionalId);
       return {
         id: snapshot.id,
         ...data,
+        email: contact.email ?? data.email,
+        phone: contact.phone ?? data.phone,
         createdAt: data.createdAt?.toDate?.() || data.createdAt,
         updatedAt: data.updatedAt?.toDate?.() || data.updatedAt,
       } as Professional;
@@ -79,16 +111,26 @@ export function useCreateProfessional(businessId: string) {
   return useMutation({
     mutationFn: async (professionalData: Omit<Professional, 'id' | 'createdAt' | 'updatedAt' | 'businessId'>) => {
       const professionalsRef = collection(db, 'businesses', businessId, 'professionals');
-      
-      const data = stripUndefined({
-        ...professionalData,
-        businessId,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      });
+      const email = professionalData.email;
+      const phone = professionalData.phone;
+
+      const data = stripUndefined(
+        withoutContactPii({
+          ...professionalData,
+          businessId,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        } as Record<string, unknown>)
+      );
 
       const docRef = await addDoc(professionalsRef, data);
-      return { id: docRef.id, ...data };
+      if (email || phone) {
+        await writeProfessionalContactClient(db, businessId, docRef.id, {
+          email: email || '',
+          phone: phone || '',
+        });
+      }
+      return { id: docRef.id, ...data, email, phone };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['professionals', businessId] });
@@ -126,19 +168,44 @@ export function useUpdateProfessional(businessId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ professionalId, updates }: { professionalId: string; updates: Partial<Professional> }) => {
+    mutationFn: async ({
+      professionalId,
+      updates,
+    }: {
+      professionalId: string;
+      updates: Partial<Professional>;
+    }) => {
       const professionalRef = doc(db, 'businesses', businessId, 'professionals', professionalId);
-      
-      await updateDoc(professionalRef, stripUndefined({
-        ...updates,
-        updatedAt: Timestamp.now(),
-      }) as Record<string, unknown>);
+      const email = updates.email;
+      const phone = updates.phone;
+
+      const publicUpdates = withoutContactPii(
+        stripUndefined({
+          ...updates,
+          updatedAt: Timestamp.now(),
+        }) as Record<string, unknown>
+      );
+
+      await updateDoc(professionalRef, {
+        ...publicUpdates,
+        // Migrate legacy PII off the public document
+        ...deleteContactFields,
+      } as Record<string, unknown>);
+
+      if (email !== undefined || phone !== undefined) {
+        await writeProfessionalContactClient(db, businessId, professionalId, {
+          ...(email !== undefined ? { email } : {}),
+          ...(phone !== undefined ? { phone } : {}),
+        });
+      }
 
       return { id: professionalId, ...updates };
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['professionals', businessId] });
-      queryClient.invalidateQueries({ queryKey: ['professional', businessId, variables.professionalId] });
+      queryClient.invalidateQueries({
+        queryKey: ['professional', businessId, variables.professionalId],
+      });
     },
   });
 }

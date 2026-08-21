@@ -1,28 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { auth } from '@/lib/firebase';
+import { safeReturnUrl } from '@/lib/navigation/safeReturnUrl';
 
 export default function StudentLoginPage() {
   const { login, loading, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const subdomain = searchParams.get('subdomain');
-  const returnUrl = searchParams.get('returnUrl') || '/tenant/student';
-  const [email, setEmail] = useState('');
+  const returnUrl = useMemo(
+    () => safeReturnUrl(searchParams.get('returnUrl'), '/tenant/student'),
+    [searchParams]
+  );  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const setClientAuthFallbackCookie = (idToken: string) => {
-    if (typeof document === 'undefined' || !idToken) return;
-    const secure = window.location.protocol === 'https:' ? '; Secure' : '';
-    // Middleware already supports firebaseIdToken as auth source.
-    document.cookie = `firebaseIdToken=${encodeURIComponent(idToken)}; Path=/; Max-Age=3600; SameSite=Lax${secure}`;
-  };
 
   const withSubdomainIfNeeded = (target: string) => {
     const hasQuery = target.includes('?');
@@ -51,11 +47,11 @@ export default function StudentLoginPage() {
         credentials: 'include',
       });
       if (!sessionRes.ok) {
-        setClientAuthFallbackCookie(idToken);
+        throw new Error('Falha ao criar sessão segura');
       }
-    } catch {
-      // best effort fallback for middleware auth detection
-      if (idToken) setClientAuthFallbackCookie(idToken);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Falha ao autenticar');
+      return null;
     }
 
     let businessId = subdomain?.trim() || '';

@@ -1,13 +1,57 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createHmac, timingSafeEqual } from 'crypto';
 import { z } from 'zod';
 import { db } from '@/lib/firebaseAdmin';
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
 
 const newsletterSchema = z.object({
   email: z.string().email('Email inválido'),
 });
 
+function unsubscribeSecret(): string {
+  const secret =
+    process.env.NEWSLETTER_UNSUBSCRIBE_SECRET?.trim() ||
+    process.env.CALENDAR_LINK_SECRET?.trim();
+  if (secret && secret.length >= 16) return secret;
+  if (process.env.NODE_ENV !== 'production') {
+    return 'puncto-dev-newsletter-secret';
+  }
+  throw new Error('NEWSLETTER_UNSUBSCRIBE_SECRET or CALENDAR_LINK_SECRET required');
+}
+
+export function signNewsletterUnsubscribeToken(email: string): string {
+  return createHmac('sha256', unsubscribeSecret())
+    .update(email.trim().toLowerCase())
+    .digest('hex')
+    .slice(0, 32);
+}
+
+function verifyUnsubscribeToken(email: string, token: string | null): boolean {
+  if (!token || token.length < 16) return false;
+  try {
+    const expected = signNewsletterUnsubscribeToken(email);
+    const a = Buffer.from(expected, 'utf8');
+    const b = Buffer.from(token, 'utf8');
+    return a.length === b.length && timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
+    const ip = clientIpFromRequest(request);
+    const limit = checkIpRateLimit(`newsletter:${ip}`, {
+      limit: 20,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec) } }
+      );
+    }
+
     const body = await request.json();
 
     // Validate input
@@ -20,11 +64,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { email } = result.data;
+    const emailNorm = email.toLowerCase();
 
     // Check if email already exists
     const existingSubscriber = await db
       .collection('newsletter_subscribers')
-      .where('email', '==', email.toLowerCase())
+      .where('email', '==', emailNorm)
       .limit(1)
       .get();
 
@@ -44,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     // Store newsletter subscription
     await db.collection('newsletter_subscribers').add({
-      email: email.toLowerCase(),
+      email: emailNorm,
       status: 'active',
       source: {
         utmSource,
@@ -60,7 +105,7 @@ export async function POST(request: NextRequest) {
     // Also add to leads collection for marketing follow-up
     await db.collection('leads').add({
       type: 'newsletter',
-      email: email.toLowerCase(),
+      email: emailNorm,
       name: null,
       phone: null,
       company: null,
@@ -81,16 +126,6 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
     });
 
-    // TODO: Send welcome email
-    // await sendEmail({
-    //   to: email,
-    //   template: 'newsletter_welcome',
-    //   data: { ... }
-    // });
-
-    // TODO: Add to email marketing platform (Mailchimp, SendGrid, etc.)
-    // await emailMarketing.addSubscriber(email);
-
     return NextResponse.json({
       success: true,
       message: 'Inscrição realizada com sucesso',
@@ -104,7 +139,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Unsubscribe endpoint
+// Unsubscribe endpoint — requires HMAC token derived from email
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -116,6 +151,10 @@ export async function DELETE(request: NextRequest) {
         { error: 'Email é obrigatório' },
         { status: 400 }
       );
+    }
+
+    if (!verifyUnsubscribeToken(email, token)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Find subscriber
@@ -138,9 +177,6 @@ export async function DELETE(request: NextRequest) {
       status: 'unsubscribed',
       unsubscribedAt: new Date(),
     });
-
-    // TODO: Remove from email marketing platform
-    // await emailMarketing.removeSubscriber(email);
 
     return NextResponse.json({
       success: true,

@@ -5,71 +5,29 @@
 
 import { NextRequest } from 'next/server';
 import { CustomClaims, UserType } from '@/types/user';
+import { verifyFirebaseJwtClaims } from '@/lib/auth/verifyFirebaseJwtEdge';
 
 /**
- * Extract and decode the Firebase ID token from cookies
- * Returns the custom claims if valid, null otherwise
+ * Extract and cryptographically verify Firebase JWT from cookies.
+ * Prefers httpOnly `__session`; does not trust unsigned payloads.
  */
 export async function getCustomClaimsFromRequest(
   request: NextRequest
 ): Promise<CustomClaims | null> {
   try {
-    // Try to get the ID token from various cookie locations
-    const idToken =
+    // Prefer httpOnly session cookie; fall back to legacy cookie names only if present
+    const token =
       request.cookies.get('__session')?.value ||
       request.cookies.get('firebase-auth-token')?.value ||
       request.cookies.get('firebaseIdToken')?.value;
 
-    if (!idToken) {
+    if (!token) {
       return null;
     }
 
-    // Decode the JWT (without verification for middleware performance)
-    // Server-side API routes should verify the token properly
-    const payload = parseJwt(idToken);
-
-    if (!payload) {
-      return null;
-    }
-
-    // Extract custom claims
-    const customClaims: CustomClaims = {
-      userType: payload.userType || 'customer', // Default to customer if not set
-      platformAdmin: payload.platformAdmin,
-      platformRole: payload.platformRole,
-      businessRoles: payload.businessRoles,
-      primaryBusinessId: payload.primaryBusinessId,
-      customerId: payload.customerId,
-      studentBusinessId: payload.studentBusinessId,
-      studentCustomerId: payload.studentCustomerId,
-    };
-
-    return customClaims;
+    return await verifyFirebaseJwtClaims(token);
   } catch (error) {
-    console.error('[Middleware] Error extracting custom claims:', error);
-    return null;
-  }
-}
-
-/**
- * Parse JWT without verification (middleware use only)
- * For full verification, use Firebase Admin SDK in API routes
- */
-function parseJwt(token: string): any {
-  try {
-    const base64Url = token.split('.')[1];
-    if (!base64Url) return null;
-
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-
-    return JSON.parse(jsonPayload);
-  } catch (error) {
+    console.error('[Middleware] Error verifying custom claims:', error);
     return null;
   }
 }

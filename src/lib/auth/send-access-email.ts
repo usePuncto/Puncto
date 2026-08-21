@@ -38,34 +38,50 @@ export async function sendProfessionalPasswordResetEmail(
   return { resetLink, emailSent };
 }
 
-export async function sendStudentAccessEmail(params: {
+export async function sendStudentPasswordResetEmail(params: {
   email: string;
   studentName: string;
   loginUrl: string;
-  temporaryPassword: string;
-}): Promise<boolean> {
-  const { email, studentName, loginUrl, temporaryPassword } = params;
+}): Promise<{ resetLink: string; emailSent: boolean }> {
+  const { email, studentName, loginUrl } = params;
+  const resetLink = await getAuth().generatePasswordResetLink(email.trim().toLowerCase());
 
+  let emailSent = false;
   try {
-    const result = await sendEmail({
+    await sendEmail({
       to: email.trim().toLowerCase(),
       toNames: studentName,
       subject: 'Acesso ao portal do aluno — Puncto',
       html: `
         <p>Olá, ${escapeHtml(studentName)}!</p>
         <p>Seu acesso ao <strong>portal do aluno</strong> está disponível.</p>
-        <p><strong>Senha inicial:</strong> sua data de nascimento no formato <strong>DDMMAAAA</strong> (somente números).<br/>
-        Ex.: nascimento em 15/03/2010 → senha <code>15032010</code>.</p>
-        <p>Depois do primeiro acesso você pode alterar a senha nas configurações da conta, se disponível.</p>
-        <p><a href="${loginUrl}" style="display:inline-block;margin-top:12px;padding:10px 16px;background:#171717;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Abrir login do aluno</a></p>
-        <p style="font-size:13px;color:#555;">Ou copie o endereço: ${loginUrl}</p>
+        <p>Clique no link abaixo para definir sua senha (o link expira por segurança):</p>
+        <p><a href="${resetLink}" style="display:inline-block;margin-top:12px;padding:10px 16px;background:#171717;color:#fff;text-decoration:none;border-radius:8px;font-weight:600;">Definir senha</a></p>
+        <p style="font-size:13px;color:#555;">Depois, faça login em: ${escapeHtml(loginUrl)}</p>
+        <p style="font-size:13px;color:#555;">Se o link expirar, use &quot;Esqueci minha senha&quot; na página de login ou peça um novo convite.</p>
         <p>— Equipe Puncto</p>
       `,
-      text: `Olá, ${studentName}. Acesso ao portal do aluno. Senha inicial: ${temporaryPassword} (DDMMAAAA). Login: ${loginUrl}`,
+      text: `Olá, ${studentName}. Defina sua senha: ${resetLink}. Login: ${loginUrl}`,
     });
-    return Boolean(result.success);
+    emailSent = true;
   } catch (mailErr) {
-    console.warn('[sendStudentAccessEmail] Email send failed:', mailErr);
-    return false;
+    console.warn('[sendStudentPasswordResetEmail] Email send failed:', mailErr);
   }
+
+  return { resetLink, emailSent };
+}
+
+/** @deprecated Prefer sendStudentPasswordResetEmail */
+export async function sendStudentAccessEmail(params: {
+  email: string;
+  studentName: string;
+  loginUrl: string;
+  temporaryPassword: string;
+}): Promise<boolean> {
+  const { emailSent } = await sendStudentPasswordResetEmail({
+    email: params.email,
+    studentName: params.studentName,
+    loginUrl: params.loginUrl,
+  });
+  return emailSent;
 }

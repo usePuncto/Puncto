@@ -13,7 +13,7 @@ function signJWT(payload: any, secret: string): string {
   return `${header}.${payloadEncoded}.${signature}`;
 }
 
-const centrifugoSecret = process.env.CENTRIFUGO_TOKEN_HMAC_SECRET || '';
+const centrifugoSecret = process.env.CENTRIFUGO_TOKEN_HMAC_SECRET?.trim() || '';
 
 /**
  * Generate Centrifugo JWT token for authenticated user
@@ -21,6 +21,13 @@ const centrifugoSecret = process.env.CENTRIFUGO_TOKEN_HMAC_SECRET || '';
  */
 export async function POST(request: NextRequest) {
   try {
+    if (!centrifugoSecret || centrifugoSecret.length < 16) {
+      return NextResponse.json(
+        { error: 'Realtime token service is not configured' },
+        { status: 503 }
+      );
+    }
+
     // Get Firebase ID token from Authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -73,7 +80,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[Centrifugo Token] Error:', error);
     return NextResponse.json(
-      { error: 'Failed to generate token', message: error.message },
+      { error: 'Failed to generate token' },
       { status: 500 }
     );
   }

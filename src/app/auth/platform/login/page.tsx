@@ -2,16 +2,20 @@
 
 export const dynamic = 'force-dynamic';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { auth } from '@/lib/firebase';
+import { safeReturnUrl } from '@/lib/navigation/safeReturnUrl';
 
 export default function PlatformAdminLoginPage() {
   const { login, loading, user, isPlatformAdmin } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const returnUrl = searchParams.get('returnUrl') || '/platform/dashboard';
+  const returnUrl = useMemo(
+    () => safeReturnUrl(searchParams.get('returnUrl'), '/platform/dashboard'),
+    [searchParams]
+  );
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

@@ -2,10 +2,15 @@
  * POST - Create in-app notifications for a booking.
  * Called after a booking is created when Cloud Functions might not run (e.g. local dev, emulator).
  * Idempotent: safe to call multiple times for the same booking.
+ *
+ * Auth: business staff Bearer token, OR notifyToken matching the booking document
+ * (set at create time by the guest/staff client).
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { getStaffNotificationRecipientUserIds } from '@/lib/server/staffNotificationRecipients';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
+import { timingSafeEqual } from 'crypto';
 
 function buildCustomerName(customerData: { firstName?: string; lastName?: string } | undefined): string {
   const first = customerData?.firstName || '';
@@ -13,16 +18,40 @@ function buildCustomerName(customerData: { firstName?: string; lastName?: string
   return `${first} ${last}`.trim();
 }
 
+function tokensEqual(a: string, b: string): boolean {
+  try {
+    const ba = Buffer.from(a, 'utf8');
+    const bb = Buffer.from(b, 'utf8');
+    return ba.length === bb.length && timingSafeEqual(ba, bb);
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, bookingId } = body;
+    const { businessId, bookingId, notifyToken } = body as {
+      businessId?: string;
+      bookingId?: string;
+      notifyToken?: string;
+    };
 
     if (!businessId || !bookingId) {
       return NextResponse.json(
         { error: 'businessId and bookingId are required' },
         { status: 400 }
       );
+    }
+
+    const authHeader = request.headers.get('Authorization');
+    let authorized = false;
+
+    if (authHeader?.startsWith('Bearer ')) {
+      const authResult = await requireBusinessAuth(request, businessId);
+      if (!authError(authResult)) {
+        authorized = true;
+      }
     }
 
     const bookingRef = db.collection('businesses').doc(businessId).collection('bookings').doc(bookingId);
@@ -33,6 +62,20 @@ export async function POST(request: NextRequest) {
     }
 
     const booking = bookingSnap.data();
+
+    if (!authorized) {
+      const stored =
+        typeof booking?.notifyToken === 'string' ? booking.notifyToken : '';
+      if (
+        !notifyToken ||
+        typeof notifyToken !== 'string' ||
+        stored.length < 16 ||
+        !tokensEqual(stored, notifyToken)
+      ) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+    }
+
     const createdAt = booking?.createdAt?.toDate?.() ?? booking?.createdAt;
     const createdMs =
       createdAt instanceof Date
@@ -40,8 +83,8 @@ export async function POST(request: NextRequest) {
         : typeof createdAt === 'string'
           ? Date.parse(createdAt)
           : 0;
-    // Only allow notifying for recently created bookings (anti spam / IDOR abuse)
-    if (!createdMs || Date.now() - createdMs > 15 * 60 * 1000) {
+    // Only allow notifying for very recently created bookings (anti spam)
+    if (!createdMs || Date.now() - createdMs > 5 * 60 * 1000) {
       return NextResponse.json(
         { error: 'Booking is not eligible for notification creation' },
         { status: 403 }

@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { randomBytes } from 'crypto';
 import { createUser } from '@/lib/auth/create-user';
-import { sendStudentAccessEmail } from '@/lib/auth/send-access-email';
+import { sendStudentPasswordResetEmail } from '@/lib/auth/send-access-email';
 import {
   authError,
   MANAGER_ROLES,
   requireBusinessAuth,
 } from '@/lib/auth/requireBusinessAuth';
 
-function passwordFromBirthDate(birthDate?: string): string | null {
-  // Expected source format: yyyy-MM-dd
-  if (!birthDate || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return null;
-  const [yyyy, mm, dd] = birthDate.split('-');
-  if (!yyyy || !mm || !dd) return null;
-  return `${dd}${mm}${yyyy}`;
+function randomPassword(): string {
+  return randomBytes(32).toString('base64url');
 }
 
 export async function POST(request: NextRequest) {
@@ -47,15 +44,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Aluno nao encontrado' }, { status: 404 });
     }
 
-    const customerData = customerSnap.data() as { firstName?: string; birthDate?: string } | undefined;
+    const customerData = customerSnap.data() as { firstName?: string } | undefined;
     const normalizedEmail = email.trim().toLowerCase();
-    const tempPassword = passwordFromBirthDate(customerData?.birthDate);
-    if (!tempPassword) {
-      return NextResponse.json(
-        { error: 'Aluno sem data de nascimento valida. Use formato yyyy-MM-dd.' },
-        { status: 400 }
-      );
-    }
+    const tempPassword = randomPassword();
+    const studentName = displayName || `${customerData?.firstName || ''}`.trim() || 'Aluno';
 
     let userId: string;
     let isResend = false;
@@ -70,7 +62,7 @@ export async function POST(request: NextRequest) {
         const created = await createUser({
           email: normalizedEmail,
           password: tempPassword,
-          displayName: displayName || customerData?.firstName || 'Aluno',
+          displayName: studentName,
           userType: 'student',
           customClaims: {
             studentBusinessId: businessId,
@@ -92,7 +84,7 @@ export async function POST(request: NextRequest) {
         isResend = true;
         await auth.updateUser(userId, {
           password: tempPassword,
-          displayName: displayName || customerData?.firstName || 'Aluno',
+          displayName: studentName,
         });
         await auth.setCustomUserClaims(userId, {
           userType: 'student',
@@ -114,21 +106,20 @@ export async function POST(request: NextRequest) {
 
     const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000').replace(/\/$/, '');
     const loginUrl = `${baseUrl}/auth/student/login?subdomain=${encodeURIComponent(businessId)}`;
-    const studentName = displayName || `${customerData?.firstName || ''}`.trim() || 'Aluno';
 
-    const emailSent = await sendStudentAccessEmail({
+    const { resetLink, emailSent } = await sendStudentPasswordResetEmail({
       email: normalizedEmail,
       studentName,
       loginUrl,
-      temporaryPassword: tempPassword,
     });
 
     return NextResponse.json({
       success: true,
       studentUserId: userId,
-      temporaryPassword: tempPassword,
       emailSent,
       loginUrl,
+      /** Only returned when email failed so admin can share the link manually */
+      resetLink: emailSent ? undefined : resetLink,
       resent: isResend,
     });
   } catch (error: any) {
