@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStorage } from 'firebase-admin/storage';
 import { adminApp } from '@/lib/firebaseAdmin';
 import { verifyBusinessFeatureAccess } from '@/lib/api/featureValidation';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 // POST - Upload product image to Firebase Storage
 export async function POST(request: NextRequest) {
@@ -18,6 +23,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const featureCheck = await verifyBusinessFeatureAccess(businessId, 'restaurantMenu');
     if (!featureCheck?.hasAccess) {

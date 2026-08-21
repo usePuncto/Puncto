@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useProfessional } from '@/lib/contexts/ProfessionalContext';
 import { WorkingHours } from '@/types/business';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 const WEEKDAYS: { key: keyof WorkingHours; label: string }[] = [
   { key: 'monday', label: 'Segunda' },
@@ -83,7 +84,7 @@ export default function ProfessionalWorkingHoursPage() {
     try {
       const res = await fetch(`/api/professionals/${professional.id}?businessId=${business.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ workingHours: toSave }),
       });
       const data = await res.json().catch(() => ({}));

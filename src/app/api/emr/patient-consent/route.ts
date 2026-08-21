@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 
 /**
  * Store patient consent signature (canvas) with basic audit trail.
@@ -8,14 +9,6 @@ import { Timestamp } from 'firebase-admin/firestore';
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await auth.verifyIdToken(token);
-
     const body = await request.json();
     const { base64Image, patientId, businessId, textHash } = body;
 
@@ -26,10 +19,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
+
     const ip =
       request.headers.get('x-forwarded-for') ||
-      // Next.js 14 may also expose real IP via request.ip in some runtimes
-      // but we fallback to empty string if not available
       // @ts-ignore
       (request.ip as string | undefined) ||
       '';
@@ -48,6 +42,7 @@ export async function POST(request: NextRequest) {
       ip,
       userAgent,
       createdAt: Timestamp.now(),
+      createdBy: authResult.actor.uid,
     });
 
     return NextResponse.json({ id: docRef.id });
@@ -59,4 +54,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

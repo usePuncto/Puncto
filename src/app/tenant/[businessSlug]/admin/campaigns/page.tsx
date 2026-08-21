@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { Campaign } from '@/types/crm';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function AdminCampaignsPage() {
   const { business } = useBusiness();
@@ -18,7 +19,7 @@ export default function AdminCampaignsPage() {
 
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/campaigns?businessId=${business.id}`);
+      const res = await fetch(`/api/campaigns?businessId=${business.id}`, { headers: await getAuthHeaders() });
       const data = await res.json();
       setCampaigns(data.campaigns || []);
     } catch (error) {

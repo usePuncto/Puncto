@@ -63,7 +63,7 @@ export default function LGPDPage() {
         <p>Tratamos dados pessoais com base nas seguintes hipóteses legais:</p>
         <ul>
           <li><strong>Execução de contrato:</strong> Para processar a assinatura do software e, no caso do módulo de RH, para viabilizar o cumprimento do contrato de trabalho entre você e seu colaborador.</li>
-          <li><strong>Obrigação legal:</strong> Para cumprimento de exigências fiscais (emissão de notas) e trabalhistas (registros de jornada).</li>
+          <li><strong>Obrigação legal:</strong> Para cumprimento de exigências fiscais (arquivo e gestão de notas) e trabalhistas (registros de jornada).</li>
           <li><strong>Legítimo interesse:</strong> Para prevenção à fraude, segurança da plataforma e melhorias no serviço.</li>
           <li><strong>Consentimento:</strong> Apenas para finalidades opcionais, como comunicações de marketing.</li>
         </ul>

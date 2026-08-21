@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Order } from '@/types/restaurant';
 import { encodeEscPos } from '@/lib/printing/thermal';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 
 // GET - Get print data for an order
 export async function GET(
@@ -18,6 +19,10 @@ export async function GET(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
+
 
     const orderDoc = await db
       .collection('businesses')

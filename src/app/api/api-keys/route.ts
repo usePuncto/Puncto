@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { generateApiKey } from '@/lib/api/authentication';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // POST - Create API key
 export async function POST(request: NextRequest) {
@@ -15,14 +20,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if business exists
-    const businessDoc = await db.collection('businesses').doc(businessId).get();
-    if (!businessDoc.exists) {
-      return NextResponse.json(
-        { error: 'Business not found' },
-        { status: 404 }
-      );
-    }
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     // Generate API key
     const { key, prefix, hashed } = generateApiKey();
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
       active: true,
       expiresAt: expiresAt ? new Date(expiresAt) : null,
       createdAt: new Date(),
-      createdBy: 'system', // In production, get from auth
+      createdBy: authResult.actor.uid,
     };
 
     await apiKeyRef.set(apiKey);
@@ -81,6 +82,11 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const apiKeysSnapshot = await db
       .collection('businesses')

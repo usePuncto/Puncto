@@ -4,6 +4,11 @@ import { Product } from '@/types/restaurant';
 import { InventoryItem } from '@/types/inventory';
 import { Recipe } from '@/lib/erp/costCalculation';
 import { calculateCostBreakdown } from '@/lib/erp/costCalculation';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - Get cost breakdown for a product
 export async function GET(
@@ -20,6 +25,11 @@ export async function GET(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     // Get product
     const productDoc = await db

@@ -3,6 +3,7 @@
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 interface FranchiseUnit {
   id: string;
@@ -43,7 +44,7 @@ export default function FranchiseDashboardPage() {
     queryKey: ['franchise', business?.id],
     queryFn: async () => {
       if (!business?.id) return null;
-      const response = await fetch(`/api/franchise?businessId=${business.id}`);
+      const response = await fetch(`/api/franchise?businessId=${business.id}`, { headers: await getAuthHeaders() });
       if (!response.ok) throw new Error('Failed to fetch franchise data');
       return response.json();
     },
@@ -55,7 +56,7 @@ export default function FranchiseDashboardPage() {
     try {
       const response = await fetch('/api/franchise', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           action: 'create_group',
           businessId: business.id,
@@ -74,7 +75,7 @@ export default function FranchiseDashboardPage() {
     try {
       const response = await fetch('/api/franchise', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           action: 'add_unit',
           businessId: business.id,

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Table } from '@/types/restaurant';
 import { generateQRCodeDataUrl, getTableUrl } from '@/lib/utils/qrcode';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - List all tables for a business
 export async function GET(request: NextRequest) {
@@ -54,6 +59,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
 
     const businessDoc = await db.collection('businesses').doc(businessId).get();
     if (!businessDoc.exists) {

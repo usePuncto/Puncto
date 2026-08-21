@@ -74,10 +74,10 @@ export const features = [
     icon: 'creditCard',
     title: 'Gestão Financeira Descomplicada',
     description:
-      'Tenha clareza total do seu fluxo de caixa. Contas a pagar, receber e emissão de notas fiscais em poucos cliques.',
+      'Tenha clareza total do seu fluxo de caixa. Contas a pagar, receber e gestão de notas fiscais em poucos cliques.',
     benefits: [
       'Visão clara de lucros e gastos',
-      'Emissão de NFs automatizada',
+      'Arquivo e consulta de NFs',
       'Conciliação bancária',
       'Relatórios de inadimplência',
     ],

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // POST - Enable/disable marketplace for a business
 export async function POST(request: NextRequest) {
@@ -13,6 +18,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
 
     const businessRef = db.collection('businesses').doc(businessId);
     const businessDoc = await businessRef.get();

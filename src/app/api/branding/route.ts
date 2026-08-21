@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Branding } from '@/types/business';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - Get branding for a business
 export async function GET(request: NextRequest) {
@@ -46,6 +51,12 @@ export async function PATCH(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
 
     const body = await request.json();
     const brandingUpdate: Partial<Branding> = body.branding;

@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
+import { validateOutboundWebhookUrl } from '@/lib/webhooks/validateWebhookUrl';
 
 // GET - Get webhook details
 export async function GET(
@@ -16,6 +22,11 @@ export async function GET(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const webhookRef = db
       .collection('businesses')
@@ -66,6 +77,11 @@ export async function PATCH(
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
     const webhookRef = db
       .collection('businesses')
       .doc(businessId)
@@ -83,13 +99,9 @@ export async function PATCH(
 
     // Validate URL if provided
     if (body.url) {
-      try {
-        new URL(body.url);
-      } catch {
-        return NextResponse.json(
-          { error: 'Invalid URL format' },
-          { status: 400 }
-        );
+      const urlCheck = validateOutboundWebhookUrl(body.url);
+      if (!urlCheck.ok) {
+        return NextResponse.json({ error: urlCheck.error }, { status: 400 });
       }
     }
 
@@ -135,6 +147,11 @@ export async function DELETE(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const webhookRef = db
       .collection('businesses')

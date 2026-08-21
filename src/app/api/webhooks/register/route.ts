@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Webhook, WebhookEvent } from '@/types/webhooks';
 import crypto from 'crypto';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
+import { validateOutboundWebhookUrl } from '@/lib/webhooks/validateWebhookUrl';
 
 // POST - Register a new webhook
 export async function POST(request: NextRequest) {
@@ -16,14 +22,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate URL
-    try {
-      new URL(url);
-    } catch {
-      return NextResponse.json(
-        { error: 'Invalid URL format' },
-        { status: 400 }
-      );
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
+    const urlCheck = validateOutboundWebhookUrl(url);
+    if (!urlCheck.ok) {
+      return NextResponse.json({ error: urlCheck.error }, { status: 400 });
     }
 
     // Validate events
@@ -49,15 +55,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: `Invalid events: ${invalidEvents.join(', ')}` },
         { status: 400 }
-      );
-    }
-
-    // Check if business exists
-    const businessDoc = await db.collection('businesses').doc(businessId).get();
-    if (!businessDoc.exists) {
-      return NextResponse.json(
-        { error: 'Business not found' },
-        { status: 404 }
       );
     }
 
@@ -113,6 +110,11 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const webhooksSnapshot = await db
       .collection('businesses')

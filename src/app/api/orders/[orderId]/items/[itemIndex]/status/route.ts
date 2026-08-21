@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Order, OrderItemStatus } from '@/types/restaurant';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 // Dynamic import to avoid issues in edge runtime
 
 // PUT - Update item status
@@ -18,6 +19,10 @@ export async function PUT(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
+
 
     const orderRef = db
       .collection('businesses')

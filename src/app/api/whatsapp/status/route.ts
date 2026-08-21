@@ -4,6 +4,11 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getWhatsAppCredentials } from '@/lib/whatsapp/credentials';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,6 +18,11 @@ export async function GET(request: NextRequest) {
     if (!businessId) {
       return NextResponse.json({ error: 'businessId required' }, { status: 400 });
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const creds = await getWhatsAppCredentials(businessId);
     return NextResponse.json({

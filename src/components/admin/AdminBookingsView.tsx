@@ -28,6 +28,7 @@ import {
   isClassDayForTurma,
   stepClassDate,
 } from '@/lib/utils/turmaClassDays';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 type UnavailabilityScope = 'business' | 'professional';
 
@@ -287,7 +288,7 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
       for (const item of usedInventoryItems) {
         const response = await fetch('/api/inventory/movements', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             businessId: business?.id,
             movement: {
@@ -403,7 +404,7 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
       if (scope === 'professional') {
         params.set('professionalId', selectedProfessionalId);
       }
-      const res = await fetch(`/api/unavailability?${params.toString()}`);
+      const res = await fetch(`/api/unavailability?${params.toString()}`, { headers: await getAuthHeaders() });
       const data = await res.json();
       if (!res.ok) {
         throw new Error(data.error || 'Erro ao carregar indisponibilidades');
@@ -442,7 +443,7 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
     const loadInventory = async () => {
       if (!business?.id) return;
       try {
-        const response = await fetch(`/api/inventory?businessId=${business.id}`);
+        const response = await fetch(`/api/inventory?businessId=${business.id}`, { headers: await getAuthHeaders() });
         const data = await response.json();
         setInventoryItems(Array.isArray(data.items) ? data.items : []);
       } catch {
@@ -480,7 +481,7 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
     try {
       const res = await fetch('/api/unavailability', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           businessId: business.id,
           scope,
@@ -511,7 +512,7 @@ export function AdminBookingsView({ variant: variantProp }: AdminBookingsViewPro
     try {
       const res = await fetch('/api/unavailability', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           businessId: business.id,
           scope,

@@ -3,6 +3,11 @@ import { createConnectAccount, createAccountLink, getAccount } from '@/lib/strip
 import { isStripeConnectAccountInvalidError } from '@/lib/stripe/connectErrors';
 import { db } from '@/lib/firebaseAdmin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,13 +22,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required field: businessId' }, { status: 400 });
     }
 
-    const businessRef = db.collection('businesses').doc(businessId);
-    const businessSnap = await businessRef.get();
-    if (!businessSnap.exists) {
-      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
-    }
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
-    const businessData = businessSnap.data() as Record<string, unknown>;
+    const businessRef = db.collection('businesses').doc(businessId);
+    const businessData = authResult.business as unknown as Record<string, unknown>;
     const connectEmail =
       (typeof email === 'string' && email.trim()) ||
       (typeof businessData.email === 'string' && businessData.email.trim()) ||

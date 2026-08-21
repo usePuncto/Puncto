@@ -3,6 +3,7 @@ import { stripe } from '@/lib/stripe/client';
 import { CreateCheckoutSessionParams } from '@/lib/stripe/types';
 import { createCheckoutSessionWithBrlMethods } from '@/lib/stripe/paymentMethods';
 import { db } from '@/lib/firebaseAdmin';
+import { isAllowedCheckoutRedirectUrl } from '@/lib/payments/checkoutRedirect';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,11 +30,47 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount < 50) {
+      return NextResponse.json(
+        { error: 'Invalid amount' },
+        { status: 400 }
+      );
+    }
+
+    if (!isAllowedCheckoutRedirectUrl(successUrl) || !isAllowedCheckoutRedirectUrl(cancelUrl)) {
+      return NextResponse.json(
+        { error: 'Invalid success or cancel URL' },
+        { status: 400 }
+      );
+    }
+
     // Get business to verify it exists
     const businessDoc = await db.collection('businesses').doc(businessId).get();
     if (!businessDoc.exists) {
       return NextResponse.json(
         { error: 'Business not found' },
+        { status: 404 }
+      );
+    }
+
+    // Public booking checkout: bind session to an existing booking (anti abuse)
+    const bookingId =
+      typeof metadata?.bookingId === 'string' ? metadata.bookingId.trim() : '';
+    if (!bookingId) {
+      return NextResponse.json(
+        { error: 'metadata.bookingId is required' },
+        { status: 400 }
+      );
+    }
+    const bookingDoc = await db
+      .collection('businesses')
+      .doc(businessId)
+      .collection('bookings')
+      .doc(bookingId)
+      .get();
+    if (!bookingDoc.exists) {
+      return NextResponse.json(
+        { error: 'Booking not found' },
         { status: 404 }
       );
     }

@@ -6,6 +6,7 @@ import {
   BRL_STANDARD_PAYMENT_LINK_TYPES,
   createStripePaymentLinkWithMethods,
 } from '@/lib/stripe/paymentMethods';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 
 // POST - Create split payments for an order
 export async function POST(
@@ -22,6 +23,9 @@ export async function POST(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
 
     const orderRef = db
       .collection('businesses')

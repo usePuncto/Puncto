@@ -1,4 +1,4 @@
-Puncto Educação
+﻿Puncto Educação
 - Agendamento de aulas experimentais
 - Cadastro e histórico de alunos
 - Gestão de turmas
@@ -8,7 +8,7 @@ Puncto Educação
 - Ponto eletrônico
 - Coleta de cadastro em eventos
 - Whatsapp automático
-- Emissão de NF
+- Gestão de NF
 - Portal do aluno
 - Links de pagamento, boletos e mensalidades
 
@@ -26,7 +26,7 @@ Puncto Prestadores de serviço
 - Lista de espera inteligente
 - Pacote de serviços
 - Pagamentos via pix, boleto e cartão
-- Emissão de NF
+- Gestão de NF
 
 ------------------------------------------
 
@@ -42,7 +42,7 @@ Puncto Saúde
 - Lista de espera inteligente
 - Assinatura eletrônica
 - Pagamentos via pix, boleto e cartão
-- Emissão de NF
+- Gestão de NF
 
 ------------------------------------------
 
@@ -58,7 +58,7 @@ Puncto Comércio e varejo
 - Programa de fidelidade
 - Ponto eletrônico
 - Pagamentos via pix, boleto e cartão
-- Emissão de NF
+- Gestão de NF
 
 ------------------------------------------
 
@@ -74,6 +74,6 @@ Puncto Gestão corporativa
 - Assinatura eletrônica
 - Whatsapp automático
 - Pagamentos via pix, boleto e cartão
-- Emissão de NF
+- Gestão de NF
 
 ------------------------------------------

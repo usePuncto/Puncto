@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Order } from '@/types/restaurant';
-import { Business } from '@/types/business';
 import {
   prepareNFCeData,
   generateNFCeTecnoSpeed,
   generateNFCeENotas,
   generateNFCePlugNotas,
 } from '@/lib/tax/nfce';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // POST - Generate NFC-e for an order
 export async function POST(request: NextRequest) {
@@ -22,19 +26,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get business
-    const businessDoc = await db.collection('businesses').doc(businessId).get();
-    if (!businessDoc.exists) {
-      return NextResponse.json(
-        { error: 'Business not found' },
-        { status: 404 }
-      );
-    }
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
-    const business = {
-      id: businessDoc.id,
-      ...businessDoc.data(),
-    } as Business;
+    const business = authResult.business;
 
     // Get order
     const orderDoc = await db

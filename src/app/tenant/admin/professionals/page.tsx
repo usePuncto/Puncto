@@ -14,6 +14,7 @@ import {
 import { useTurmas } from '@/lib/queries/turmas';
 import { Professional } from '@/types/business';
 import type { Turma } from '@/types/turma';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 const initialFormData = {
   name: '',
@@ -93,7 +94,7 @@ export default function AdminProfessionalsPage() {
     try {
       const res = await fetch('/api/professionals/invite', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           businessId: business.id,
           professionalId: pro.id,
@@ -124,6 +125,7 @@ export default function AdminProfessionalsPage() {
       const res = await fetch(`/api/professionals/upload?businessId=${business.id}`, {
         method: 'POST',
         body: form,
+        headers: await getAuthHeaders(),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

@@ -7,7 +7,7 @@ export const faqItems = [
   {
     question: 'Quantos módulos posso escolher em cada plano?',
     answer:
-      'No plano Grátis você escolhe até 2 módulos. No Starter, até 8. No Growth, até 10. No Pro, até 12. Alguns módulos avançados — como emissão fiscal, estoque, ponto eletrônico e automação — só ficam disponíveis a partir do plano Growth. Integrações/API e Produção (KDS) são exclusivos do Pro.',
+      'No plano Grátis você escolhe até 2 módulos. No Starter, até 8. No Growth, até 10. No Pro, até 12. Alguns módulos avançados — como gestão fiscal, estoque, ponto eletrônico e automação — só ficam disponíveis a partir do plano Growth. Integrações/API e Produção (KDS) são exclusivos do Pro.',
   },
   {
     question: 'O que está incluído em pequenas customizações?',
@@ -30,9 +30,9 @@ export const faqItems = [
       'No momento aceitamos somente cartões de crédito (Visa, Mastercard, Elo, Amex). Para assinatura da Puncto, você pode pagar mensalmente ou anualmente (com desconto). Para receber pagamentos dos seus clientes, oferecemos PIX instantâneo e todas as bandeiras de cartão via Stripe.',
   },
   {
-    question: 'O sistema emite nota fiscal?',
+    question: 'O sistema gerencia nota fiscal?',
     answer:
-      'Sim! Nos planos Growth e Pro, você pode emitir NFS-e (serviços) e NFC-e (produtos) com uma cota por mês correspondente ao seu plano. Temos integração com os principais sistemas de emissão de nota fiscal do Brasil.',
+      'Sim. O módulo Gestão de NF permite cadastrar, arquivar e consultar NFS-e, NFC-e e NF-e emitidas fora da Puncto (pelo seu contador ou emissor). Você centraliza número, chave de acesso, valores, XML/PDF e status no painel — sem cotas de emissão.',
   },
   {
     question: 'Posso usar o Puncto em mais de uma unidade?',

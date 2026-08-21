@@ -5,6 +5,7 @@ import { Service, ServiceInventoryItem } from '@/types/business';
 import { useProfessionals } from '@/lib/queries/professionals';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { InventoryItem } from '@/types/inventory';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 interface ServiceFormProps {
   service?: Service;
@@ -39,12 +40,18 @@ export function ServiceForm({
   });
 
   useEffect(() => {
-    if (business?.id) {
-      fetch(`/api/inventory?businessId=${business.id}`)
-        .then((r) => r.json())
-        .then((d) => setInventoryItems(d.items ?? []))
-        .catch(() => setInventoryItems([]));
-    }
+    if (!business?.id) return;
+    (async () => {
+      try {
+        const r = await fetch(`/api/inventory?businessId=${business.id}`, {
+          headers: await getAuthHeaders(),
+        });
+        const d = await r.json();
+        setInventoryItems(d.items ?? []);
+      } catch {
+        setInventoryItems([]);
+      }
+    })();
   }, [business?.id]);
 
   const handleSubmit = (e: React.FormEvent) => {

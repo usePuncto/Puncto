@@ -3,6 +3,7 @@
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function AdminSettingsPage() {
   const { business } = useBusiness();
@@ -13,7 +14,7 @@ export default function AdminSettingsPage() {
     mutationFn: async (branding: any) => {
       const response = await fetch(`/api/branding?businessId=${business?.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ branding }),
       });
       if (!response.ok) throw new Error('Failed to update branding');

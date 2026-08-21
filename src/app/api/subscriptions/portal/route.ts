@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createCustomerPortalSession } from '@/lib/stripe/subscriptions';
-import { db } from '@/lib/firebaseAdmin';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,17 +18,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get business to get Stripe customer ID
-    const businessDoc = await db.collection('businesses').doc(businessId).get();
-    if (!businessDoc.exists) {
-      return NextResponse.json(
-        { error: 'Business not found' },
-        { status: 404 }
-      );
-    }
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
-    const businessData = businessDoc.data();
-    const customerId = businessData?.subscription?.stripeCustomerId;
+    const customerId = authResult.business.subscription?.stripeCustomerId;
 
     if (!customerId) {
       return NextResponse.json(
@@ -33,7 +32,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create portal session
     const session = await createCustomerPortalSession(customerId, returnUrl);
 
     return NextResponse.json({

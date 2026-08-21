@@ -1,6 +1,7 @@
 import { db } from '@/lib/firebaseAdmin';
 import { Webhook, WebhookDelivery, WebhookEvent } from '@/types/webhooks';
 import crypto from 'crypto';
+import { validateOutboundWebhookUrl } from '@/lib/webhooks/validateWebhookUrl';
 
 const MAX_ATTEMPTS = 5;
 const INITIAL_RETRY_DELAY = 1000; // 1 second
@@ -35,6 +36,11 @@ export async function deliverWebhook(
   event: WebhookEvent,
   payload: Record<string, any>
 ): Promise<void> {
+  const urlCheck = validateOutboundWebhookUrl(webhook.url);
+  if (!urlCheck.ok) {
+    throw new Error(`Webhook delivery blocked: ${urlCheck.error}`);
+  }
+
   const payloadString = JSON.stringify(payload);
   const signature = generateWebhookSignature(payloadString, webhook.secret);
 

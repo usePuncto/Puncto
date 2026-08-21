@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
-import { auth, db } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebaseAdmin';
 import type { RollCallStatus } from '@/types/attendance';
-
-type DecodedActor = {
-  uid: string;
-  userType?: string;
-  platformAdmin?: boolean;
-  businessRoles?: Record<string, string>;
-  professionalId?: string;
-};
+import {
+  authError,
+  requireBusinessAuth,
+  type BusinessActor,
+} from '@/lib/auth/requireBusinessAuth';
 
 type UpsertAttendanceBody = {
   businessId?: string;
@@ -25,58 +22,29 @@ function isIsoDate(value: string) {
   return /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
-async function getActor(request: NextRequest): Promise<DecodedActor | null> {
-  const authHeader = request.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) return null;
-  const token = authHeader.split('Bearer ')[1];
-  return (await auth.verifyIdToken(token)) as DecodedActor;
-}
-
 /**
  * Quem pode marcar chamada nesta turma:
- * - **Owner** ou **manager** do negócio (claims ou documento `staff` — os dois contam).
- * - **Professional** cujo `professionalId` (claims ou `staff`) é o mesmo de `turmas.professionalId`
- *   para esta turma (só a professora vinculada à turma).
- *
- * Claims e `staff` são combinados porque o token pode estar defasado em relação ao Firestore
- * (ex.: promoção a manager ainda não refletida nos custom claims).
+ * - Owner / manager / platform admin
+ * - Professional vinculado à turma (professionalId)
  */
-async function canManageAttendance(uid: string, businessId: string, turmaId: string) {
-  const user = await auth.getUser(uid);
-  const claims = (user.customClaims || {}) as {
-    businessRoles?: Record<string, string>;
-    professionalId?: string;
-    userType?: string;
-    platformAdmin?: boolean;
-  };
+async function canManageAttendance(
+  actor: BusinessActor,
+  businessId: string,
+  turmaId: string
+): Promise<boolean> {
+  if (actor.isPlatformAdmin) return true;
+  if (actor.role === 'owner' || actor.role === 'manager') return true;
 
-  if (claims.userType === 'platform_admin' && claims.platformAdmin === true) return true;
-
-  const roleFromClaims = claims.businessRoles?.[businessId];
-  if (roleFromClaims === 'owner' || roleFromClaims === 'manager') return true;
-
-  const staffSnap = await db.collection('businesses').doc(businessId).collection('staff').doc(uid).get();
-  const staff = staffSnap.data() as
-    | { role?: string; professionalId?: string; active?: boolean; permissions?: Record<string, boolean> }
-    | undefined;
-
-  if (staff?.active === false) return false;
-
-  const roleFromStaff = staff?.role;
-  /** Staff pode estar à frente dos custom claims (promoção / token antigo). */
-  if (roleFromStaff === 'owner' || roleFromStaff === 'manager') return true;
-
-  const professionalId =
-    (typeof claims.professionalId === 'string' && claims.professionalId) ||
-    (typeof staff?.professionalId === 'string' && staff.professionalId) ||
-    undefined;
-
-  const isProfessionalRole = roleFromClaims === 'professional' || roleFromStaff === 'professional';
-  if (isProfessionalRole && professionalId) {
-    const turmaSnap = await db.collection('businesses').doc(businessId).collection('turmas').doc(turmaId).get();
+  if (actor.role === 'professional' && actor.professionalId) {
+    const turmaSnap = await db
+      .collection('businesses')
+      .doc(businessId)
+      .collection('turmas')
+      .doc(turmaId)
+      .get();
     if (!turmaSnap.exists) return false;
     const turmaData = turmaSnap.data() as { professionalId?: string };
-    return turmaData.professionalId === professionalId;
+    return turmaData.professionalId === actor.professionalId;
   }
 
   return false;
@@ -84,11 +52,6 @@ async function canManageAttendance(uid: string, businessId: string, turmaId: str
 
 export async function POST(request: NextRequest) {
   try {
-    const actor = await getActor(request);
-    if (!actor) {
-      return NextResponse.json({ error: 'Sessão inválida ou expirada. Faça login novamente.' }, { status: 401 });
-    }
-
     const body = (await request.json()) as UpsertAttendanceBody;
     const { businessId, turmaId, studentId, date, status } = body;
 
@@ -96,6 +59,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'businessId, turmaId, studentId, date e status sao obrigatorios' },
         { status: 400 },
+      );
+    }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) {
+      return NextResponse.json(
+        { error: 'Sessão inválida ou expirada. Faça login novamente.' },
+        { status: authResult.error.status },
       );
     }
 
@@ -107,7 +78,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Status de chamada invalido' }, { status: 400 });
     }
 
-    const allowed = await canManageAttendance(actor.uid, businessId, turmaId);
+    const allowed = await canManageAttendance(authResult.actor, businessId, turmaId);
     if (!allowed) {
       return NextResponse.json(
         {
@@ -139,4 +110,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Falha ao registrar chamada' }, { status: 500 });
   }
 }
-

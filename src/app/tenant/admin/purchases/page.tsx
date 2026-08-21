@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { PurchaseOrder } from '@/types/purchases';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function AdminPurchasesPage() {
   const { business } = useBusiness();
@@ -28,10 +29,17 @@ export default function AdminPurchasesPage() {
 
   useEffect(() => {
     if (!business?.id) return;
-    fetch(`/api/suppliers?businessId=${business.id}`)
-      .then((r) => r.json())
-      .then((d) => setSuppliers(d.suppliers || []))
-      .catch(() => setSuppliers([]));
+    (async () => {
+      try {
+        const r = await fetch(`/api/suppliers?businessId=${business.id}`, {
+          headers: await getAuthHeaders(),
+        });
+        const d = await r.json();
+        setSuppliers(d.suppliers || []);
+      } catch {
+        setSuppliers([]);
+      }
+    })();
   }, [business?.id]);
 
   const loadPurchaseOrders = async () => {
@@ -39,7 +47,7 @@ export default function AdminPurchasesPage() {
 
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/purchases?businessId=${business.id}`);
+      const res = await fetch(`/api/purchases?businessId=${business.id}`, { headers: await getAuthHeaders() });
       const data = await res.json();
       setPurchaseOrders(data.purchaseOrders || []);
     } catch (error) {
@@ -118,7 +126,7 @@ export default function AdminPurchasesPage() {
       if (editingPo) {
         const res = await fetch(`/api/purchases/${editingPo.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             businessId: business.id,
             updates: { supplierId: poForm.supplierId, status: 'draft', items },
@@ -128,7 +136,7 @@ export default function AdminPurchasesPage() {
       } else {
         const res = await fetch('/api/purchases', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             businessId: business.id,
             purchaseOrder: { supplierId: poForm.supplierId, status: 'draft', items },
@@ -152,7 +160,7 @@ export default function AdminPurchasesPage() {
     try {
       const res = await fetch('/api/suppliers', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ businessId: business.id, supplier: { name: supplierName.trim() } }),
       });
       if (!res.ok) throw new Error('Erro');
@@ -195,7 +203,7 @@ export default function AdminPurchasesPage() {
     try {
       const res = await fetch(`/api/purchases/${poId}/receive`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ businessId: business.id }),
       });
       if (!res.ok) {

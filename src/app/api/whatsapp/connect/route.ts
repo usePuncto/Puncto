@@ -5,6 +5,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { saveWhatsAppCredentials } from '@/lib/whatsapp/credentials';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 const GRAPH_VERSION = 'v21.0';
 
@@ -20,6 +25,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
     const appId = process.env.META_APP_ID || process.env.NEXT_PUBLIC_META_APP_ID;
     const appSecret = process.env.META_APP_SECRET;
 
@@ -29,12 +39,6 @@ export async function POST(request: NextRequest) {
         { error: 'Server configuration error' },
         { status: 500 }
       );
-    }
-
-    // Verify business exists
-    const businessDoc = await db.collection('businesses').doc(businessId).get();
-    if (!businessDoc.exists) {
-      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
     }
 
     // Step 1: Exchange code for access token
@@ -118,7 +122,7 @@ export async function POST(request: NextRequest) {
     // Update business settings with the display number
     await db.collection('businesses').doc(businessId).update({
       'settings.whatsapp': {
-        ...businessDoc.data()?.settings?.whatsapp,
+        ...(authResult.business.settings as { whatsapp?: Record<string, unknown> } | undefined)?.whatsapp,
         number: phone.display_phone_number || '',
       },
       updatedAt: new Date(),

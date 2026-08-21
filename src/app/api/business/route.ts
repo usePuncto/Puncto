@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // PATCH - Update business (displayName, phone, address, settings.workingHours)
 export async function PATCH(request: NextRequest) {
@@ -9,15 +14,16 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'businessId is required' }, { status: 400 });
     }
 
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
     const body = await request.json();
     const { displayName, phone, address, workingHours, cancellationPolicy } = body;
 
     const businessRef = db.collection('businesses').doc(businessId);
-    const businessDoc = await businessRef.get();
-
-    if (!businessDoc.exists) {
-      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
-    }
+    const businessDocData = authResult.business as unknown as Record<string, unknown>;
 
     const updates: Record<string, unknown> = { updatedAt: new Date() };
 
@@ -45,7 +51,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (workingHours !== undefined && typeof workingHours === 'object') {
-      const current = businessDoc.data()?.settings || {};
+      const current = (businessDocData.settings as Record<string, unknown>) || {};
       updates.settings = {
         ...current,
         workingHours,
@@ -53,10 +59,10 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (cancellationPolicy !== undefined && typeof cancellationPolicy === 'object') {
-      const current = businessDoc.data()?.settings || {};
-      const currentPolicy = current.cancellationPolicy || {};
+      const current = (businessDocData.settings as Record<string, unknown>) || {};
+      const currentPolicy = (current.cancellationPolicy as Record<string, unknown>) || {};
       updates.settings = {
-        ...(updates.settings || current),
+        ...(updates.settings as Record<string, unknown> || current),
         cancellationPolicy: { ...currentPolicy, ...cancellationPolicy },
       };
     }

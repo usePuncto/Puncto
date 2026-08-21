@@ -6,6 +6,7 @@ import { MenuCard } from '@/components/restaurant/MenuCard';
 import { MenuCategoryFilter } from '@/components/restaurant/MenuCategoryFilter';
 import { Product, MenuCategory } from '@/types/restaurant';
 import { useRouter } from 'next/navigation';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function AdminMenuPage() {
   const { business } = useBusiness();
@@ -60,10 +61,7 @@ export default function AdminMenuPage() {
     if (!business?.id) return;
     if (!confirm(`Excluir "${product.name}"?`)) return;
     try {
-      const res = await fetch(
-        `/api/menu/${product.id}?businessId=${business.id}`,
-        { method: 'DELETE' }
-      );
+      const res = await fetch(`/api/menu/${product.id}?businessId=${business.id}`, { headers: await getAuthHeaders(), method: 'DELETE' });
       if (!res.ok) throw new Error('Erro ao excluir produto');
       loadData();
     } catch {
@@ -74,10 +72,7 @@ export default function AdminMenuPage() {
   const handleDeleteCategory = async (category: MenuCategory) => {
     if (!business?.id) return;
     try {
-      const res = await fetch(
-        `/api/menu/categories/${category.id}?businessId=${business.id}`,
-        { method: 'DELETE' }
-      );
+      const res = await fetch(`/api/menu/categories/${category.id}?businessId=${business.id}`, { headers: await getAuthHeaders(), method: 'DELETE' });
       if (!res.ok) throw new Error('Erro ao excluir categoria');
       setSelectedCategory((prev) => (prev === category.id ? null : prev));
       loadData();
@@ -97,7 +92,7 @@ export default function AdminMenuPage() {
     try {
       const res = await fetch('/api/menu/categories', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           businessId: business.id,
           category: { name: categoryName.trim(), displayOrder: categories.length, active: true },

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // DELETE - Soft-delete a category (set active: false)
 export async function DELETE(
@@ -16,6 +21,12 @@ export async function DELETE(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
 
     const categoryRef = db
       .collection('businesses')

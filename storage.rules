@@ -1,0 +1,63 @@
+rules_version = '2';
+
+/**
+ * Puncto Storage rules
+ *
+ * All uploads go through Admin SDK API routes (which bypass these rules).
+ * Client SDK must not write. Public reads are limited to marketing assets
+ * that are intentionally published (branding / menu / professional photos).
+ * Sensitive paths (fiscal notes, EMR, etc.) are private.
+ */
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isPlatformAdmin() {
+      return isSignedIn()
+        && request.auth.token.userType == 'platform_admin'
+        && request.auth.token.platformAdmin == true;
+    }
+
+    function isBusinessStaff(businessId) {
+      return isPlatformAdmin()
+        || (isSignedIn()
+            && request.auth.token.businessRoles != null
+            && request.auth.token.businessRoles[businessId] in ['owner', 'manager', 'professional']);
+    }
+
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Public marketing assets (also made public via Admin makePublic)
+    match /branding/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /menu/{businessId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /professionals/{businessId}/{fileName} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Private fiscal documents — staff (claims) or platform admin only
+    match /businesses/{businessId}/fiscal-notes/{allPaths=**} {
+      allow read: if isBusinessStaff(businessId);
+      allow write: if false;
+    }
+
+    // Any other business-scoped private files
+    match /businesses/{businessId}/{allPaths=**} {
+      allow read: if isBusinessStaff(businessId);
+      allow write: if false;
+    }
+  }
+}

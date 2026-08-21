@@ -70,6 +70,7 @@ export const INDUSTRY_FEATURE_MAP: Record<BusinessType, FeatureId[]> = {
     'analytics',
     'campaigns',
     'customerSegmentation',
+    'inventoryManagement',
   ],
   restaurant: [
     'scheduling',

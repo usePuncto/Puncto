@@ -21,6 +21,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (
+      String(firstName).length > 80 ||
+      String(lastName).length > 80 ||
+      String(phone).length > 40 ||
+      (email && String(email).length > 120)
+    ) {
+      return NextResponse.json({ error: 'Invalid field length' }, { status: 400 });
+    }
+
+    const businessSnap = await db.collection('businesses').doc(businessId).get();
+    if (!businessSnap.exists) {
+      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
+    }
+
     const phoneNorm = normalizePhone(phone);
     const emailNorm = (email || '').trim().toLowerCase();
 

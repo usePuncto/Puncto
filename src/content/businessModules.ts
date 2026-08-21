@@ -135,8 +135,8 @@ export const MODULES_BY_SEGMENT: Record<BusinessModuleSegment, BusinessModule[]>
     },
     {
       id: 'emissao_nf',
-      name: 'Emissão de NF',
-      description: 'Emissão de notas fiscais integrada aos pagamentos e matrículas.',
+      name: 'Gestão de NF',
+      description: 'Organize, arquive e consulte notas fiscais (NFS-e, NFC-e, NF-e) ligadas a pagamentos e matrículas.',
       featureKeys: ['nfceGeneration'],
     },
     {
@@ -217,8 +217,8 @@ export const MODULES_BY_SEGMENT: Record<BusinessModuleSegment, BusinessModule[]>
     },
     {
       id: 'emissao_nf',
-      name: 'Emissão de NF',
-      description: 'Emissão de notas fiscais de serviço ligada aos atendimentos e pagamentos.',
+      name: 'Gestão de NF',
+      description: 'Organize e consulte notas fiscais de serviço ligadas aos atendimentos e pagamentos.',
       featureKeys: ['nfceGeneration'],
     },
   ],
@@ -288,8 +288,8 @@ export const MODULES_BY_SEGMENT: Record<BusinessModuleSegment, BusinessModule[]>
     },
     {
       id: 'emissao_nf',
-      name: 'Emissão de NF',
-      description: 'Emissão de notas fiscais de serviço para o consultório ou clínica.',
+      name: 'Gestão de NF',
+      description: 'Organize e consulte notas fiscais de serviço do consultório ou clínica.',
       featureKeys: ['nfceGeneration'],
     },
   ],
@@ -361,8 +361,8 @@ export const MODULES_BY_SEGMENT: Record<BusinessModuleSegment, BusinessModule[]>
     },
     {
       id: 'emissao_nf',
-      name: 'Emissão de NF',
-      description: 'Emissão de notas fiscais de produto ou serviço conforme a operação.',
+      name: 'Gestão de NF',
+      description: 'Arquive e consulte notas fiscais de produto ou serviço conforme a operação.',
       featureKeys: ['nfceGeneration'],
     },
   ],
@@ -431,8 +431,8 @@ export const MODULES_BY_SEGMENT: Record<BusinessModuleSegment, BusinessModule[]>
     },
     {
       id: 'emissao_nf',
-      name: 'Emissão de NF',
-      description: 'Emissão de notas fiscais integrada ao fluxo comercial.',
+      name: 'Gestão de NF',
+      description: 'Centralize o arquivo e a consulta de notas fiscais do fluxo comercial.',
       featureKeys: ['nfceGeneration'],
     },
   ],

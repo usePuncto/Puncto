@@ -7,6 +7,11 @@ import { CreatePaymentLinkParams } from '@/lib/stripe/types';
 import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 import QRCode from 'qrcode';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 function stripUndefined<T extends Record<string, any>>(obj: T) {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as T;
@@ -46,15 +51,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify business exists
-    const businessDoc = await db.collection('businesses').doc(businessId).get();
-    if (!businessDoc.exists) {
-      return NextResponse.json(
-        { error: 'Business not found' },
-        { status: 404 }
-      );
-    }
-    const businessData = businessDoc.data() as { stripeConnectAccountId?: string } | undefined;
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
+    const businessData = authResult.business as { stripeConnectAccountId?: string };
     const stripeAccount = businessData?.stripeConnectAccountId;
     if (!stripeAccount) {
       return NextResponse.json(

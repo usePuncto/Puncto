@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, db } from '@/lib/firebaseAdmin';
 import { createUser } from '@/lib/auth/create-user';
 import { sendProfessionalPasswordResetEmail } from '@/lib/auth/send-access-email';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 /**
  * POST - Invite a professional to get login access
@@ -19,6 +24,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const professionalRef = db
       .collection('businesses')

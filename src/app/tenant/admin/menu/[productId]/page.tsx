@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Product, MenuCategory, ProductIngredient } from '@/types/restaurant';
 import { InventoryItem } from '@/types/inventory';
 import { useForm } from 'react-hook-form';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 interface ProductFormData {
   name: string;
@@ -70,7 +71,7 @@ export default function ProductEditPage() {
       setCategories(categoriesData.categories || []);
 
       // Load inventory items (for ingredients - prefer "ingredients" category)
-      const invRes = await fetch(`/api/inventory?businessId=${business.id}`);
+      const invRes = await fetch(`/api/inventory?businessId=${business.id}`, { headers: await getAuthHeaders() });
       const invData = await invRes.json();
       const items = (invData.items || []) as InventoryItem[];
       setInventoryItems(items);
@@ -114,7 +115,7 @@ export default function ProductEditPage() {
       form.append('file', file);
       const res = await fetch(
         `/api/menu/upload?businessId=${business.id}`,
-        { method: 'POST', body: form }
+        { method: 'POST', body: form, headers: await getAuthHeaders() }
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -175,10 +176,7 @@ export default function ProductEditPage() {
     if (!business?.id || !confirm('Excluir este produto? Essa ação não pode ser desfeita.')) return;
     setDeleting(true);
     try {
-      const res = await fetch(
-        `/api/menu/${productId}?businessId=${business.id}`,
-        { method: 'DELETE' }
-      );
+      const res = await fetch(`/api/menu/${productId}?businessId=${business.id}`, { headers: await getAuthHeaders(), method: 'DELETE' });
       if (!res.ok) throw new Error('Erro ao excluir');
       router.push('/tenant/admin/menu');
     } catch {
@@ -203,7 +201,7 @@ export default function ProductEditPage() {
       if (isNew) {
         const res = await fetch('/api/menu', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             businessId: business.id,
             product: productData,
@@ -219,7 +217,7 @@ export default function ProductEditPage() {
       } else {
         const res = await fetch(`/api/menu/${productId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             businessId: business.id,
             updates: productData,

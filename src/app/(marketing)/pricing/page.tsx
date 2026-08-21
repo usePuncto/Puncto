@@ -66,9 +66,9 @@ const pricingFAQ = [
       'No momento aceitamos somente cartões de crédito (Visa, Mastercard, Elo, Amex). Para assinatura da Puncto, você pode pagar mensalmente ou anualmente (com desconto). Para receber pagamentos dos seus clientes, oferecemos PIX instantâneo e todas as bandeiras de cartão via Stripe.',
   },
   {
-    question: 'O sistema emite nota fiscal?',
+    question: 'O sistema gerencia nota fiscal?',
     answer:
-      'Sim. Emissão de NF está no catálogo de módulos de cada segmento. Você pode incluí-la na seleção conforme o limite do seu plano.',
+      'Sim. Gestão de NF está no catálogo de módulos de cada segmento. Você organiza e consulta as notas do negócio conforme o limite de módulos do seu plano — a emissão em si continua com o seu emissor/contador.',
   },
   {
     question: 'Posso usar o Puncto em mais de uma unidade?',

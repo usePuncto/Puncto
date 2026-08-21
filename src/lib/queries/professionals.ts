@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, Timestamp, getDoc } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { Professional } from '@/types/business';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 /**
  * Fetch professionals for a business
@@ -103,10 +104,9 @@ export function useDeleteProfessional(businessId: string) {
 
   return useMutation({
     mutationFn: async (professionalId: string) => {
-      const token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
       const res = await fetch(`/api/professionals/${professionalId}?businessId=${businessId}`, {
         method: 'DELETE',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: await getAuthHeaders(),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

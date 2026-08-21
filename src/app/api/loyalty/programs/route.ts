@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { LoyaltyProgram } from '@/types/crm';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - List all loyalty programs
 export async function GET(request: NextRequest) {
@@ -14,6 +19,12 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
 
     const programsRef = db.collection('businesses').doc(businessId).collection('loyaltyPrograms');
     const snapshot = await programsRef.orderBy('name', 'asc').get();
@@ -45,6 +56,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
 
     if (!program.name || !program.type) {
       return NextResponse.json(

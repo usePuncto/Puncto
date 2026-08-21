@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Order } from '@/types/restaurant';
 import { verifyBusinessFeatureAccess, extractBusinessIdFromQuery } from '@/lib/api/featureValidation';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +17,10 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
+
 
     // Verify business exists and has access to table ordering feature
     const featureCheck = await verifyBusinessFeatureAccess(businessId, 'tableOrdering');

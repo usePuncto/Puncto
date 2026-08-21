@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +23,11 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const start = startDate ? Timestamp.fromDate(new Date(startDate)) : null;
     const end = endDate ? Timestamp.fromDate(new Date(endDate + 'T23:59:59.999')) : null;

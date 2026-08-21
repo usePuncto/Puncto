@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Order } from '@/types/restaurant';
 import { useCentrifugo } from '@/components/providers/CentrifugoProvider';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export function useOrders(businessId: string) {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -12,7 +13,7 @@ export function useOrders(businessId: string) {
 
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/orders?businessId=${businessId}`);
+      const res = await fetch(`/api/orders?businessId=${businessId}`, { headers: await getAuthHeaders() });
       const data = await res.json();
       setOrders(data.orders || []);
     } catch (error) {
@@ -55,7 +56,7 @@ export function useOrders(businessId: string) {
     try {
       const res = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           businessId,
           status,
@@ -85,7 +86,7 @@ export function useOrders(businessId: string) {
     try {
       const res = await fetch(`/api/orders/${orderId}/items/${itemIndex}/status`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           businessId,
           status,

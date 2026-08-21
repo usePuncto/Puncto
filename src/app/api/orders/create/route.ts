@@ -54,9 +54,55 @@ export async function POST(request: NextRequest) {
     const tableData = tableDoc.data();
     const tableNumber = tableData?.number || tableId;
 
+    // Resolve prices/names from catalog (do not trust client unitPrice)
+    const pricedItems: OrderItem[] = [];
+    for (const item of items as Array<{
+      productId?: string;
+      quantity?: number;
+      notes?: string;
+      name?: string;
+      unitPrice?: number;
+    }>) {
+      if (!item?.productId || !item.quantity || item.quantity < 1 || item.quantity > 99) {
+        return NextResponse.json({ error: 'Invalid order item' }, { status: 400 });
+      }
+      const productDoc = await db
+        .collection('businesses')
+        .doc(businessId)
+        .collection('products')
+        .doc(item.productId)
+        .get();
+      if (!productDoc.exists) {
+        return NextResponse.json(
+          { error: `Product not found: ${item.productId}` },
+          { status: 400 }
+        );
+      }
+      const product = productDoc.data() as { name?: string; price?: number; available?: boolean };
+      if (product.available === false) {
+        return NextResponse.json(
+          { error: `Product unavailable: ${product.name || item.productId}` },
+          { status: 400 }
+        );
+      }
+      const unitPrice =
+        typeof product.price === 'number' ? product.price : Number(product.price);
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        return NextResponse.json({ error: 'Invalid product price' }, { status: 400 });
+      }
+      pricedItems.push({
+        productId: item.productId,
+        name: product.name || item.name || 'Item',
+        quantity: Math.floor(item.quantity),
+        unitPrice,
+        notes: typeof item.notes === 'string' ? item.notes.slice(0, 300) : undefined,
+        status: 'pending',
+      });
+    }
+
     // Calculate totals
-    const subtotal = items.reduce(
-      (sum: number, item: OrderItem) => sum + item.unitPrice * item.quantity,
+    const subtotal = pricedItems.reduce(
+      (sum, item) => sum + item.unitPrice * item.quantity,
       0
     );
     const tax = Math.round(subtotal * 0.1); // 10% tax (configurable)
@@ -72,14 +118,7 @@ export async function POST(request: NextRequest) {
       tableId,
       tableNumber,
       status: 'open',
-      items: items.map((item: any) => ({
-        productId: item.productId,
-        name: item.name,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        notes: item.notes,
-        status: 'pending' as const,
-      })),
+      items: pricedItems,
       subtotal,
       tax,
       tip,

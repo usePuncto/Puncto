@@ -4,6 +4,11 @@ import { recordTuitionInvoicePaymentForConnect } from '@/lib/server/tuitionInvoi
 import { stripe } from '@/lib/stripe/client';
 import { Timestamp } from 'firebase-admin/firestore';
 import type Stripe from 'stripe';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 type Action = 'create' | 'cancel' | 'portal' | 'prepare_incomplete_payment' | 'sync_from_stripe';
 
@@ -17,16 +22,6 @@ async function getActor(request: NextRequest) {
   if (!authHeader?.startsWith('Bearer ')) return null;
   const token = authHeader.split('Bearer ')[1];
   return auth.verifyIdToken(token);
-}
-
-async function canManageByStaff(uid: string, businessId: string) {
-  const user = await auth.getUser(uid);
-  const claims = user.customClaims as { businessRoles?: Record<string, string>; userType?: string; platformAdmin?: boolean } | undefined;
-  if (claims?.userType === 'platform_admin' && claims.platformAdmin === true) return true;
-  const role = claims?.businessRoles?.[businessId];
-  if (role === 'owner' || role === 'manager') return true;
-  const staffSnap = await db.collection('businesses').doc(businessId).collection('staff').doc(uid).get();
-  return Boolean((staffSnap.data()?.permissions as Record<string, boolean> | undefined)?.manageBookings);
 }
 
 /**
@@ -202,8 +197,11 @@ export async function POST(request: NextRequest) {
 
     const isStudent = actor.userType === 'student';
     if (!isStudent) {
-      const allowed = await canManageByStaff(actor.uid, businessId);
-      if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      const staffAuth = await requireBusinessAuth(request, businessId, {
+        minRoles: MANAGER_ROLES,
+        anyPermission: ['manageBookings'],
+      });
+      if (authError(staffAuth)) return staffAuth.error;
     } else if (actor.studentBusinessId !== businessId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }

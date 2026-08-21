@@ -3,16 +3,11 @@ import { auth, db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { createUser } from '@/lib/auth/create-user';
 import { sendStudentAccessEmail } from '@/lib/auth/send-access-email';
-
-async function canManageStudents(uid: string, businessId: string) {
-  const user = await auth.getUser(uid);
-  const claims = user.customClaims as { businessRoles?: Record<string, string>; userType?: string; platformAdmin?: boolean } | undefined;
-  if (claims?.userType === 'platform_admin' && claims.platformAdmin === true) return true;
-  const role = claims?.businessRoles?.[businessId];
-  if (role === 'owner' || role === 'manager') return true;
-  const staffSnap = await db.collection('businesses').doc(businessId).collection('staff').doc(uid).get();
-  return Boolean((staffSnap.data()?.permissions as Record<string, boolean> | undefined)?.manageBookings);
-}
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 function passwordFromBirthDate(birthDate?: string): string | null {
   // Expected source format: yyyy-MM-dd
@@ -24,14 +19,6 @@ function passwordFromBirthDate(birthDate?: string): string | null {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const token = authHeader.split('Bearer ')[1];
-    const decoded = await auth.verifyIdToken(token);
-    const uid = decoded.uid;
-
     const body = (await request.json()) as {
       businessId?: string;
       customerId?: string;
@@ -43,11 +30,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'businessId, customerId e email sao obrigatorios' }, { status: 400 });
     }
 
-    const allowed = await canManageStudents(uid, businessId);
-    if (!allowed) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+      anyPermission: ['manageBookings'],
+    });
+    if (authError(authResult)) return authResult.error;
 
-    const businessSnap = await db.collection('businesses').doc(businessId).get();
-    const industry = (businessSnap.data() as { industry?: string } | undefined)?.industry;
+    const industry = (authResult.business as { industry?: string }).industry;
     if (industry !== 'education') {
       return NextResponse.json({ error: 'Portal do aluno disponivel apenas para education' }, { status: 400 });
     }

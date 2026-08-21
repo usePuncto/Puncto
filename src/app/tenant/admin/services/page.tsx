@@ -7,6 +7,7 @@ import { ServiceForm } from '@/components/admin/ServiceForm';
 import { Service } from '@/types/business';
 import { MenuCategory } from '@/types/restaurant';
 import { MenuCategoryFilter } from '@/components/restaurant/MenuCategoryFilter';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function AdminServicesPage() {
   const { business } = useBusiness();
@@ -21,25 +22,26 @@ export default function AdminServicesPage() {
 
   const { data: services, isLoading } = useServices(business.id);
 
-  const loadCategories = () => {
+  const loadCategories = async () => {
     if (!business?.id) return;
-    fetch(`/api/services/categories?businessId=${business.id}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const rawCategories = d.categories ?? [];
-        setCategories(
-          rawCategories.map((c: any, idx: number) => ({
-            id: c.id,
-            businessId: c.businessId ?? business.id,
-            name: c.name ?? '',
-            displayOrder: typeof c.displayOrder === 'number' ? c.displayOrder : idx,
-            active: typeof c.active === 'boolean' ? c.active : true,
-            createdAt: c.createdAt ?? new Date(),
-            updatedAt: c.updatedAt ?? new Date(),
-          }))
-        );
-      })
-      .catch(() => setCategories([]));
+    try {
+      const r = await fetch(`/api/services/categories?businessId=${business.id}`);
+      const d = await r.json();
+      const rawCategories = d.categories ?? [];
+      setCategories(
+        rawCategories.map((c: any, idx: number) => ({
+          id: c.id,
+          businessId: c.businessId ?? business.id,
+          name: c.name ?? '',
+          displayOrder: typeof c.displayOrder === 'number' ? c.displayOrder : idx,
+          active: typeof c.active === 'boolean' ? c.active : true,
+          createdAt: c.createdAt ?? new Date(),
+          updatedAt: c.updatedAt ?? new Date(),
+        }))
+      );
+    } catch {
+      setCategories([]);
+    }
   };
 
   useEffect(() => {
@@ -49,10 +51,7 @@ export default function AdminServicesPage() {
   const handleDeleteCategory = async (category: MenuCategory) => {
     if (!business?.id) return;
     try {
-      const res = await fetch(
-        `/api/services/categories/${category.id}?businessId=${business.id}`,
-        { method: 'DELETE' }
-      );
+      const res = await fetch(`/api/services/categories/${category.id}?businessId=${business.id}`, { headers: await getAuthHeaders(), method: 'DELETE' });
       if (!res.ok) throw new Error('Erro ao excluir categoria');
       setSelectedCategory((prev) => (prev === category.id ? null : prev));
       loadCategories();
@@ -72,7 +71,7 @@ export default function AdminServicesPage() {
     try {
       const res = await fetch('/api/services/categories', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ businessId: business.id, name: categoryName.trim() }),
       });
       const data = await res.json();

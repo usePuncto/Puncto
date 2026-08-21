@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { InventoryMovement, InventoryItem } from '@/types/inventory';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 
 // GET - List inventory movements
 export async function GET(request: NextRequest) {
@@ -16,11 +17,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
+
     const movementsRef = db
       .collection('businesses')
       .doc(businessId)
       .collection('inventoryMovements');
-    
+
     let query: FirebaseFirestore.Query = movementsRef.orderBy('createdAt', 'desc');
 
     if (itemId) {
@@ -56,6 +60,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
+
     if (!movement.itemId || !movement.type || !movement.quantity) {
       return NextResponse.json(
         { error: 'itemId, type, and quantity are required' },
@@ -63,7 +70,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get inventory item
     const itemRef = db
       .collection('businesses')
       .doc(businessId)
@@ -80,7 +86,6 @@ export async function POST(request: NextRequest) {
 
     const item = itemDoc.data() as InventoryItem;
 
-    // Calculate new stock
     let newStock = item.currentStock;
     if (movement.type === 'in' || movement.type === 'adjustment') {
       newStock += movement.quantity;
@@ -94,14 +99,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update average cost if it's an "in" movement with unit cost
     let newCost = item.cost;
     if (movement.type === 'in' && movement.unitCost) {
       const totalValue = item.currentStock * item.cost + movement.quantity * movement.unitCost;
       newCost = Math.round(totalValue / (item.currentStock + movement.quantity));
     }
 
-    // Create movement
     const movementsRef = db
       .collection('businesses')
       .doc(businessId)
@@ -112,11 +115,10 @@ export async function POST(request: NextRequest) {
       itemId: movement.itemId,
       type: movement.type,
       quantity: movement.quantity,
-      createdBy: movement.createdBy || 'system',
+      createdBy: authResult.actor.uid,
       createdAt: new Date(),
     };
 
-    // Firestore does not accept undefined values in document fields.
     if (typeof movement.unitCost === 'number') {
       movementData.unitCost = Math.round(movement.unitCost * 100);
     }
@@ -126,7 +128,6 @@ export async function POST(request: NextRequest) {
 
     const movementRef = await movementsRef.add(movementData);
 
-    // Update inventory item
     await itemRef.update({
       currentStock: newStock,
       cost: newCost,

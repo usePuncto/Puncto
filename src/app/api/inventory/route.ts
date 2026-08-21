@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { InventoryItem } from '@/types/inventory';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - List all inventory items
 export async function GET(request: NextRequest) {
@@ -17,6 +22,9 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
+
     const inventoryRef = db.collection('businesses').doc(businessId).collection('inventory');
     let query: FirebaseFirestore.Query = inventoryRef.orderBy('name', 'asc');
 
@@ -30,7 +38,6 @@ export async function GET(request: NextRequest) {
       ...doc.data(),
     })) as InventoryItem[];
 
-    // Filter low stock items
     if (lowStock) {
       items = items.filter((item) => item.currentStock <= item.minStock);
     }
@@ -58,6 +65,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
     if (!item.name || !item.category || !item.unit) {
       return NextResponse.json(
         { error: 'Item name, category, and unit are required' },
@@ -75,12 +87,11 @@ export async function POST(request: NextRequest) {
       unit: item.unit,
       currentStock: item.currentStock || 0,
       minStock: item.minStock || 0,
-      cost: Math.round((item.cost || 0) * 100), // Convert to cents
+      cost: Math.round((item.cost || 0) * 100),
       createdAt: now,
       updatedAt: now,
     };
 
-    // Only add optional fields if they have values (Firestore rejects undefined)
     if (item.sku?.trim()) itemData.sku = item.sku.trim();
     if (item.maxStock != null) itemData.maxStock = item.maxStock;
     if (item.supplierId?.trim()) itemData.supplierId = item.supplierId.trim();

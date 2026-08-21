@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebaseAdmin';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 
 /**
  * Fetch signed EMR records for a patient (server-side, bypasses client Firestore rules)
  */
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await auth.verifyIdToken(token);
-
     const { searchParams } = new URL(request.url);
     const businessId = searchParams.get('businessId');
     const patientId = searchParams.get('patientId');
@@ -24,6 +17,9 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
 
     const emrsRef = db
       .collection('businesses')

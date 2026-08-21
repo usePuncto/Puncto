@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/firebaseAdmin';
 import { db } from '@/lib/firebaseAdmin';
 import { sendWhatsApp } from '@/lib/messaging/whatsapp';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,6 +26,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
+
 
     const bookingRef = db.collection('businesses').doc(businessId).collection('bookings').doc(bookingId);
     const bookingSnap = await bookingRef.get();

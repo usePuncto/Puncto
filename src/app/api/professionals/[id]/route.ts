@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebaseAdmin';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 /**
  * DELETE - Remove professional (owners cannot be deleted)
@@ -14,17 +19,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'businessId is required' }, { status: 400 });
     }
 
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const token = authHeader.split('Bearer ')[1];
-    const decodedToken = await auth.verifyIdToken(token);
-    const role = (decodedToken as { businessRoles?: Record<string, string> }).businessRoles?.[businessId];
-    if (role !== 'owner' && role !== 'manager') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const professionalRef = db
       .collection('businesses')
@@ -63,6 +61,10 @@ export async function PATCH(
     if (!businessId) {
       return NextResponse.json({ error: 'businessId is required' }, { status: 400 });
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
+
 
     const body = await request.json();
     const { workingHours } = body;

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Table } from '@/types/restaurant';
 import { generateQRCodeDataUrl, getTableUrl } from '@/lib/utils/qrcode';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - Get a single table
 export async function GET(
@@ -61,6 +66,12 @@ export async function PUT(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
 
     const tableRef = db
       .collection('businesses')
@@ -123,6 +134,12 @@ export async function DELETE(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
 
     const tableRef = db
       .collection('businesses')

@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { toast } from 'sonner';
 import { sha256Hash } from '@/lib/utils/pkiSignature';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export const LGPD_CONSENT_TEXT = [
   'Autorizo a coleta e o tratamento dos meus dados pessoais e sensíveis (informações de saúde e histórico clínico) para fins de prestação de serviços de saúde, acompanhamento clínico, emissão de prontuário e demais atos necessários ao meu atendimento.',
@@ -45,9 +46,7 @@ export function PatientConsentForm({ businessId, patientId, onCompleted }: Patie
 
       const res = await fetch('/api/emr/patient-consent', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           base64Image,
           patientId,

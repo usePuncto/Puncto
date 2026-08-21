@@ -77,7 +77,7 @@ export interface FeatureFlags {
   virtualTabs?: boolean;
   splitPayments?: boolean;
   thermalPrinting?: boolean;
-  nfceGeneration?: boolean;
+  nfceGeneration?: boolean; // Gestão de NF module (archive/consult; not SEFAZ emission)
   // Phase 3: ERP Module
   inventoryManagement?: boolean;
   purchaseOrders?: boolean;

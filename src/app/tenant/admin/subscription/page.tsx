@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function SubscriptionPage() {
   const { business } = useBusiness();
@@ -12,7 +13,7 @@ export default function SubscriptionPage() {
     try {
       const response = await fetch('/api/subscriptions/portal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           businessId: business.id,
           returnUrl: window.location.href,

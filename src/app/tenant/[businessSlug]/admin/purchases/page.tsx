@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { PurchaseOrder } from '@/types/purchases';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function AdminPurchasesPage() {
   const { business } = useBusiness();
@@ -18,7 +19,7 @@ export default function AdminPurchasesPage() {
 
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/purchases?businessId=${business.id}`);
+      const res = await fetch(`/api/purchases?businessId=${business.id}`, { headers: await getAuthHeaders() });
       const data = await res.json();
       setPurchaseOrders(data.purchaseOrders || []);
     } catch (error) {

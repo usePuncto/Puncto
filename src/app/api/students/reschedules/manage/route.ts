@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth, db } from '@/lib/firebaseAdmin';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { notifyLessonRescheduleRequestCreated } from '@/lib/server/lessonRescheduleNotifications';
+import {
+  authError,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 type Action =
   | 'create_request'
@@ -82,35 +86,30 @@ async function getActor(request: NextRequest): Promise<DecodedActor | null> {
   return (await auth.verifyIdToken(token)) as DecodedActor;
 }
 
-async function canManageByStaff(uid: string, businessId: string) {
-  const user = await auth.getUser(uid);
-  const claims = user.customClaims as
-    | {
-        businessRoles?: Record<string, string>;
-        userType?: string;
-        platformAdmin?: boolean;
-        professionalId?: string;
-      }
-    | undefined;
-  if (claims?.userType === 'platform_admin' && claims.platformAdmin === true) {
-    return { allowed: true, role: 'platform_admin' as const, professionalId: undefined };
+async function resolveStaffAccess(request: NextRequest, businessId: string) {
+  const authResult = await requireBusinessAuth(request, businessId);
+  if (authError(authResult)) {
+    return { allowed: false, role: null as null, professionalId: undefined as string | undefined };
   }
-  const role = claims?.businessRoles?.[businessId];
-  if (role === 'owner' || role === 'manager') {
-    return { allowed: true, role: role as 'owner' | 'manager', professionalId: claims?.professionalId };
+  const { actor } = authResult;
+  if (actor.isPlatformAdmin) {
+    return { allowed: true, role: 'platform_admin' as const, professionalId: undefined as string | undefined };
   }
-  if (role === 'professional') {
-    const staffSnap = await db.collection('businesses').doc(businessId).collection('staff').doc(uid).get();
-    const hasManageBookings = Boolean(
-      (staffSnap.data()?.permissions as Record<string, boolean> | undefined)?.manageBookings,
-    );
+  if (actor.role === 'owner' || actor.role === 'manager') {
     return {
-      allowed: hasManageBookings || !!claims?.professionalId,
-      role: 'professional' as const,
-      professionalId: claims?.professionalId,
+      allowed: true,
+      role: actor.role,
+      professionalId: actor.professionalId,
     };
   }
-  return { allowed: false, role: null, professionalId: undefined };
+  if (actor.role === 'professional') {
+    return {
+      allowed: Boolean(actor.permissions?.manageBookings || actor.professionalId),
+      role: 'professional' as const,
+      professionalId: actor.professionalId,
+    };
+  }
+  return { allowed: false, role: null as null, professionalId: undefined as string | undefined };
 }
 
 async function findPendingRequestByAttendance(businessId: string, attendanceRollCallId: string) {
@@ -151,7 +150,7 @@ export async function POST(request: NextRequest) {
     const isStudent = actor.userType === 'student';
     const staffAccess = isStudent
       ? { allowed: false, role: null as null, professionalId: undefined as string | undefined }
-      : await canManageByStaff(actor.uid, businessId);
+      : await resolveStaffAccess(request, businessId);
 
     if (action === 'create_request') {
       if (!isStudent || actor.studentBusinessId !== businessId) {

@@ -61,6 +61,30 @@ const adminNavItems: NavItem[] = [
     capability: { modules: ['cadastro_clientes'], feature: 'crm' },
   },
   {
+    href: '/tenant/admin/appointment-reminders',
+    key: 'appointmentReminders',
+    icon: '📩',
+    capability: { modules: ['lembrete_agendamento'] },
+  },
+  {
+    href: '/tenant/admin/waitlist',
+    key: 'waitlist',
+    icon: '⏳',
+    capability: { modules: ['lista_espera'] },
+  },
+  {
+    href: '/tenant/admin/prescriptions',
+    key: 'prescriptions',
+    icon: '💊',
+    capability: { modules: ['prescricao_eletronica'] },
+  },
+  {
+    href: '/tenant/admin/e-signatures',
+    key: 'eSignatures',
+    icon: '✍️',
+    capability: { modules: ['assinatura_eletronica'] },
+  },
+  {
     href: '/tenant/admin/payments',
     key: 'payments',
     icon: '💳',
@@ -107,6 +131,12 @@ const adminNavItems: NavItem[] = [
     key: 'timeClock',
     icon: '⏰',
     capability: { modules: ['ponto_eletronico'], feature: 'timeClock' },
+  },
+  {
+    href: '/tenant/admin/fiscal-notes',
+    key: 'fiscalNotes',
+    icon: '🧾',
+    capability: { modules: ['emissao_nf'] },
   },
   {
     href: '/tenant/admin/loyalty',
@@ -189,6 +219,12 @@ const educationAdminNavItems: NavItem[] = [
     key: 'financial',
     icon: '💰',
     capability: { modules: ['relatorio_financeiro'], feature: 'analytics' },
+  },
+  {
+    href: '/tenant/admin/fiscal-notes',
+    key: 'fiscalNotes',
+    icon: '🧾',
+    capability: { modules: ['emissao_nf'] },
   },
   {
     href: '/tenant/admin/loyalty',

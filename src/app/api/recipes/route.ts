@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Recipe } from '@/lib/erp/costCalculation';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - List all recipes
 export async function GET(request: NextRequest) {
@@ -15,6 +20,11 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const recipesRef = db.collection('businesses').doc(businessId).collection('recipes');
     let query: FirebaseFirestore.Query = recipesRef.orderBy('name', 'asc');
@@ -52,6 +62,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
     if (!recipe.productId || !recipe.name || !recipe.ingredients) {
       return NextResponse.json(
         { error: 'productId, name, and ingredients are required' },
@@ -63,7 +78,6 @@ export async function POST(request: NextRequest) {
     const totalCost = recipe.laborCost || 0;
 
     const recipesRef = db.collection('businesses').doc(businessId).collection('recipes');
-    const now = new Date();
 
     const recipeData: Omit<Recipe, 'id'> = {
       productId: recipe.productId,

@@ -3,7 +3,8 @@
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { useEffect, ReactNode } from 'react';
-import { isPlatformAdmin, isBusinessStaff } from '@/lib/permissions';
+import { getBusinessRole, isPlatformAdmin, isBusinessStaff } from '@/lib/permissions';
+import type { User } from '@/types/user';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -29,6 +30,37 @@ interface ProtectedRouteProps {
   loadingComponent?: ReactNode;
 }
 
+function roleMatchesAllowed(
+  user: User,
+  allowedRoles: Array<'owner' | 'manager' | 'professional' | 'attendant'>,
+  businessId?: string
+): boolean {
+  if (isPlatformAdmin(user)) return true;
+
+  const normalize = (role: string | null | undefined) => {
+    if (!role) return null;
+    if (role === 'staff' || role === 'attendant') return 'attendant';
+    return role;
+  };
+
+  if (businessId) {
+    const role = normalize(getBusinessRole(user, businessId));
+    return (
+      role != null &&
+      allowedRoles.includes(role as 'owner' | 'manager' | 'professional' | 'attendant')
+    );
+  }
+
+  const roles = user.customClaims?.businessRoles || {};
+  return Object.values(roles).some((r) => {
+    const role = normalize(r);
+    return (
+      role != null &&
+      allowedRoles.includes(role as 'owner' | 'manager' | 'professional' | 'attendant')
+    );
+  });
+}
+
 export function ProtectedRoute({
   children,
   requirePlatformAdmin,
@@ -40,13 +72,18 @@ export function ProtectedRoute({
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  const rolesOk =
+    !allowedRoles?.length ||
+    (user != null && roleMatchesAllowed(user, allowedRoles, requireBusinessAccess));
+
   useEffect(() => {
     if (loading) return;
 
     // No user - redirect to login
     if (!user) {
       const currentPath = window.location.pathname + window.location.search;
-      const isGestao = typeof window !== 'undefined' && window.location.hostname.includes('.gestao.');
+      const isGestao =
+        typeof window !== 'undefined' && window.location.hostname.includes('.gestao.');
       const subdomain = isGestao ? window.location.hostname.split('.')[0] : null;
       const params = new URLSearchParams({ returnUrl: currentPath });
       if (subdomain) {
@@ -71,9 +108,9 @@ export function ProtectedRoute({
 
     // Check allowed roles
     if (allowedRoles && allowedRoles.length > 0) {
-      // For now, just check if user is authenticated
-      // In production, you'd check user.role or user.customClaims
-      // This is a simplified check
+      if (!roleMatchesAllowed(user, allowedRoles, requireBusinessAccess)) {
+        router.push(redirectTo);
+      }
     }
   }, [user, loading, requirePlatformAdmin, requireBusinessAccess, allowedRoles, redirectTo, router]);
 
@@ -103,6 +140,10 @@ export function ProtectedRoute({
   }
 
   if (requireBusinessAccess && !isBusinessStaff(user, requireBusinessAccess)) {
+    return null;
+  }
+
+  if (!rolesOk) {
     return null;
   }
 

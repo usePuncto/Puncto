@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { LoyaltyProgram } from '@/types/crm';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // POST - Award loyalty points
 export async function POST(request: NextRequest) {
@@ -14,6 +19,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
 
     // Get active loyalty program
     const programsRef = db.collection('businesses').doc(businessId).collection('loyaltyPrograms');

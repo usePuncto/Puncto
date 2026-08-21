@@ -6,10 +6,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useAuth } from '@/lib/contexts/AuthContext';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { FeatureGuard } from '@/components/features/FeatureGuard';
 import Link from 'next/link';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 const emrSchema = z.object({
   patientComplaint: z.string().min(1, 'Queixa do paciente é obrigatória'),
@@ -25,7 +25,6 @@ function EMRFormContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
-  const { firebaseUser } = useAuth();
   const { business } = useBusiness();
   const patientId = params.patientId as string;
 
@@ -64,7 +63,7 @@ function EMRFormContent() {
         return;
       }
 
-      const token = firebaseUser ? await firebaseUser.getIdToken() : null;
+      const authHeaders = await getAuthHeaders({ 'Content-Type': 'application/json' });
 
       let currentEmrId = emrId;
 
@@ -72,10 +71,7 @@ function EMRFormContent() {
       if (!currentEmrId) {
         const draftRes = await fetch('/api/emr/draft', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
+          headers: authHeaders,
           body: JSON.stringify({
             businessId: business.id,
             patientId,
@@ -95,10 +91,7 @@ function EMRFormContent() {
 
       const completeRes = await fetch('/api/emr/complete', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(firebaseUser ? { Authorization: `Bearer ${await firebaseUser.getIdToken()}` } : {}),
-        },
+        headers: authHeaders,
         body: JSON.stringify({
           emrId: currentEmrId,
           businessId: business.id,

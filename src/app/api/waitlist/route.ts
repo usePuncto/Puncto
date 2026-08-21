@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 
 /**
  * POST /api/waitlist
@@ -62,6 +63,9 @@ export async function GET(request: NextRequest) {
     if (!businessId) {
       return NextResponse.json({ error: 'businessId is required' }, { status: 400 });
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
 
     const waitlistQuery = db
       .collection('businesses')

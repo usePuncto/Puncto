@@ -15,6 +15,7 @@ import type { Payment, PaymentLink, PaymentMethod, PaymentStatus } from '@/types
 import type { StudentSubscription } from '@/types/studentSubscription';
 import { useAllStudentSubscriptionsForBusiness } from '@/lib/queries/studentSubscriptionsAdmin';
 import { useTuitionTypes, useTuitionTypeMutations } from '@/lib/queries/tuitionTypes';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 /** Mesma cobrança (fatura / PI) pode ter ficado com vários documentos por webhooks — exibe uma linha. */
 function dedupePaymentHistoryRows(rows: Payment[]): Payment[] {
@@ -169,7 +170,7 @@ export default function PaymentsAdminPage() {
       try {
         await fetch('/api/stripe-connect/status', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ businessId: business.id }),
         });
       } catch (err) {
@@ -201,7 +202,7 @@ export default function PaymentsAdminPage() {
     try {
       const res = await fetch('/api/stripe-connect/create-account', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           businessId: business.id,
           email,
@@ -244,7 +245,7 @@ export default function PaymentsAdminPage() {
     try {
       const res = await fetch('/api/stripe-connect/login-link', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           businessId: business.id,
         }),
@@ -410,7 +411,7 @@ export default function PaymentsAdminPage() {
   ) => {
     const response = await fetch('/api/payments/create-payment-link', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify({
         businessId: business.id,
         ...data,

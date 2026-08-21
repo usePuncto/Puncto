@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { InventoryItem } from '@/types/inventory';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function AdminInventoryPage() {
   const { business } = useBusiness();
@@ -20,7 +21,7 @@ export default function AdminInventoryPage() {
     try {
       setIsLoading(true);
       const url = `/api/inventory?businessId=${business.id}${filter === 'lowStock' ? '&lowStock=true' : ''}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: await getAuthHeaders() });
       const data = await res.json();
       setItems(data.items || []);
     } catch (error) {

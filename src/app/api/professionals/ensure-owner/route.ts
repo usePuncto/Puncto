@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 /**
  * POST - Ensure owner has a Professional document (creates if missing)
@@ -13,34 +18,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'businessId is required' }, { status: 400 });
     }
 
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
-    const token = authHeader.split('Bearer ')[1];
-    let decodedToken;
-    try {
-      decodedToken = await auth.verifyIdToken(token);
-    } catch {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
-    }
-
-    const userId = decodedToken.uid;
-    const userEmail = decodedToken.email || '';
-    const displayName = decodedToken.name || userEmail.split('@')[0] || 'Proprietário';
+    const userId = authResult.actor.uid;
+    const userEmail = authResult.actor.email || '';
+    const displayName = userEmail.split('@')[0] || 'Proprietário';
 
     const businessRef = db.collection('businesses').doc(businessId);
-    const businessSnap = await businessRef.get();
-    if (!businessSnap.exists) {
-      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
-    }
-
-    const businessData = businessSnap.data();
-    const role = (decodedToken as { businessRoles?: Record<string, string> }).businessRoles?.[businessId];
-    if (role !== 'owner' && role !== 'manager') {
-      return NextResponse.json({ error: 'Must be owner or manager' }, { status: 403 });
-    }
+    const businessData = authResult.business as unknown as {
+      phone?: string;
+      settings?: { workingHours?: Record<string, unknown> };
+    };
 
     const prosRef = businessRef.collection('professionals');
     const existing = await prosRef.where('userId', '==', userId).limit(1).get();
@@ -51,7 +42,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const byEmail = await prosRef.where('email', '==', userEmail).limit(1).get();
+    const byEmail = userEmail
+      ? await prosRef.where('email', '==', userEmail).limit(1).get()
+      : { empty: true, docs: [] as FirebaseFirestore.QueryDocumentSnapshot[] };
     if (!byEmail.empty) {
       const proDoc = byEmail.docs[0];
       await proDoc.ref.update({
@@ -67,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     const settings = businessData?.settings || {};
-    const wh = settings.workingHours || {};
+    const wh = (settings.workingHours || {}) as Record<string, { open?: string; close?: string; closed?: boolean }>;
 
     const professionalData = {
       businessId,

@@ -24,7 +24,7 @@ O Puncto simplifica as operações diárias de pequenas e médias empresas de be
 - **Cardápio Digital e Contas Virtuais** — Pedidos em mesa com QR codes e atualizações em tempo real
 - **Relógio de Ponto Eletrônico** — Controle de ponto por PIN/biometria com gestão de turnos
 - **Gestão Unificada** — Agendamentos, vendas, estoque, equipe e relatórios financeiros
-- **Pronto para o Brasil** — Notas fiscais (NFS-e/NFC-e), PIX, conformidade LGPD
+- **Pronto para o Brasil** — Gestão de notas fiscais (NFS-e/NFC-e/NF-e), PIX, conformidade LGPD
 
 ---
 
@@ -57,7 +57,7 @@ O Puncto simplifica as operações diárias de pequenas e médias empresas de be
 - **Mensagens:** WhatsApp Business Platform (Meta), ZeptoMail, Twilio (SMS)
 - **Pagamentos:** Stripe (Checkout, Billing, Connect)
 - **Calendário:** iCalendar (.ics)
-- **Fiscal:** TecnoSpeed, eNotas, PlugNotas (NFS-e/NFC-e)
+- **Fiscal:** Gestão de NF (arquivo XML/PDF/DANFE no painel)
 - **Impressão:** Impressoras térmicas ESC/POS
 
 **Infraestrutura:**
@@ -67,7 +67,7 @@ O Puncto simplifica as operações diárias de pequenas e médias empresas de be
 ### Preços Híbridos e Cobrança por Uso
 
 - **Planos:** Grátis, Starter (R$ 69,90), Growth (R$ 189,90), Pro (R$ 399,90), Enterprise (sob medida)
-- **Uso medido:** Mensagens WhatsApp e notas fiscais (NFS-e/NFC-e) rastreadas por negócio; excedentes faturados via Stripe
+- **Uso medido:** Mensagens WhatsApp rastreadas por negócio; excedentes faturados via Stripe. Gestão de NF sem cota de emissão.
 
 ### Funcionalidades por Modalidade
 

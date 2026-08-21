@@ -33,6 +33,21 @@ export async function POST(request: NextRequest) {
     }
 
     const booking = bookingSnap.data();
+    const createdAt = booking?.createdAt?.toDate?.() ?? booking?.createdAt;
+    const createdMs =
+      createdAt instanceof Date
+        ? createdAt.getTime()
+        : typeof createdAt === 'string'
+          ? Date.parse(createdAt)
+          : 0;
+    // Only allow notifying for recently created bookings (anti spam / IDOR abuse)
+    if (!createdMs || Date.now() - createdMs > 15 * 60 * 1000) {
+      return NextResponse.json(
+        { error: 'Booking is not eligible for notification creation' },
+        { status: 403 }
+      );
+    }
+
     const recipientUserIds = await getStaffNotificationRecipientUserIds(
       businessId,
       booking?.professionalId,

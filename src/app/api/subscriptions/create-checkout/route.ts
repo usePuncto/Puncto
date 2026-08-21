@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSubscriptionCheckout, getOrCreateCustomer } from '@/lib/stripe/subscriptions';
 import { db } from '@/lib/firebaseAdmin';
+import { isAllowedCheckoutRedirectUrl } from '@/lib/payments/checkoutRedirect';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,6 +27,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
+    if (
+      !isAllowedCheckoutRedirectUrl(successUrl) ||
+      !isAllowedCheckoutRedirectUrl(cancelUrl)
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid success or cancel URL' },
+        { status: 400 }
+      );
+    }
+
     // Get or create Stripe customer
     let customerId: string | undefined;
     if (customerEmail) {
@@ -33,14 +54,12 @@ export async function POST(request: NextRequest) {
       });
       customerId = customer.id;
 
-      // Update business with customer ID
       const businessRef = db.collection('businesses').doc(businessId);
       await businessRef.update({
         'subscription.stripeCustomerId': customerId,
       });
     }
 
-    // Create checkout session
     const session = await createSubscriptionCheckout({
       customerId,
       customerEmail,

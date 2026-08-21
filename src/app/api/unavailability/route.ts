@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 
 type Scope = 'business' | 'professional';
 
@@ -27,6 +28,10 @@ export async function GET(request: NextRequest) {
     if (!businessId) {
       return NextResponse.json({ error: 'businessId is required' }, { status: 400 });
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
+
 
     if (scope === 'professional' && !professionalId) {
       return NextResponse.json({ error: 'professionalId is required for professional scope' }, { status: 400 });
@@ -88,6 +93,10 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
+
 
     if (!isValidDate(date) || !isValidTime(startTime) || !isValidTime(endTime)) {
       return NextResponse.json({ error: 'Invalid date/time format' }, { status: 400 });
@@ -168,6 +177,10 @@ export async function DELETE(request: NextRequest) {
     if (!businessId || !itemId) {
       return NextResponse.json({ error: 'businessId and itemId are required' }, { status: 400 });
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
+
 
     if (scope === 'professional' && !professionalId) {
       return NextResponse.json({ error: 'professionalId is required for professional scope' }, { status: 400 });

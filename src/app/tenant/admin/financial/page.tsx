@@ -5,6 +5,7 @@ import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { usePayments } from '@/lib/queries/payments';
 import { ManualTuitionsSection } from '@/components/admin/financial/ManualTuitionsSection';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function FinancialPage() {
   const { business } = useBusiness();
@@ -90,15 +91,16 @@ export default function FinancialPage() {
         date: addForm.date,
       };
 
+      const authHeaders = await getAuthHeaders({ 'Content-Type': 'application/json' });
       const res = editingEntry
         ? await fetch(`/api/ledger/entries/${editingEntry.id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await getAuthHeaders(),
             body: JSON.stringify({ businessId: business.id, entry: entryPayload }),
           })
         : await fetch('/api/ledger/entries', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: await getAuthHeaders(),
             body: JSON.stringify({ businessId: business.id, entry: entryPayload }),
           });
 
@@ -123,7 +125,7 @@ export default function FinancialPage() {
     try {
       const res = await fetch(
         `/api/ledger/entries/${entry.id}?businessId=${encodeURIComponent(business.id)}`,
-        { method: 'DELETE' }
+        { method: 'DELETE', headers: await getAuthHeaders() }
       );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -155,7 +157,9 @@ export default function FinancialPage() {
         startDate,
         endDate,
       });
-      const response = await fetch(`/api/reports/pnl?${params}`);
+      const response = await fetch(`/api/reports/pnl?${params}`, {
+        headers: await getAuthHeaders(),
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Falha ao carregar P&L');
       return data;
@@ -172,7 +176,9 @@ export default function FinancialPage() {
         endDate,
         period: 'daily',
       });
-      const response = await fetch(`/api/reports/cashflow?${params}`);
+      const response = await fetch(`/api/reports/cashflow?${params}`, {
+        headers: await getAuthHeaders(),
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Falha ao carregar fluxo de caixa');
       return data;
@@ -212,7 +218,9 @@ export default function FinancialPage() {
         startDate,
         endDate,
       });
-      const response = await fetch(`/api/ledger/entries?${params}`);
+      const response = await fetch(`/api/ledger/entries?${params}`, {
+        headers: await getAuthHeaders(),
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || 'Falha ao carregar ocorrências');
       return data;

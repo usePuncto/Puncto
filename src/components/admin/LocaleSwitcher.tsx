@@ -3,6 +3,7 @@
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export function LocaleSwitcher() {
   const { business } = useBusiness();
@@ -22,7 +23,7 @@ export function LocaleSwitcher() {
       // Update business locale in database
       const response = await fetch(`/api/settings?businessId=${business?.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           settings: {
             ...business?.settings,

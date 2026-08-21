@@ -10,6 +10,7 @@ import type { WhatsAppConfig, WhatsAppMessageTemplate, ConfirmationChannel } fro
 import { useCustomers } from '@/lib/queries/customers';
 import { Customer } from '@/types/booking';
 import { buildWhatsAppUrl } from '@/lib/utils/whatsappUrl';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 const TIER_TO_PLAN: Record<string, string> = {
   free: 'gratis',
@@ -82,7 +83,7 @@ export default function AdminWhatsAppPage() {
     }) => {
       const res = await fetch(`/api/settings?businessId=${business?.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           settings: {
             ...settings,

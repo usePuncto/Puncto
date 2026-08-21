@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { LoyaltyProgram } from '@/types/crm';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function AdminLoyaltyPage() {
   const { business } = useBusiness();
@@ -29,7 +30,7 @@ export default function AdminLoyaltyPage() {
 
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/loyalty/programs?businessId=${business.id}`);
+      const res = await fetch(`/api/loyalty/programs?businessId=${business.id}`, { headers: await getAuthHeaders() });
       const data = await res.json();
       setPrograms(data.programs || []);
     } catch (error) {
@@ -76,7 +77,7 @@ export default function AdminLoyaltyPage() {
       if (editingProgram) {
         const res = await fetch(`/api/loyalty/programs/${editingProgram.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             businessId: business.id,
             updates: {
@@ -91,7 +92,7 @@ export default function AdminLoyaltyPage() {
       } else {
         const res = await fetch('/api/loyalty/programs', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             businessId: business.id,
             program: {

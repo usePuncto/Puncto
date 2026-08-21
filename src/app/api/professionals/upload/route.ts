@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStorage } from 'firebase-admin/storage';
 import { adminApp } from '@/lib/firebaseAdmin';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
@@ -12,6 +17,11 @@ export async function POST(request: NextRequest) {
     if (!businessId) {
       return NextResponse.json({ error: 'businessId is required' }, { status: 400 });
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;

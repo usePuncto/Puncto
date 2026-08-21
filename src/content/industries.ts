@@ -89,7 +89,7 @@ export const industries = [
     description:
       'Clínicas e consultórios: agenda, pacientes, prescrição e conformidade.',
     longDescription:
-      'Soluções para o setor de saúde com o catálogo dedicado: agendamento, histórico de pacientes, prescrição eletrônica, assinatura e emissão fiscal — customizado para a rotina da sua clínica.',
+      'Soluções para o setor de saúde com o catálogo dedicado: agendamento, histórico de pacientes, prescrição eletrônica, assinatura e gestão fiscal — customizado para a rotina da sua clínica.',
     benefits: getModulesForIndustry('saude').map((m) => m.name),
     useCases: [
       'Clínicas e Consultórios',

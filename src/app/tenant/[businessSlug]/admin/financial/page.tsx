@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useQuery } from '@tanstack/react-query';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function FinancialPage() {
   const { business } = useBusiness();
@@ -23,7 +24,9 @@ export default function FinancialPage() {
         startDate,
         endDate,
       });
-      const response = await fetch(`/api/reports/pnl?${params}`);
+      const response = await fetch(`/api/reports/pnl?${params}`, {
+        headers: await getAuthHeaders(),
+      });
       if (!response.ok) throw new Error('Failed to fetch P&L report');
       return response.json();
     },
@@ -38,7 +41,9 @@ export default function FinancialPage() {
         endDate,
         period: 'daily',
       });
-      const response = await fetch(`/api/reports/cashflow?${params}`);
+      const response = await fetch(`/api/reports/cashflow?${params}`, {
+        headers: await getAuthHeaders(),
+      });
       if (!response.ok) throw new Error('Failed to fetch cash flow report');
       return response.json();
     },

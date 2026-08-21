@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { InventoryItem } from '@/types/inventory';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 const CATEGORIES = ['Ingredientes', 'Produtos', 'Equipamentos', 'Outros'];
 const UNITS = ['kg', 'g', 'L', 'ml', 'unidade', 'caixa', 'pacote'];
@@ -36,7 +37,7 @@ export default function AdminInventoryPage() {
     try {
       setIsLoading(true);
       const url = `/api/inventory?businessId=${business.id}${filter === 'lowStock' ? '&lowStock=true' : ''}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: await getAuthHeaders() });
       const data = await res.json();
       setItems(data.items || []);
     } catch (error) {
@@ -84,7 +85,7 @@ export default function AdminInventoryPage() {
       if (editingItem) {
         const res = await fetch(`/api/inventory/${editingItem.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             businessId: business.id,
             updates: {
@@ -102,7 +103,7 @@ export default function AdminInventoryPage() {
       } else {
         const res = await fetch('/api/inventory', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             businessId: business.id,
             item: {

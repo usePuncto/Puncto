@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { LedgerAccount, EntryType } from '@/types/ledger';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 function isEditableManualEntry(data: Record<string, unknown>) {
   const referenceType = data.referenceType;
@@ -23,6 +28,11 @@ export async function PUT(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     if (!entry.account || !entry.type || entry.amount === undefined || !entry.description) {
       return NextResponse.json(
@@ -110,6 +120,11 @@ export async function DELETE(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const entryRef = db
       .collection('businesses')

@@ -6,39 +6,16 @@ import {
   getConnectedAccountBoletoPmcStatus,
 } from '@/lib/stripe/boletoConnect';
 import { STRIPE_CONNECT_ACCOUNT_INVALID_MESSAGE, isStripeConnectAccountInvalidError } from '@/lib/stripe/connectErrors';
-import { auth, db } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
-
-async function canManageStripeConnect(uid: string, businessId: string): Promise<boolean> {
-  const user = await auth.getUser(uid);
-  const custom = user.customClaims as
-    | {
-        businessRoles?: Record<string, string>;
-        userType?: string;
-        platformAdmin?: boolean;
-      }
-    | undefined;
-
-  if (custom?.userType === 'platform_admin' && custom?.platformAdmin === true) return true;
-
-  const role = custom?.businessRoles?.[businessId];
-  if (role === 'owner' || role === 'manager') return true;
-
-  const staffSnap = await db.collection('businesses').doc(businessId).collection('staff').doc(uid).get();
-  const perms = staffSnap.data()?.permissions as Record<string, boolean> | undefined;
-  return Boolean(perms?.manageBookings);
-}
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-    const token = authHeader.split('Bearer ')[1];
-    const decoded = await auth.verifyIdToken(token);
-    const uid = decoded.uid;
-
     const body = await request.json();
     const { businessId } = body as { businessId?: string };
 
@@ -46,18 +23,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required field: businessId' }, { status: 400 });
     }
 
-    const allowed = await canManageStripeConnect(uid, businessId);
-    if (!allowed) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+      anyPermission: ['manageBookings'],
+    });
+    if (authError(authResult)) return authResult.error;
 
     const businessRef = db.collection('businesses').doc(businessId);
-    const businessSnap = await businessRef.get();
-    if (!businessSnap.exists) {
-      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
-    }
-
-    const businessData = businessSnap.data() as Record<string, unknown>;
+    const businessData = authResult.business as unknown as Record<string, unknown>;
     const stripeConnectAccountId = businessData.stripeConnectAccountId as string | undefined;
     if (!stripeConnectAccountId) {
       return NextResponse.json(

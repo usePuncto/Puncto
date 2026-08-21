@@ -3,6 +3,11 @@ import { db } from '@/lib/firebaseAdmin';
 import { auth } from '@/lib/firebaseAdmin';
 import { Product, MenuCategory } from '@/types/restaurant';
 import { verifyBusinessFeatureAccess, extractBusinessIdFromQuery } from '@/lib/api/featureValidation';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - List all products for a business
 export async function GET(request: NextRequest) {
@@ -80,6 +85,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
 
     // Verify business exists and has access to restaurant menu feature
     const featureCheck = await verifyBusinessFeatureAccess(businessId, 'restaurantMenu');

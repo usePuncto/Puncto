@@ -3,6 +3,7 @@
  * Handles verification (GET) and incoming messages (POST).
  * Configure this URL in Meta App Dashboard: Webhooks > WhatsApp > Callback URL
  */
+import { createHmac, timingSafeEqual } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { saveInboundMessage } from '@/lib/whatsapp/messages';
 
@@ -29,14 +30,42 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ error: 'Verification failed' }, { status: 403 });
 }
 
+function verifyMetaSignature(rawBody: string, signatureHeader: string | null): boolean {
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appSecret || !signatureHeader?.startsWith('sha256=')) {
+    return false;
+  }
+  const expected = createHmac('sha256', appSecret).update(rawBody, 'utf8').digest('hex');
+  const provided = signatureHeader.slice('sha256='.length);
+  try {
+    const a = Buffer.from(expected, 'utf8');
+    const b = Buffer.from(provided, 'utf8');
+    return a.length === b.length && timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * POST - Receive incoming WhatsApp messages from Meta
  * Parses Meta Graph API JSON, extracts sender phone, message text, timestamp.
- * console.log for now; can be extended to persist or broadcast.
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const rawBody = await request.text();
+    const signature = request.headers.get('x-hub-signature-256');
+
+    // Always verify when secret is configured; in production require the secret
+    if (!process.env.META_APP_SECRET) {
+      if (process.env.NODE_ENV === 'production') {
+        console.error('[whatsapp/webhook] META_APP_SECRET is required in production');
+        return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 });
+      }
+    } else if (!verifyMetaSignature(rawBody, signature)) {
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+    }
+
+    const body = JSON.parse(rawBody || '{}');
 
     if (body.object !== 'whatsapp_business_account') {
       return NextResponse.json({ received: true });
@@ -80,7 +109,6 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // status_updates (delivery, read, etc.) - log if needed
         for (const status of value?.statuses || []) {
           // eslint-disable-next-line no-console
           console.log('[WhatsApp Webhook] Status update:', status);

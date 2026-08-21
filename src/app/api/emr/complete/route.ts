@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
+import { authError, requireBusinessAuth } from '@/lib/auth/requireBusinessAuth';
 
 /**
  * Mark an EMR as finalized (saved).
@@ -8,14 +9,6 @@ import { Timestamp } from 'firebase-admin/firestore';
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const token = authHeader?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    await auth.verifyIdToken(token);
-
     const body = await request.json();
     const { emrId, businessId, patientId } = body;
 
@@ -25,6 +18,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
 
     const emrRef = db
       .collection('businesses')

@@ -13,6 +13,7 @@ import {
 } from '@/lib/features/businessTypeFeatures';
 import type { FeatureId } from '@/lib/features/businessTypeFeatures';
 import { useTranslations } from 'next-intl';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 const INDUSTRY_DISPLAY: Record<string, string> = {
   services: 'Serviços',
@@ -82,7 +83,7 @@ export default function AdminSettingsPage() {
     mutationFn: async (branding: any) => {
       const response = await fetch(`/api/branding?businessId=${business?.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ branding }),
       });
       if (!response.ok) throw new Error('Failed to update branding');
@@ -210,7 +211,7 @@ function GeneralSettings({ business, onSuccess }: { business: any; onSuccess: ()
     mutationFn: async (data: typeof formData) => {
       const res = await fetch(`/api/business?businessId=${business?.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           displayName: data.displayName,
           phone: data.phone,
@@ -475,7 +476,7 @@ function SubscriptionTab({ business }: { business: any }) {
     try {
       const res = await fetch('/api/subscriptions/portal', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ businessId: business.id, returnUrl: window.location.href }),
       });
       if (!res.ok) throw new Error('Erro');
@@ -626,13 +627,13 @@ function SubscriptionTab({ business }: { business: any }) {
           </div>
           <div className="p-4 border border-neutral-200 rounded-lg">
             <div className="flex justify-between items-center mb-2">
-              <span className="text-sm font-medium">NFS-e / NFC-e</span>
+              <span className="text-sm font-medium">Notas arquivadas (Gestão de NF)</span>
               <span className="text-sm text-neutral-600">{usage.nfseNfce.period}</span>
             </div>
             <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
               <div className="h-full bg-green-600 rounded-full transition-all" style={{ width: `${usage.nfseNfce.limit ? Math.min(100, (usage.nfseNfce.used / usage.nfseNfce.limit) * 100) : 0}%` }} />
             </div>
-            <p className="text-xs text-neutral-500 mt-2">{usage.nfseNfce.used} / {usage.nfseNfce.limit} emitidas</p>
+            <p className="text-xs text-neutral-500 mt-2">{usage.nfseNfce.used} notas no arquivo · gestão ilimitada no módulo</p>
           </div>
         </div>
         <p className="text-xs text-neutral-500 mt-4">Os limites variam conforme seu plano. Consulte sua fatura para valores de excedente.</p>
@@ -677,7 +678,7 @@ function BrandingSettings({ business, branding, hasWhiteLabel, onSave, isLoading
         form.append('file', file);
         const res = await fetch(
           `/api/branding/upload?businessId=${business.id}&field=${fieldToUploadKey[field]}`,
-          { method: 'POST', body: form }
+          { method: 'POST', body: form, headers: await getAuthHeaders() }
         );
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));

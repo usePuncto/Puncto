@@ -62,6 +62,10 @@ export function getBusinessPlanId(business: Pick<Business, 'subscription'>): str
  * Unified gate used by tenant admin nav and route guards.
  * Platform `enabledModules` is the source of truth when set.
  * Legacy businesses without enabledModules fall back to plan×industry.
+ *
+ * Important: if a nav item lists modules that are NOT in this industry's
+ * catalog (e.g. cardápio / vitrine_digital on a clinic), access is denied.
+ * Previously those were treated as a no-op and incorrectly shown.
  */
 export function canAccessAdminCapability(
   business: Business,
@@ -72,11 +76,31 @@ export function canAccessAdminCapability(
   const planId = getBusinessPlanId(business);
 
   if (capability.enterprise) {
-    return planId === 'enterprise' || planId === 'pro';
+    if (!(planId === 'enterprise' || planId === 'pro')) return false;
+    // Franquia only for businesses that are actually in a franchise setup
+    return Boolean(
+      business.isFranchiseGroup ||
+        business.franchiseGroupId ||
+        (business.franchiseUnits && business.franchiseUnits.length > 0)
+    );
   }
 
   if (capability.modules?.length) {
-    if (!hasAnyModuleAccess(business, capability.modules)) return false;
+    const catalogIds = new Set(
+      getModulesForIndustry(business.industry || 'general').map((m) => m.id)
+    );
+    const relevant = capability.modules.filter((id) => catalogIds.has(id));
+
+    // Required module(s) don't exist for this industry → hide the item
+    if (relevant.length === 0) {
+      return false;
+    }
+
+    const moduleEnabled = relevant.some((id) =>
+      isModuleEnabled(business.enabledModules, id)
+    );
+    if (!moduleEnabled) return false;
+
     // Explicit per-business module config → module toggle wins
     if (business.enabledModules) return true;
   }
@@ -95,7 +119,7 @@ export function canAccessAdminCapability(
     );
   }
 
-  // modules-only and already passed (or no relevant modules in catalog)
+  // modules-only and already passed
   if (capability.modules?.length) return true;
 
   return true;
@@ -152,6 +176,22 @@ export const ADMIN_ROUTE_CAPABILITIES: Array<{
     },
   },
   {
+    match: '/tenant/admin/appointment-reminders',
+    capability: { modules: ['lembrete_agendamento'] },
+  },
+  {
+    match: '/tenant/admin/waitlist',
+    capability: { modules: ['lista_espera'] },
+  },
+  {
+    match: '/tenant/admin/prescriptions',
+    capability: { modules: ['prescricao_eletronica'] },
+  },
+  {
+    match: '/tenant/admin/e-signatures',
+    capability: { modules: ['assinatura_eletronica'] },
+  },
+  {
     match: '/tenant/admin/payments',
     capability: {
       modules: ['pagamentos', 'pagamentos_mensalidades'],
@@ -185,6 +225,10 @@ export const ADMIN_ROUTE_CAPABILITIES: Array<{
   {
     match: '/tenant/admin/time-clock',
     capability: { modules: ['ponto_eletronico'], feature: 'timeClock' },
+  },
+  {
+    match: '/tenant/admin/fiscal-notes',
+    capability: { modules: ['emissao_nf'] },
   },
   {
     match: '/tenant/admin/loyalty',

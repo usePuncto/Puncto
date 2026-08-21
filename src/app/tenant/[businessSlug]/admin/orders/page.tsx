@@ -6,6 +6,7 @@ import { VirtualTab } from '@/components/restaurant/VirtualTab';
 import { SplitPaymentModal } from '@/components/restaurant/SplitPaymentModal';
 import { Order, SplitPayment } from '@/types/restaurant';
 import { useState } from 'react';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function AdminOrdersPage() {
   const { business } = useBusiness();
@@ -47,7 +48,7 @@ export default function AdminOrdersPage() {
     try {
       const res = await fetch(`/api/orders/${selectedOrder.id}/split`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           businessId: business.id,
           splits,

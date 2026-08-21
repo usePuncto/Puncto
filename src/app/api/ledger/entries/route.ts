@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Timestamp } from 'firebase-admin/firestore';
 import { LedgerAccount, EntryType } from '@/types/ledger';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - List ledger entries (manual occurrences) for a business
 export async function GET(request: NextRequest) {
@@ -18,12 +23,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
     const ledgerRef = db
       .collection('businesses')
       .doc(businessId)
       .collection('ledgerEntries');
 
-    // Fetch manual entries (expenses + revenue)
     const [expensesSnap, revenueSnap] = await Promise.all([
       ledgerRef.where('account', '==', 'expenses').get(),
       ledgerRef.where('account', '==', 'revenue').get(),
@@ -105,6 +114,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
     if (!entry.account || !entry.type || entry.amount === undefined || !entry.description) {
       return NextResponse.json(
         { error: 'account, type, amount, and description are required' },
@@ -133,7 +147,7 @@ export async function POST(request: NextRequest) {
       .doc(businessId)
       .collection('ledgerEntries');
 
-    const amount = Math.round((entry.amount || 0) * 100); // Convert to cents
+    const amount = Math.round((entry.amount || 0) * 100);
     const date = entry.date ? new Date(entry.date) : new Date();
 
     const entryData = {
@@ -146,7 +160,7 @@ export async function POST(request: NextRequest) {
       description: entry.description.trim(),
       referenceType: 'manual',
       createdAt: Timestamp.now(),
-      createdBy: entry.createdBy || 'user',
+      createdBy: authResult.actor.uid,
       metadata: entry.metadata || {},
     };
 

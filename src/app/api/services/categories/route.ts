@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - List service categories
 export async function GET(request: NextRequest) {
@@ -30,6 +35,12 @@ export async function POST(request: NextRequest) {
     if (!businessId || !name?.trim()) {
       return NextResponse.json({ error: 'businessId and name are required' }, { status: 400 });
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
     const docRef = await db
       .collection('businesses')
       .doc(businessId)

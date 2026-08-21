@@ -13,6 +13,7 @@ import { NotificationsPreview } from '@/components/notifications/NotificationsPr
 import { format, startOfMonth } from 'date-fns';
 import type { Customer } from '@/types/booking';
 import { isBirthdayToday } from '@/lib/utils/birthdays';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 function birthMonthDay(birthDate?: string): { month: number; day: number } | null {
   if (!birthDate) return null;
@@ -65,19 +66,26 @@ export default function AdminDashboardPage() {
       setPurchasesCount(null);
       return;
     }
-    Promise.all([
-      fetch(`/api/inventory?businessId=${businessId}`)
-        .then((r) => r.json())
-        .then((d) => d.items?.length ?? 0)
-        .catch(() => null),
-      fetch(`/api/purchases?businessId=${businessId}`)
-        .then((r) => r.json())
-        .then((d) => d.purchaseOrders?.length ?? 0)
-        .catch(() => null),
-    ]).then(([inv, purch]) => {
-      setInventoryCount(inv);
-      setPurchasesCount(purch);
-    });
+    (async () => {
+      try {
+        const headers = await getAuthHeaders();
+        const [inv, purch] = await Promise.all([
+          fetch(`/api/inventory?businessId=${businessId}`, { headers })
+            .then((r) => r.json())
+            .then((d) => d.items?.length ?? 0)
+            .catch(() => null),
+          fetch(`/api/purchases?businessId=${businessId}`, { headers })
+            .then((r) => r.json())
+            .then((d) => d.purchaseOrders?.length ?? 0)
+            .catch(() => null),
+        ]);
+        setInventoryCount(inv);
+        setPurchasesCount(purch);
+      } catch {
+        setInventoryCount(null);
+        setPurchasesCount(null);
+      }
+    })();
   }, [businessId, isEducation]);
 
   const monthAttendancePct = useMemo(() => {

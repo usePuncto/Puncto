@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { auth } from '@/lib/firebase';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export interface EMREmbedPayload {
   patientComplaint?: string;
@@ -25,12 +25,9 @@ export function useEmrsForPatient(businessId: string, patientId: string | null) 
     queryKey: ['emrs', businessId, patientId],
     queryFn: async (): Promise<EMRRecord[]> => {
       if (!businessId || !patientId) return [];
-      const user = auth.currentUser;
-      const token = user ? await user.getIdToken() : null;
-      if (!token) return [];
       const res = await fetch(
         `/api/emr/list?businessId=${encodeURIComponent(businessId)}&patientId=${encodeURIComponent(patientId)}`,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { headers: await getAuthHeaders() }
       );
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));

@@ -5,6 +5,7 @@ import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useRouter } from 'next/navigation';
 import { Table } from '@/types/restaurant';
 import { QRCodeGenerator } from '@/components/restaurant/QRCodeGenerator';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function AdminTablesPage() {
   const { business } = useBusiness();
@@ -46,7 +47,7 @@ export default function AdminTablesPage() {
     try {
       const res = await fetch('/api/tables', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
           businessId: business.id,
           table: formData,
@@ -76,8 +77,7 @@ export default function AdminTablesPage() {
     if (!confirm('Tem certeza que deseja excluir esta mesa?')) return;
 
     try {
-      const res = await fetch(`/api/tables/${tableId}?businessId=${business.id}`, {
-        method: 'DELETE',
+      const res = await fetch(`/api/tables/${tableId}?businessId=${business.id}`, { headers: await getAuthHeaders(), method: 'DELETE',
       });
 
       if (!res.ok) {

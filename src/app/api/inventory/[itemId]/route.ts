@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
-import { InventoryItem } from '@/types/inventory';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - Get a single inventory item
 export async function GET(
@@ -17,6 +21,9 @@ export async function GET(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId);
+    if (authError(authResult)) return authResult.error;
 
     const itemDoc = await db
       .collection('businesses')
@@ -61,6 +68,11 @@ export async function PUT(
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
     const itemRef = db
       .collection('businesses')
       .doc(businessId)
@@ -75,11 +87,9 @@ export async function PUT(
       );
     }
 
-    // Convert cost to cents if provided
     if (updates.cost !== undefined) {
       updates.cost = Math.round(updates.cost * 100);
     }
-    // Remove null/undefined values (Firestore rejects them)
     const cleanUpdates = Object.fromEntries(
       Object.entries(updates).filter(([, v]) => v != null)
     );
@@ -118,6 +128,11 @@ export async function DELETE(
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const itemRef = db
       .collection('businesses')

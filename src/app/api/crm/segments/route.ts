@@ -3,6 +3,11 @@ import { db } from '@/lib/firebaseAdmin';
 import { CustomerSegment } from '@/types/crm';
 import { Customer } from '@/types/booking';
 import { autoSegmentCustomers } from '@/lib/crm/segmentation';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - List all segments
 export async function GET(request: NextRequest) {
@@ -17,6 +22,11 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const segmentsRef = db.collection('businesses').doc(businessId).collection('customerSegments');
     const snapshot = await segmentsRef.orderBy('name', 'asc').get();
@@ -72,6 +82,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     if (!segment.name || !segment.criteria) {
       return NextResponse.json(

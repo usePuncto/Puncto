@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Campaign } from '@/types/crm';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // GET - List all campaigns
 export async function GET(request: NextRequest) {
@@ -15,6 +20,11 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     const campaignsRef = db.collection('businesses').doc(businessId).collection('campaigns');
     let query: FirebaseFirestore.Query = campaignsRef.orderBy('createdAt', 'desc');
@@ -51,6 +61,11 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
 
     if (!campaign.name || !campaign.type || !campaign.template) {
       return NextResponse.json(

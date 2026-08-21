@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // PATCH - Update business settings
 export async function PATCH(request: NextRequest) {
@@ -14,6 +19,11 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
     const body = await request.json();
     const { settings } = body;
 
@@ -25,16 +35,8 @@ export async function PATCH(request: NextRequest) {
     }
 
     const businessRef = db.collection('businesses').doc(businessId);
-    const businessDoc = await businessRef.get();
-
-    if (!businessDoc.exists) {
-      return NextResponse.json(
-        { error: 'Business not found' },
-        { status: 404 }
-      );
-    }
-
-    const currentSettings = (businessDoc.data()?.settings as Record<string, unknown>) || {};
+    const currentSettings =
+      ((authResult.business.settings as unknown) as Record<string, unknown>) || {};
     const incomingSettings = settings as Record<string, unknown>;
 
     // Deep merge for nested objects (e.g. whatsapp with messageTemplates)

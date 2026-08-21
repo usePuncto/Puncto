@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
-import { Campaign, CampaignType } from '@/types/crm';
+import { Campaign } from '@/types/crm';
 import { Customer } from '@/types/booking';
 import { sendWhatsApp, formatPhoneNumber } from '@/lib/messaging/whatsapp';
 import { sendEmail } from '@/lib/messaging/email';
+import {
+  authError,
+  MANAGER_ROLES,
+  requireBusinessAuth,
+} from '@/lib/auth/requireBusinessAuth';
 
 // POST - Send campaign
 export async function POST(request: NextRequest) {
@@ -18,7 +23,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get campaign
+    const authResult = await requireBusinessAuth(request, businessId, {
+      minRoles: MANAGER_ROLES,
+    });
+    if (authError(authResult)) return authResult.error;
+
     const campaignRef = db
       .collection('businesses')
       .doc(businessId)
@@ -38,13 +47,11 @@ export async function POST(request: NextRequest) {
       ...campaignDoc.data(),
     } as Campaign;
 
-    // Get target customers
     let customerIds: string[] = [];
 
     if (campaign.customerIds && campaign.customerIds.length > 0) {
       customerIds = campaign.customerIds;
     } else if (campaign.segmentIds && campaign.segmentIds.length > 0) {
-      // Get customers from segments
       const segmentsSnapshot = await db
         .collection('businesses')
         .doc(businessId)
@@ -60,12 +67,11 @@ export async function POST(request: NextRequest) {
       customerIds = Array.from(allCustomerIds);
     }
 
-    // Get customer data
     const customersSnapshot = await db
       .collection('businesses')
       .doc(businessId)
       .collection('customers')
-      .where('id', 'in', customerIds.slice(0, 500)) // Limit to 500 per batch
+      .where('id', 'in', customerIds.slice(0, 500))
       .get();
 
     const customers = customersSnapshot.docs.map((doc) => ({
@@ -73,13 +79,11 @@ export async function POST(request: NextRequest) {
       ...doc.data(),
     })) as Customer[];
 
-    // Update campaign status
     await campaignRef.update({
       status: 'sending',
       updatedAt: new Date(),
     });
 
-    // Send messages based on campaign type
     let sent = 0;
     let delivered = 0;
 
@@ -105,7 +109,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update campaign stats
     await campaignRef.update({
       status: 'sent',
       sentAt: new Date(),
@@ -130,9 +133,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-/**
- * Replace template variables in message
- */
 function replaceTemplateVariables(template: string, customer: Customer): string {
   return template
     .replace(/\{\{name\}\}/g, `${customer.firstName} ${customer.lastName}`)

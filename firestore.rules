@@ -465,6 +465,12 @@ service cloud.firestore {
         allow write: if false; // Only via Cloud Function
       }
 
+      // Managed fiscal notes archive (not SEFAZ emission)
+      match /fiscalNotes/{noteId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow write: if false; // Admin SDK / API routes only
+      }
+
       // In-app notifications for bookings
       match /notifications/{notificationId} {
         // Recipient can read their own notifications

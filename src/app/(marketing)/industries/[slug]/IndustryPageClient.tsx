@@ -330,18 +330,21 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
                     </p>
                   </div>
                   <div className="bg-white/80 rounded-xl p-4 border border-slate-200/60">
-                    <p className="text-slate-800 font-semibold text-sm mb-2">🚀 Cotas de Automação (WhatsApp e Notas Fiscais)</p>
+                    <p className="text-slate-800 font-semibold text-sm mb-2">🚀 Cotas de Automação (WhatsApp)</p>
                     <p className="text-slate-600 text-sm mb-2">Disponíveis nos planos mais avançados para turbinar sua operação mensalmente:</p>
                     <ul className="text-sm text-slate-600 space-y-1 ml-4">
-                      <li><strong>Growth:</strong> 150 mensagens de WhatsApp automáticas e 30 Notas Fiscais.</li>
-                      <li><strong>Pro:</strong> 300 mensagens de WhatsApp automáticas e 100 Notas Fiscais.</li>
+                      <li><strong>Growth:</strong> 150 mensagens de WhatsApp automáticas.</li>
+                      <li><strong>Pro:</strong> 300 mensagens de WhatsApp automáticas.</li>
                     </ul>
+                    <p className="text-sm text-slate-500 mt-2">
+                      A Gestão de NF é ilimitada no módulo: arquive e consulte notas emitidas pelo seu contador/emissor.
+                    </p>
                   </div>
                 </div>
                 <div className="pt-4 border-t border-slate-200">
                   <p className="text-slate-800 font-semibold text-sm mb-1">💡 E se eu ultrapassar a minha cota no mês?</p>
                   <p className="text-slate-600 text-sm leading-relaxed">
-                    Fique tranquilo, o Puncto não vai travar a sua operação! Nós trabalhamos com o modelo Pay As You Go (pague pelo que usar). Se você tiver um mês de pico de vendas e precisar emitir mais notas ou enviar mais mensagens automáticas, o sistema continuará funcionando normalmente. O uso excedente será cobrado de forma avulsa apenas na sua próxima fatura, com valores super acessíveis.
+                    Fique tranquilo, o Puncto não vai travar a sua operação! Nós trabalhamos com o modelo Pay As You Go (pague pelo que usar). Se você tiver um mês de pico e precisar enviar mais mensagens automáticas, o sistema continuará funcionando normalmente. O uso excedente será cobrado de forma avulsa apenas na sua próxima fatura, com valores acessíveis.
                   </p>
                 </div>
               </div>
