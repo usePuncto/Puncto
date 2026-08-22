@@ -1,47 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/lib/firebaseAdmin';
+import { db } from '@/lib/firebaseAdmin';
+import { verifyPlatformAdmin } from '@/lib/auth/verifyPlatformAdmin';
 import { Business } from '@/types/business';
-
-/**
- * Verify platform admin access
- */
-async function verifyPlatformAdmin(request: NextRequest): Promise<{ uid: string } | null> {
-  try {
-    // Get token from Authorization header or cookie
-    const authHeader = request.headers.get('authorization');
-    let token: string | undefined;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      token = authHeader.split('Bearer ')[1];
-    } else {
-      // Try to get from cookie (set by Firebase client SDK)
-      const cookies = request.cookies.getAll();
-      const sessionCookie = cookies.find(c => c.name === '__session');
-      if (sessionCookie) {
-        const decoded = await auth.verifySessionCookie(sessionCookie.value, true);
-        if (decoded.platformAdmin === true) {
-          return { uid: decoded.uid };
-        }
-      }
-      return null;
-    }
-
-    if (!token) return null;
-
-    // Verify ID token
-    const decodedToken = await auth.verifyIdToken(token);
-    
-    // Check platform admin claim
-    if (decodedToken.platformAdmin !== true) {
-      return null;
-    }
-
-    return { uid: decodedToken.uid };
-  } catch (error) {
-    console.error('[Platform API] Auth error:', error);
-    return null;
-  }
-}
 
 /**
  * GET /api/platform/businesses

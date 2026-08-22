@@ -6,6 +6,7 @@ import { MenuCard } from '@/components/restaurant/MenuCard';
 import { MenuCategoryFilter } from '@/components/restaurant/MenuCategoryFilter';
 import { Product, MenuCategory } from '@/types/restaurant';
 import { useRouter } from 'next/navigation';
+import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
 
 export default function AdminMenuPage() {
   const { business } = useBusiness();
@@ -26,7 +27,9 @@ export default function AdminMenuPage() {
       setIsLoading(true);
 
       // Load products
-      const productsRes = await fetch(`/api/menu?businessId=${business.id}`);
+      const productsRes = await fetch(`/api/menu?businessId=${business.id}`, {
+        headers: await getAuthHeaders(),
+      });
       const productsData = await productsRes.json();
       setProducts(productsData.products || []);
 

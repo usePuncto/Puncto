@@ -5,6 +5,7 @@ import { createCheckoutSessionWithBrlMethods } from '@/lib/stripe/paymentMethods
 import { db } from '@/lib/firebaseAdmin';
 import { isAllowedCheckoutRedirectUrl } from '@/lib/payments/checkoutRedirect';
 import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
+import { isSubscriptionAccessBlocked } from '@/lib/business/subscription-access';
 
 function toCents(value: unknown): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null;
@@ -24,7 +25,7 @@ function toCents(value: unknown): number | null {
 export async function POST(request: NextRequest) {
   try {
     const ip = clientIpFromRequest(request);
-    const limit = checkIpRateLimit(`create-checkout:${ip}`, {
+    const limit = await checkIpRateLimit(`create-checkout:${ip}`, {
       limit: 40,
       windowMs: 60 * 60 * 1000,
     });
@@ -68,6 +69,14 @@ export async function POST(request: NextRequest) {
         { error: 'Business not found' },
         { status: 404 }
       );
+    }
+
+    const businessData = businessDoc.data();
+    if (businessData?.deletedAt) {
+      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
+    }
+    if (isSubscriptionAccessBlocked(businessData?.subscription?.status)) {
+      return NextResponse.json({ error: 'Business unavailable' }, { status: 403 });
     }
 
     const bookingId =

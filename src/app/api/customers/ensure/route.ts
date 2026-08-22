@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
+import { isSubscriptionAccessBlocked } from '@/lib/business/subscription-access';
 
 function normalizePhone(phone: string): string {
   return (phone || '').replace(/\D/g, '');
@@ -14,7 +15,7 @@ function normalizePhone(phone: string): string {
 export async function POST(request: NextRequest) {
   try {
     const ip = clientIpFromRequest(request);
-    const limit = checkIpRateLimit(`customers-ensure:${ip}`, {
+    const limit = await checkIpRateLimit(`customers-ensure:${ip}`, {
       limit: 30,
       windowMs: 60 * 60 * 1000,
     });
@@ -55,6 +56,14 @@ export async function POST(request: NextRequest) {
     const businessSnap = await db.collection('businesses').doc(businessId).get();
     if (!businessSnap.exists) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 });
+    }
+
+    const business = businessSnap.data();
+    if (business?.deletedAt) {
+      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
+    }
+    if (isSubscriptionAccessBlocked(business?.subscription?.status)) {
+      return NextResponse.json({ error: 'Business unavailable' }, { status: 403 });
     }
 
     const emailNorm = (email || '').trim().toLowerCase();

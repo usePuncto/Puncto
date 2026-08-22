@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { auth, db } from '@/lib/firebaseAdmin';
 import { createSubscriptionCheckout, getOrCreateCustomer } from '@/lib/stripe/subscriptions';
+import {
+  isPaidPlanId,
+  resolveSubscriptionPriceId,
+  tierFromPaidPlanId,
+  type BillingPeriod,
+} from '@/lib/stripe/allowedPriceIds';
 import { getFeaturesByTier } from '@/types/features';
 
 export async function POST(request: NextRequest) {
@@ -29,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     const userId = decodedToken.uid;
 
-    // Parse request body
+    // Parse request body — never trust client stripePriceId
     const body = await request.json();
     const {
       displayName,
@@ -40,10 +46,8 @@ export async function POST(request: NextRequest) {
       industry,
       selectedPlan,
       billingPeriod = 'monthly',
-      stripePriceId,
     } = body;
 
-    // Validation (stripePriceId can be resolved from selectedPlan for paid plans)
     if (!displayName || !legalName || !taxId || !email || !phone || !industry || !selectedPlan) {
       return NextResponse.json(
         { error: 'Validation Error', message: 'Todos os campos são obrigatórios' },
@@ -51,22 +55,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Resolve Stripe price ID from selectedPlan + billingPeriod (server-side)
-    // Monthly prices: STRIPE_PRICE_ID_STARTER, etc.
-    // Annual prices: STRIPE_PRICE_ID_STARTER_ANNUAL, etc. (add to .env when you create them in Stripe)
-    const isAnnual = billingPeriod === 'annual';
-    const priceIdMap: Record<string, string> = isAnnual
-      ? {
-          starter: process.env.STRIPE_PRICE_ID_STARTER_ANNUAL || process.env.STRIPE_PRICE_ID_STARTER || '',
-          growth: process.env.STRIPE_PRICE_ID_GROWTH_ANNUAL || process.env.STRIPE_PRICE_ID_GROWTH || '',
-          pro: process.env.STRIPE_PRICE_ID_PRO_ANNUAL || process.env.STRIPE_PRICE_ID_PRO || '',
-        }
-      : {
-          starter: process.env.STRIPE_PRICE_ID_STARTER || '',
-          growth: process.env.STRIPE_PRICE_ID_GROWTH || '',
-          pro: process.env.STRIPE_PRICE_ID_PRO || '',
-        };
-    const resolvedPriceId = stripePriceId || priceIdMap[selectedPlan];
+    if (!isPaidPlanId(selectedPlan)) {
+      return NextResponse.json(
+        { error: 'Validation Error', message: 'Plano inválido' },
+        { status: 400 }
+      );
+    }
+
+    const period: BillingPeriod = billingPeriod === 'annual' ? 'annual' : 'monthly';
+    const resolvedPriceId = resolveSubscriptionPriceId(selectedPlan, period);
     if (!resolvedPriceId) {
       return NextResponse.json(
         { error: 'Validation Error', message: 'Plano inválido ou configuração de pagamento ausente' },
@@ -96,15 +93,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Map plan ID to tier
-    const tierMap: Record<string, 'free' | 'basic' | 'pro' | 'enterprise'> = {
-      starter: 'basic',
-      growth: 'pro',
-      pro: 'pro',
-      enterprise: 'enterprise',
-    };
-
-    const tier = tierMap[selectedPlan] || 'basic';
+    const tier = tierFromPaidPlanId(selectedPlan);
 
     // Create or get Stripe customer
     const stripeCustomer = await getOrCreateCustomer({

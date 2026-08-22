@@ -1,36 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/lib/firebaseAdmin';
-
-/**
- * Verify platform admin access
- */
-async function verifyPlatformAdmin(request: NextRequest): Promise<{ uid: string } | null> {
-  try {
-    const authHeader = request.headers.get('authorization');
-    let token: string | undefined;
-
-    if (authHeader?.startsWith('Bearer ')) {
-      token = authHeader.split('Bearer ')[1];
-      const decodedToken = await auth.verifyIdToken(token);
-      if (decodedToken.platformAdmin === true) {
-        return { uid: decodedToken.uid };
-      }
-    } else {
-      const cookies = request.cookies.getAll();
-      const sessionCookie = cookies.find(c => c.name === '__session');
-      if (sessionCookie) {
-        const decoded = await auth.verifySessionCookie(sessionCookie.value, true);
-        if (decoded.platformAdmin === true) {
-          return { uid: decoded.uid };
-        }
-      }
-    }
-
-    return null;
-  } catch (error) {
-    return null;
-  }
-}
+import { db } from '@/lib/firebaseAdmin';
+import { verifyPlatformAdmin } from '@/lib/auth/verifyPlatformAdmin';
 
 /**
  * GET /api/platform/businesses/[id]

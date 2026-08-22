@@ -79,7 +79,8 @@ export default function ProductEditPage() {
       if (!isNew) {
         // Load product
         const productRes = await fetch(
-          `/api/menu/${productId}?businessId=${business.id}`
+          `/api/menu/${productId}?businessId=${business.id}`,
+          { headers: await getAuthHeaders() }
         );
         const productData = await productRes.json();
         setProduct(productData);

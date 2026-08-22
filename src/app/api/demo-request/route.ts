@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/firebaseAdmin';
 import { verifyPlatformAdmin } from '@/lib/auth/verifyPlatformAdmin';
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
 
 const demoRequestSchema = z.object({
   name: z.string().min(2, 'Nome é obrigatório'),
@@ -28,6 +29,18 @@ function normalizeModules(modules: string[] | string | undefined): string[] {
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = clientIpFromRequest(request);
+    const limit = await checkIpRateLimit(`demo-request:${ip}`, {
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec) } }
+      );
+    }
+
     const body = await request.json();
 
     // Validate input

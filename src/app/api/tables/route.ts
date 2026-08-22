@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Table } from '@/types/restaurant';
 import { generateQRCodeDataUrl, getTableUrl } from '@/lib/utils/qrcode';
+import { toPublicTable } from '@/lib/api/publicRestaurant';
+import { isSubscriptionAccessBlocked } from '@/lib/business/subscription-access';
 import {
   authError,
   MANAGER_ROLES,
   requireBusinessAuth,
 } from '@/lib/auth/requireBusinessAuth';
 
-// GET - List all tables for a business
+// GET - List tables (public projection for guests; full docs for staff)
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -29,13 +31,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const businessData = businessDoc.data();
+    if (businessData?.deletedAt || isSubscriptionAccessBlocked(businessData?.subscription?.status)) {
+      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
+    }
+
+    const staffAuth = await requireBusinessAuth(request, businessId);
+    const isStaff = !authError(staffAuth);
+
     const tablesRef = db.collection('businesses').doc(businessId).collection('tables');
     const snapshot = await tablesRef.orderBy('number', 'asc').get();
-    
-    const tables = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+
+    const tables = snapshot.docs.map((doc) =>
+      isStaff
+        ? { id: doc.id, ...doc.data() }
+        : toPublicTable(doc.id, doc.data() as Record<string, unknown>)
+    );
 
     return NextResponse.json({ tables });
   } catch (error) {

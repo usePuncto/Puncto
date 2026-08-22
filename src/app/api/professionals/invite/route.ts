@@ -8,6 +8,7 @@ import {
   requireBusinessAuth,
 } from '@/lib/auth/requireBusinessAuth';
 import { resolveProfessionalEmailAdmin } from '@/lib/professionals/contact';
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
 
 /**
  * POST - Invite a professional to get login access
@@ -16,6 +17,18 @@ import { resolveProfessionalEmailAdmin } from '@/lib/professionals/contact';
  */
 export async function POST(request: NextRequest) {
   try {
+    const ip = clientIpFromRequest(request);
+    const ipLimit = await checkIpRateLimit(`professionals-invite:ip:${ip}`, {
+      limit: 30,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(ipLimit.retryAfterSec) } }
+      );
+    }
+
     const body = await request.json();
     const { businessId, professionalId } = body;
 
@@ -23,6 +36,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'businessId and professionalId are required' },
         { status: 400 }
+      );
+    }
+
+    const bizLimit = await checkIpRateLimit(`professionals-invite:biz:${businessId}`, {
+      limit: 50,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!bizLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(bizLimit.retryAfterSec) } }
       );
     }
 

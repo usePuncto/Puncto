@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Business } from '@/types/business';
 import { hasFeatureAccess } from '@/lib/features/businessTypeFeatures';
+import { isSubscriptionAccessBlocked } from '@/lib/business/subscription-access';
 
 /**
  * Verify that a business has access to a specific feature
@@ -18,9 +19,14 @@ export async function verifyBusinessFeatureAccess(
       return null;
     }
 
+    const data = businessDoc.data();
+    if (data?.deletedAt || isSubscriptionAccessBlocked(data?.subscription?.status)) {
+      return null;
+    }
+
     const business = {
       id: businessDoc.id,
-      ...businessDoc.data(),
+      ...data,
     } as Business;
 
     // Check feature access

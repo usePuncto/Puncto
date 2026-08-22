@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
-import { auth } from '@/lib/firebaseAdmin';
-import { Product, MenuCategory } from '@/types/restaurant';
 import { verifyBusinessFeatureAccess, extractBusinessIdFromQuery } from '@/lib/api/featureValidation';
+import { toPublicProduct } from '@/lib/api/publicRestaurant';
 import {
   authError,
   MANAGER_ROLES,
   requireBusinessAuth,
 } from '@/lib/auth/requireBusinessAuth';
 
-// GET - List all products for a business
+// GET - List products (public projection for guests; full docs for staff)
 export async function GET(request: NextRequest) {
   try {
     const businessId = extractBusinessIdFromQuery(request);
@@ -41,26 +40,30 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const staffAuth = await requireBusinessAuth(request, businessId);
+    const isStaff = !authError(staffAuth);
+
     const category = request.nextUrl.searchParams.get('category');
 
     const productsRef = db.collection('businesses').doc(businessId).collection('products');
     // Single orderBy avoids composite index; secondary sort by name done in memory
     const snapshot = await productsRef.orderBy('displayOrder', 'asc').get();
-    let products = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    let products = snapshot.docs.map((doc) =>
+      isStaff
+        ? { id: doc.id, ...doc.data() }
+        : toPublicProduct(doc.id, doc.data() as Record<string, unknown>)
+    );
 
     if (category) {
       products = products.filter((p) => (p as { category?: string }).category === category);
     }
     products.sort((a, b) => {
       const da = a as { displayOrder?: number; name?: string };
-      const db = b as { displayOrder?: number; name?: string };
-      if ((da.displayOrder ?? 0) !== (db.displayOrder ?? 0)) {
-        return (da.displayOrder ?? 0) - (db.displayOrder ?? 0);
+      const dbItem = b as { displayOrder?: number; name?: string };
+      if ((da.displayOrder ?? 0) !== (dbItem.displayOrder ?? 0)) {
+        return (da.displayOrder ?? 0) - (dbItem.displayOrder ?? 0);
       }
-      return (da.name ?? '').localeCompare(db.name ?? '');
+      return (da.name ?? '').localeCompare(dbItem.name ?? '');
     });
 
     return NextResponse.json({ products });

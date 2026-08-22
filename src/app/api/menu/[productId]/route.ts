@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
-import { Product } from '@/types/restaurant';
+import { toPublicProduct } from '@/lib/api/publicRestaurant';
 import {
   authError,
   MANAGER_ROLES,
   requireBusinessAuth,
 } from '@/lib/auth/requireBusinessAuth';
 
-// GET - Get a single product
+// GET - Get a single product (public projection unless staff Bearer)
 export async function GET(
   request: NextRequest,
   { params }: { params: { productId: string } }
@@ -37,10 +37,15 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({
-      id: productDoc.id,
-      ...productDoc.data(),
-    });
+    const staffAuth = await requireBusinessAuth(request, businessId);
+    const isStaff = !authError(staffAuth);
+    const data = productDoc.data() as Record<string, unknown>;
+
+    return NextResponse.json(
+      isStaff
+        ? { id: productDoc.id, ...data }
+        : toPublicProduct(productDoc.id, data)
+    );
   } catch (error) {
     console.error('[menu productId GET] Error:', error);
     return NextResponse.json(

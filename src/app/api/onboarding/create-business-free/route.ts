@@ -38,11 +38,11 @@ export async function POST(request: NextRequest) {
     const userId = decodedToken.uid;
 
     const ip = clientIpFromRequest(request);
-    const ipLimit = checkIpRateLimit(`create-business-free:ip:${ip}`, {
+    const ipLimit = await checkIpRateLimit(`create-business-free:ip:${ip}`, {
       limit: 10,
       windowMs: 60 * 60 * 1000,
     });
-    const uidLimit = checkIpRateLimit(`create-business-free:uid:${userId}`, {
+    const uidLimit = await checkIpRateLimit(`create-business-free:uid:${userId}`, {
       limit: 3,
       windowMs: 24 * 60 * 60 * 1000,
     });

@@ -16,7 +16,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const ip = clientIpFromRequest(request);
-    const limit = checkIpRateLimit(`availability:${ip}`, {
+    const limit = await checkIpRateLimit(`availability:${ip}`, {
       limit: 120,
       windowMs: 60 * 60 * 1000,
     });

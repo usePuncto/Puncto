@@ -2,31 +2,54 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Table } from '@/types/restaurant';
 import { generateQRCodeDataUrl, getTableUrl } from '@/lib/utils/qrcode';
+import { toPublicTable } from '@/lib/api/publicRestaurant';
+import { isSubscriptionAccessBlocked } from '@/lib/business/subscription-access';
 import {
   authError,
   MANAGER_ROLES,
   requireBusinessAuth,
 } from '@/lib/auth/requireBusinessAuth';
 
-// GET - Get a single table
+// GET - Single table (public projection unless staff Bearer)
 export async function GET(
   request: NextRequest,
   { params }: { params: { tableId: string } }
 ) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const businessId = searchParams.get('businessId');
+    const businessKey = searchParams.get('businessId');
 
-    if (!businessId) {
+    if (!businessKey) {
       return NextResponse.json(
         { error: 'businessId is required' },
         { status: 400 }
       );
     }
 
+    let resolvedBusinessId = businessKey;
+    let businessDoc = await db.collection('businesses').doc(businessKey).get();
+
+    if (!businessDoc.exists) {
+      const bySlug = await db
+        .collection('businesses')
+        .where('slug', '==', businessKey)
+        .limit(1)
+        .get();
+      if (bySlug.empty) {
+        return NextResponse.json({ error: 'Business not found' }, { status: 404 });
+      }
+      businessDoc = bySlug.docs[0];
+      resolvedBusinessId = businessDoc.id;
+    }
+
+    const biz = businessDoc.data();
+    if (biz?.deletedAt || isSubscriptionAccessBlocked(biz?.subscription?.status)) {
+      return NextResponse.json({ error: 'Business not found' }, { status: 404 });
+    }
+
     const tableDoc = await db
       .collection('businesses')
-      .doc(businessId)
+      .doc(resolvedBusinessId)
       .collection('tables')
       .doc(params.tableId)
       .get();
@@ -38,10 +61,18 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({
-      id: tableDoc.id,
-      ...tableDoc.data(),
-    });
+    const staffAuth = await requireBusinessAuth(request, resolvedBusinessId);
+    const isStaff = !authError(staffAuth);
+    const data = tableDoc.data() as Record<string, unknown>;
+
+    return NextResponse.json(
+      isStaff
+        ? { id: tableDoc.id, ...data }
+        : toPublicTable(tableDoc.id, {
+            ...data,
+            businessId: (data.businessId as string) || resolvedBusinessId,
+          })
+    );
   } catch (error) {
     console.error('[tables tableId GET] Error:', error);
     return NextResponse.json(

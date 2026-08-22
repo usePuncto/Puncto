@@ -8,7 +8,7 @@ import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
 export async function POST(request: NextRequest) {
   try {
     const ip = clientIpFromRequest(request);
-    const limit = checkIpRateLimit(`orders-create:${ip}`, {
+    const limit = await checkIpRateLimit(`orders-create:${ip}`, {
       limit: 60,
       windowMs: 60 * 60 * 1000,
     });

@@ -39,7 +39,7 @@ function sanitizeCustomerData(raw: unknown): WaitlistCustomer | null {
 export async function POST(request: NextRequest) {
   try {
     const ip = clientIpFromRequest(request);
-    const limit = checkIpRateLimit(`waitlist:${ip}`, {
+    const limit = await checkIpRateLimit(`waitlist:${ip}`, {
       limit: 30,
       windowMs: 60 * 60 * 1000,
     });

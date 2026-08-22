@@ -41,7 +41,7 @@ function verifyUnsubscribeToken(email: string, token: string | null): boolean {
 export async function POST(request: NextRequest) {
   try {
     const ip = clientIpFromRequest(request);
-    const limit = checkIpRateLimit(`newsletter:${ip}`, {
+    const limit = await checkIpRateLimit(`newsletter:${ip}`, {
       limit: 20,
       windowMs: 60 * 60 * 1000,
     });

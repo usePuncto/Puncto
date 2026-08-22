@@ -30,7 +30,9 @@ export default function AdminMenuPage() {
       setIsLoading(true);
 
       // Load products
-      const productsRes = await fetch(`/api/menu?businessId=${business.id}`);
+      const productsRes = await fetch(`/api/menu?businessId=${business.id}`, {
+        headers: await getAuthHeaders(),
+      });
       const productsData = await productsRes.json();
       setProducts(productsData.products || []);
 

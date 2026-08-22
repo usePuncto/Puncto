@@ -38,7 +38,7 @@ function resolveLeadType(data: z.infer<typeof contactSchema>): string {
 export async function POST(request: NextRequest) {
   try {
     const ip = clientIpFromRequest(request);
-    const limit = checkIpRateLimit(`contact:${ip}`, {
+    const limit = await checkIpRateLimit(`contact:${ip}`, {
       limit: 20,
       windowMs: 60 * 60 * 1000,
     });

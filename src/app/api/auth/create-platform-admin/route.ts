@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const ip = clientIpFromRequest(request);
-    const limit = checkIpRateLimit(`create-platform-admin:${ip}`, {
+    const limit = await checkIpRateLimit(`create-platform-admin:${ip}`, {
       limit: 5,
       windowMs: 60 * 60 * 1000,
     });

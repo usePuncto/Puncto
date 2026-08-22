@@ -635,5 +635,10 @@ service cloud.firestore {
       allow read: if true; // Public pricing page
       allow write: if isPlatformAdmin();
     }
+
+    // Server-only durable rate limit counters (Admin SDK)
+    match /_rateLimits/{docId} {
+      allow read, write: if false;
+    }
   }
 }

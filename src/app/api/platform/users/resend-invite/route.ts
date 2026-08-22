@@ -1,32 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth, db } from '@/lib/firebaseAdmin';
+import { verifyPlatformAdmin } from '@/lib/auth/verifyPlatformAdmin';
 import { getAccountAccessStatus } from '@/lib/auth/user-access';
 import { sendProfessionalPasswordResetEmail, sendStudentAccessEmail } from '@/lib/auth/send-access-email';
-
-async function verifyPlatformAdmin(request: NextRequest): Promise<{ uid: string } | null> {
-  try {
-    const authHeader = request.headers.get('authorization');
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.split('Bearer ')[1];
-      const decodedToken = await auth.verifyIdToken(token);
-      if (decodedToken.platformAdmin === true || decodedToken.platformAdmin === 'true') {
-        return { uid: decodedToken.uid };
-      }
-    } else {
-      const cookies = request.cookies.getAll();
-      const sessionCookie = cookies.find(c => c.name === '__session');
-      if (sessionCookie) {
-        const decoded = await auth.verifySessionCookie(sessionCookie.value, true);
-        if (decoded.platformAdmin === true) {
-          return { uid: decoded.uid };
-        }
-      }
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
 
 function passwordFromBirthDate(birthDate?: string): string | null {
   if (!birthDate || !/^\d{4}-\d{2}-\d{2}$/.test(birthDate)) return null;
@@ -43,6 +20,18 @@ export async function POST(request: NextRequest) {
   const admin = await verifyPlatformAdmin(request);
   if (!admin) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const ip = clientIpFromRequest(request);
+  const limit = await checkIpRateLimit(`platform-resend-invite:${admin.uid}:${ip}`, {
+    limit: 40,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec) } }
+    );
   }
 
   try {

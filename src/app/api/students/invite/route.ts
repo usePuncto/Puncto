@@ -9,6 +9,7 @@ import {
   MANAGER_ROLES,
   requireBusinessAuth,
 } from '@/lib/auth/requireBusinessAuth';
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
 
 function randomPassword(): string {
   return randomBytes(32).toString('base64url');
@@ -29,6 +30,18 @@ function isCompatibleStudent(
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = clientIpFromRequest(request);
+    const ipLimit = await checkIpRateLimit(`students-invite:ip:${ip}`, {
+      limit: 30,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(ipLimit.retryAfterSec) } }
+      );
+    }
+
     const body = (await request.json()) as {
       businessId?: string;
       customerId?: string;
@@ -40,6 +53,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'businessId, customerId e email sao obrigatorios' },
         { status: 400 }
+      );
+    }
+
+    const bizLimit = await checkIpRateLimit(`students-invite:biz:${businessId}`, {
+      limit: 50,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!bizLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(bizLimit.retryAfterSec) } }
       );
     }
 

@@ -5,6 +5,8 @@ import { Timestamp } from 'firebase-admin/firestore';
 import Stripe from 'stripe';
 import { sendEmail } from '@/lib/messaging/email';
 import { getWelcomeEmailContent } from '@/lib/templates/welcomeEmail';
+import { tierFromSubscriptionPriceId } from '@/lib/stripe/allowedPriceIds';
+import { getFeaturesByTier } from '@/types/features';
 
 export async function POST(request: NextRequest) {
   try {
@@ -68,12 +70,24 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
   const businessRef = db.collection('businesses').doc(businessId);
 
-  // Activate the business by changing status from pending_payment to active
-  await businessRef.update({
+  // Metadata.tier is set server-side at checkout creation; subscription.* events sync from priceId
+  const metadataTier = session.metadata?.tier;
+  const tier =
+    metadataTier === 'basic' || metadataTier === 'pro' || metadataTier === 'enterprise'
+      ? metadataTier
+      : null;
+
+  const update: Record<string, unknown> = {
     'subscription.status': 'active',
     'subscription.stripeSubscriptionId': session.subscription as string,
     updatedAt: Timestamp.now(),
-  });
+  };
+  if (tier) {
+    update['subscription.tier'] = tier;
+    update.features = getFeaturesByTier(tier);
+  }
+
+  await businessRef.update(update);
 
   console.log(`[subscription-webhook] Business ${businessId} activated after successful payment`);
 
@@ -113,18 +127,8 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 
   const businessRef = db.collection('businesses').doc(businessId);
   const priceId = subscription.items.data[0]?.price.id;
-
-  // Map price ID to tier (monthly and annual prices)
-  const tierMap: Record<string, 'free' | 'basic' | 'pro' | 'enterprise'> = {
-    [process.env.STRIPE_PRICE_ID_STARTER || '']: 'basic',
-    [process.env.STRIPE_PRICE_ID_STARTER_ANNUAL || '']: 'basic',
-    [process.env.STRIPE_PRICE_ID_GROWTH || '']: 'pro',
-    [process.env.STRIPE_PRICE_ID_GROWTH_ANNUAL || '']: 'pro',
-    [process.env.STRIPE_PRICE_ID_PRO || '']: 'enterprise',
-    [process.env.STRIPE_PRICE_ID_PRO_ANNUAL || '']: 'enterprise',
-  };
-
-  const tier = tierMap[priceId || ''] || 'free';
+  const tier = tierFromSubscriptionPriceId(priceId);
+  const features = getFeaturesByTier(tier);
   const status = subscription.status === 'active' ? 'active' :
                  subscription.status === 'trialing' ? 'trial' :
                  subscription.status === 'past_due' ? 'suspended' :
@@ -139,11 +143,9 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
     'subscription.currentPeriodStart': Timestamp.fromMillis(sub.current_period_start * 1000),
     'subscription.currentPeriodEnd': Timestamp.fromMillis(sub.current_period_end * 1000),
     'subscription.cancelAtPeriodEnd': sub.cancel_at_period_end || false,
+    features,
     updatedAt: Timestamp.now(),
   });
-
-  // Update feature flags based on tier
-  // This would trigger a function to update features
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {

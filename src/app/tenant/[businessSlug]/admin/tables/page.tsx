@@ -30,7 +30,9 @@ export default function AdminTablesPage() {
 
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/tables?businessId=${business.id}`);
+      const res = await fetch(`/api/tables?businessId=${business.id}`, {
+        headers: await getAuthHeaders(),
+      });
       const data = await res.json();
       setTables(data.tables || []);
     } catch (error) {
