@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createSubscriptionCheckout, getOrCreateCustomer } from '@/lib/stripe/subscriptions';
 import { db } from '@/lib/firebaseAdmin';
 import { isAllowedCheckoutRedirectUrl } from '@/lib/payments/checkoutRedirect';
+import { isAllowedSubscriptionPriceId } from '@/lib/stripe/allowedPriceIds';
 import {
   authError,
   MANAGER_ROLES,
@@ -23,6 +24,13 @@ export async function POST(request: NextRequest) {
     if (!businessId || !priceId || !successUrl || !cancelUrl) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    if (!isAllowedSubscriptionPriceId(priceId)) {
+      return NextResponse.json(
+        { error: 'Invalid or unauthorized priceId' },
         { status: 400 }
       );
     }

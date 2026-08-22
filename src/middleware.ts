@@ -47,6 +47,17 @@ function subscriptionEndedLoginUrl(request: NextRequest, slug: string, appGestao
   return loginUrl;
 }
 
+function buildGestaoLoginRedirect(request: NextRequest, returnPath: string): URL {
+  const loginUrl = new URL('/auth/login', request.url);
+  loginUrl.searchParams.set('returnUrl', returnPath || '/');
+  loginUrl.searchParams.set('app', 'gestao');
+  const subdomain =
+    request.cookies.get('x-business-slug')?.value ||
+    new URL(request.url).searchParams.get('subdomain');
+  if (subdomain) loginUrl.searchParams.set('subdomain', subdomain);
+  return loginUrl;
+}
+
 async function redirectIfBusinessSubscriptionBlocked(
   request: NextRequest,
   hostLabel: string,
@@ -156,13 +167,12 @@ export async function middleware(request: NextRequest) {
 
   // Early redirect for primazia on localhost/ngrok (unauthenticated)
   const hasPrimaziaSubdomain = rawUrl.includes('subdomain=primazia') || rawUrl.includes('subdomain%3Dprimazia');
-  if (useQuerySubdomain && hasPrimaziaSubdomain && url.pathname === '/' && !request.cookies.has('__session') && !request.cookies.has('firebase-auth-token')) {
+  if (useQuerySubdomain && hasPrimaziaSubdomain && url.pathname === '/' && !request.cookies.has('__session')) {
     return NextResponse.redirect(new URL('/auth/platform/login?subdomain=primazia&returnUrl=/platform/dashboard', request.url));
   }
 
   // Check if user is authenticated (has Firebase auth cookie)
-  const hasAuthCookie = request.cookies.has('__session') ||
-                        request.cookies.has('firebase-auth-token');
+  const hasAuthCookie = request.cookies.has('__session');
 
   const customClaims = hasAuthCookie ? await getCustomClaimsFromRequest(request) : null;
 
@@ -264,8 +274,20 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(`https://${subdomain}.gestao.puncto.com.br/`, 302);
   }
 
-  // Business Admin (.gestao) - same as main domain: allow through, let ProtectedRoute handle auth (no cookie required)
+  // Business Admin (.gestao) — require session cookie + claims (aligned with platform)
   if (isGestaoApp) {
+    if (!url.pathname.startsWith('/auth/') && !url.pathname.startsWith('/api')) {
+      if (!hasAuthCookie) {
+        const loginUrl = buildGestaoLoginRedirect(request, url.pathname + url.search);
+        return NextResponse.redirect(loginUrl);
+      }
+      if (!customClaims || (customClaims.userType !== 'business_user' && !isPlatformAdmin(customClaims))) {
+        return NextResponse.redirect(
+          new URL('/unauthorized?reason=business_admin_required', request.url)
+        );
+      }
+    }
+
     if (!url.pathname.startsWith('/auth/')) {
       const blockedRedirect = await redirectIfBusinessSubscriptionBlocked(request, subdomain, true);
       if (blockedRedirect) return blockedRedirect;

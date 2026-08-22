@@ -5,6 +5,7 @@ import { enUS } from 'date-fns/locale';
 import { db } from '@/lib/firebaseAdmin';
 import { calculateAvailableSlots } from '@/lib/utils/slots';
 import { Timestamp } from 'firebase-admin/firestore';
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,18 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(request: NextRequest) {
   try {
+    const ip = clientIpFromRequest(request);
+    const limit = checkIpRateLimit(`availability:${ip}`, {
+      limit: 120,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec) } }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const businessId = searchParams.get('businessId');
     const date = searchParams.get('date');

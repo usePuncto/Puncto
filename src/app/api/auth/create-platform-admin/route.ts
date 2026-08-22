@@ -1,39 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createPlatformAdmin } from '@/lib/auth/create-user';
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
+import { safeEqualString } from '@/lib/crypto/safeCompare';
 
 /**
- * API Route: Create Platform Admin
  * POST /api/auth/create-platform-admin
  *
- * SECURITY: This endpoint should be protected or disabled in production!
- * Only use during initial setup or with proper authentication.
+ * Disabled in production unless PLATFORM_ADMIN_CREATE_ENABLED=true.
+ * Requires PLATFORM_ADMIN_CREATE_SECRET (≥32 chars) compared in constant time.
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { email, password, displayName, role, secretKey } = body;
+    const enabledExplicitly = process.env.PLATFORM_ADMIN_CREATE_ENABLED === 'true';
+    const isProd = process.env.NODE_ENV === 'production';
 
-    // CRITICAL: Validate secret key for platform admin creation
-    // In production, use a strong secret key from environment variables
-    const PLATFORM_ADMIN_SECRET = process.env.PLATFORM_ADMIN_CREATE_SECRET;
+    if (isProd && !enabledExplicitly) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    }
 
-    if (!PLATFORM_ADMIN_SECRET) {
+    const ip = clientIpFromRequest(request);
+    const limit = checkIpRateLimit(`create-platform-admin:${ip}`, {
+      limit: 5,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec) } }
+      );
+    }
+
+    const PLATFORM_ADMIN_SECRET = process.env.PLATFORM_ADMIN_CREATE_SECRET?.trim() || '';
+
+    if (!PLATFORM_ADMIN_SECRET || PLATFORM_ADMIN_SECRET.length < 32) {
       return NextResponse.json(
         {
-          error: 'Platform admin creation is disabled. Set PLATFORM_ADMIN_CREATE_SECRET in environment variables.',
+          error:
+            'Platform admin creation is disabled. Set a PLATFORM_ADMIN_CREATE_SECRET of at least 32 characters.',
         },
         { status: 503 }
       );
     }
 
-    if (secretKey !== PLATFORM_ADMIN_SECRET) {
-      return NextResponse.json(
-        { error: 'Invalid secret key' },
-        { status: 403 }
-      );
+    const body = await request.json();
+    const { email, password, displayName, role, secretKey } = body as {
+      email?: string;
+      password?: string;
+      displayName?: string;
+      role?: string;
+      secretKey?: string;
+    };
+
+    if (typeof secretKey !== 'string' || !safeEqualString(secretKey, PLATFORM_ADMIN_SECRET)) {
+      return NextResponse.json({ error: 'Invalid secret key' }, { status: 403 });
     }
 
-    // Validate required fields
     if (!email || !password || !displayName) {
       return NextResponse.json(
         { error: 'Missing required fields: email, password, displayName' },
@@ -41,11 +62,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate role
-    const validRoles: Array<'super_admin' | 'support' | 'analyst'> = ['super_admin', 'support', 'analyst'];
-    const adminRole = role && validRoles.includes(role) ? role : 'analyst';
+    const validRoles: Array<'super_admin' | 'support' | 'analyst'> = [
+      'super_admin',
+      'support',
+      'analyst',
+    ];
+    const adminRole =
+      role && validRoles.includes(role as (typeof validRoles)[number])
+        ? (role as (typeof validRoles)[number])
+        : 'analyst';
 
-    // Create platform admin user
     const result = await createPlatformAdmin({
       email,
       password,
@@ -66,20 +92,15 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[API] Error creating platform admin:', error);
 
-    // Check for duplicate email
-    if (error.code === 'auth/email-already-exists') {
-      return NextResponse.json(
-        { error: 'Email already in use' },
-        { status: 409 }
-      );
+    const code = (error as { code?: string })?.code;
+    if (code === 'auth/email-already-exists') {
+      return NextResponse.json({ error: 'Email already in use' }, { status: 409 });
     }
 
-    return NextResponse.json(
-      { error: error.message || 'Failed to create platform admin' },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'Failed to create platform admin';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

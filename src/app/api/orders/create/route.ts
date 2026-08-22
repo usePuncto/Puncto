@@ -2,10 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebaseAdmin';
 import { Order, OrderItem } from '@/types/restaurant';
 import { verifyBusinessFeatureAccess } from '@/lib/api/featureValidation';
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
 
 // POST - Create a new order
 export async function POST(request: NextRequest) {
   try {
+    const ip = clientIpFromRequest(request);
+    const limit = checkIpRateLimit(`orders-create:${ip}`, {
+      limit: 60,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec) } }
+      );
+    }
+
     const body = await request.json();
     const { businessId, tableId, items, customerId } = body;
 

@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 export default function OnboardingPaymentPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, firebaseUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -42,7 +42,14 @@ export default function OnboardingPaymentPage() {
 
   const fetchCheckoutUrl = async () => {
     try {
-      const response = await fetch(`/api/onboarding/get-checkout-session?sessionId=${sessionId}`);
+      if (!firebaseUser) {
+        throw new Error('Não autenticado');
+      }
+      const idToken = await firebaseUser.getIdToken();
+      const response = await fetch(
+        `/api/onboarding/get-checkout-session?sessionId=${sessionId}`,
+        { headers: { Authorization: `Bearer ${idToken}` } }
+      );
 
       if (!response.ok) {
         throw new Error('Não foi possível recuperar a sessão de pagamento');
@@ -51,8 +58,9 @@ export default function OnboardingPaymentPage() {
       const data = await response.json();
       setCheckoutUrl(data.url);
       setIsLoading(false);
-    } catch (err: any) {
-      setError(err.message || 'Erro ao recuperar sessão de pagamento');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erro ao recuperar sessão de pagamento';
+      setError(message);
       setIsLoading(false);
     }
   };

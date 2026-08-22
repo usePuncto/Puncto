@@ -16,7 +16,7 @@ async function verifyPlatformAdmin(request: NextRequest): Promise<{ uid: string 
     } else {
       // Try to get from cookie (set by Firebase client SDK)
       const cookies = request.cookies.getAll();
-      const sessionCookie = cookies.find(c => c.name === '__session' || c.name === 'firebase-auth-token');
+      const sessionCookie = cookies.find(c => c.name === '__session');
       if (sessionCookie) {
         const decoded = await auth.verifySessionCookie(sessionCookie.value, true);
         if (decoded.platformAdmin === true) {

@@ -1,19 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth, db } from '@/lib/firebaseAdmin';
+import { createHmac } from 'crypto';
+import { auth } from '@/lib/firebaseAdmin';
 
-// Simple JWT signing without external library (for Centrifugo)
-// In production, consider using a JWT library
-function signJWT(payload: any, secret: string): string {
+function signJWT(payload: Record<string, unknown>, secret: string): string {
   const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
   const payloadEncoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
-  const signature = require('crypto')
-    .createHmac('sha256', secret)
+  const signature = createHmac('sha256', secret)
     .update(`${header}.${payloadEncoded}`)
     .digest('base64url');
   return `${header}.${payloadEncoded}.${signature}`;
 }
 
 const centrifugoSecret = process.env.CENTRIFUGO_TOKEN_HMAC_SECRET?.trim() || '';
+
+/**
+ * Org channels are granted only from verified Firebase custom claims
+ * (businessRoles / primaryBusinessId / studentBusinessId) — never from the
+ * editable Firestore users/{uid} document.
+ */
+function resolveAuthorizedOrgIds(decodedToken: {
+  uid: string;
+  userType?: string;
+  businessRoles?: Record<string, string>;
+  primaryBusinessId?: string;
+  studentBusinessId?: string;
+  orgId?: string;
+}): string[] {
+  const ids = new Set<string>();
+
+  const roles = decodedToken.businessRoles;
+  if (roles && typeof roles === 'object') {
+    for (const [businessId, role] of Object.entries(roles)) {
+      if (
+        businessId &&
+        (role === 'owner' || role === 'manager' || role === 'professional')
+      ) {
+        ids.add(businessId);
+      }
+    }
+  }
+
+  if (
+    decodedToken.userType === 'business_user' &&
+    decodedToken.primaryBusinessId &&
+    roles?.[decodedToken.primaryBusinessId]
+  ) {
+    ids.add(decodedToken.primaryBusinessId);
+  }
+
+  if (decodedToken.userType === 'student' && decodedToken.studentBusinessId) {
+    ids.add(decodedToken.studentBusinessId);
+  }
+
+  // Legacy claim orgId only if it matches an already-authorized business
+  if (decodedToken.orgId && ids.has(decodedToken.orgId)) {
+    ids.add(decodedToken.orgId);
+  }
+
+  return Array.from(ids);
+}
 
 /**
  * Generate Centrifugo JWT token for authenticated user
@@ -28,60 +73,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get Firebase ID token from Authorization header
     const authHeader = request.headers.get('authorization');
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const idToken = authHeader.split('Bearer ')[1];
-
-    // Verify Firebase token
     const decodedToken = await auth.verifyIdToken(idToken);
 
     if (!decodedToken) {
       return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
 
-    // Get user's organization ID from custom claims or user document
-    let orgId = decodedToken.orgId || null;
-    
-    if (!orgId) {
-      // Try to get from user document
-      const userDoc = await db.collection('users').doc(decodedToken.uid).get();
-      const userData = userDoc.data();
-      
-      if (userData?.orgId) {
-        orgId = userData.orgId;
+    const orgIds = resolveAuthorizedOrgIds(
+      decodedToken as {
+        uid: string;
+        userType?: string;
+        businessRoles?: Record<string, string>;
+        primaryBusinessId?: string;
+        studentBusinessId?: string;
+        orgId?: string;
       }
-    }
+    );
 
-    // Generate Centrifugo JWT token
     const now = Math.floor(Date.now() / 1000);
-    const payload: any = {
+    const payload: Record<string, unknown> = {
       sub: decodedToken.uid,
-      exp: now + 3600, // 1 hour
+      exp: now + 3600,
     };
 
-    // If user has orgId, add channels they can subscribe to
-    if (orgId) {
-      payload.channels = [
-        `org:${orgId}:bookings`,
-        `org:${orgId}:orders`,
-        `org:${orgId}:kitchen`,
-        `org:${orgId}:timeclock`,
-        `org:${orgId}:inventory`,
-      ];
+    if (orgIds.length > 0) {
+      const channels: string[] = [];
+      for (const orgId of orgIds) {
+        channels.push(
+          `org:${orgId}:bookings`,
+          `org:${orgId}:orders`,
+          `org:${orgId}:kitchen`,
+          `org:${orgId}:timeclock`,
+          `org:${orgId}:inventory`
+        );
+      }
+      payload.channels = channels;
     }
 
     const token = signJWT(payload, centrifugoSecret);
 
     return NextResponse.json({ token });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Centrifugo Token] Error:', error);
-    return NextResponse.json(
-      { error: 'Failed to generate token' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Failed to generate token' }, { status: 500 });
   }
 }

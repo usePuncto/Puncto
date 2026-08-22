@@ -13,7 +13,7 @@ async function verifyPlatformAdmin(request: NextRequest): Promise<{ uid: string 
     } else {
       const cookies = request.cookies.getAll();
       const sessionCookie = cookies.find(
-        (c) => c.name === '__session' || c.name === 'firebase-auth-token'
+        (c) => c.name === '__session'
       );
       if (sessionCookie) {
         const decoded = await auth.verifySessionCookie(sessionCookie.value, true);

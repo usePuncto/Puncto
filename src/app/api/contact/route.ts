@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/firebaseAdmin';
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
 
 const contactSchema = z.object({
   name: z.string().min(2, 'Nome é obrigatório'),
@@ -36,6 +37,18 @@ function resolveLeadType(data: z.infer<typeof contactSchema>): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = clientIpFromRequest(request);
+    const limit = checkIpRateLimit(`contact:${ip}`, {
+      limit: 20,
+      windowMs: 60 * 60 * 1000,
+    });
+    if (!limit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests' },
+        { status: 429, headers: { 'Retry-After': String(limit.retryAfterSec) } }
+      );
+    }
+
     const body = await request.json();
 
     const result = contactSchema.safeParse(body);

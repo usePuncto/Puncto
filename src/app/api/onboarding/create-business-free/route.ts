@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Timestamp } from 'firebase-admin/firestore';
 import { auth, db } from '@/lib/firebaseAdmin';
 import { getFeaturesByTier } from '@/types/features';
+import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
+
+const MAX_FREE_BUSINESSES_PER_USER = 1;
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,14 +21,60 @@ export async function POST(request: NextRequest) {
 
     try {
       decodedToken = await auth.verifyIdToken(token);
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Token inválido' },
         { status: 401 }
       );
     }
 
+    if (decodedToken.platformAdmin === true || decodedToken.userType === 'platform_admin') {
+      return NextResponse.json(
+        { error: 'Forbidden', message: 'Contas de platform admin não podem criar negócios free por este endpoint' },
+        { status: 403 }
+      );
+    }
+
     const userId = decodedToken.uid;
+
+    const ip = clientIpFromRequest(request);
+    const ipLimit = checkIpRateLimit(`create-business-free:ip:${ip}`, {
+      limit: 10,
+      windowMs: 60 * 60 * 1000,
+    });
+    const uidLimit = checkIpRateLimit(`create-business-free:uid:${userId}`, {
+      limit: 3,
+      windowMs: 24 * 60 * 60 * 1000,
+    });
+    if (!ipLimit.allowed || !uidLimit.allowed) {
+      return NextResponse.json(
+        { error: 'Too many requests', message: 'Limite de criação atingido. Tente mais tarde.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(
+              Math.max(ipLimit.retryAfterSec, uidLimit.retryAfterSec)
+            ),
+          },
+        }
+      );
+    }
+
+    const existingOwned = await db
+      .collection('businesses')
+      .where('createdBy', '==', userId)
+      .limit(MAX_FREE_BUSINESSES_PER_USER)
+      .get();
+
+    if (existingOwned.size >= MAX_FREE_BUSINESSES_PER_USER) {
+      return NextResponse.json(
+        {
+          error: 'Forbidden',
+          message: 'Você já possui um negócio. Use o painel existente ou faça upgrade.',
+        },
+        { status: 403 }
+      );
+    }
 
     const body = await request.json();
     const { displayName, legalName, taxId, email, phone, industry } = body;
@@ -156,8 +205,6 @@ export async function POST(request: NextRequest) {
       },
       primaryBusinessId: businessId,
       customerId: undefined,
-      platformAdmin: undefined,
-      platformRole: undefined,
     });
 
     const userDocRef = db.collection('users').doc(userId);

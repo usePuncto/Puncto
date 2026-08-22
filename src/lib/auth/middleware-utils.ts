@@ -9,17 +9,13 @@ import { verifyFirebaseJwtClaims } from '@/lib/auth/verifyFirebaseJwtEdge';
 
 /**
  * Extract and cryptographically verify Firebase JWT from cookies.
- * Prefers httpOnly `__session`; does not trust unsigned payloads.
+ * Only trusts httpOnly `__session` (legacy cookie names are ignored).
  */
 export async function getCustomClaimsFromRequest(
   request: NextRequest
 ): Promise<CustomClaims | null> {
   try {
-    // Prefer httpOnly session cookie; fall back to legacy cookie names only if present
-    const token =
-      request.cookies.get('__session')?.value ||
-      request.cookies.get('firebase-auth-token')?.value ||
-      request.cookies.get('firebaseIdToken')?.value;
+    const token = request.cookies.get('__session')?.value;
 
     if (!token) {
       return null;

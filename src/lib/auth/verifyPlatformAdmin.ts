@@ -19,9 +19,7 @@ export async function verifyPlatformAdmin(
       return null;
     }
 
-    const sessionCookie =
-      request.cookies.get('__session')?.value ||
-      request.cookies.get('firebase-auth-token')?.value;
+    const sessionCookie = request.cookies.get('__session')?.value;
     if (!sessionCookie) return null;
 
     const decoded = await auth.verifySessionCookie(sessionCookie, true);

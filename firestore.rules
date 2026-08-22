@@ -490,8 +490,10 @@ service cloud.firestore {
 
       // Phase 3: Time Clock Module
       match /clockIns/{clockInId} {
-        // Employees can create their own clock-ins
-        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        // Employees can create their own clock-ins only if they are staff of this business
+        allow create: if isAuthenticated() &&
+                        request.resource.data.userId == request.auth.uid &&
+                        isBusinessStaff(businessId);
         // Staff can read all clock-ins
         allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
         // Only staff can update (for validation)
@@ -578,11 +580,13 @@ service cloud.firestore {
                       request.resource.data.type == 'customer' &&
                       request.resource.data.id == userId;
 
-      // Users can update their own document, but CANNOT change userType
+      // Users can update their own document, but CANNOT change userType or privilege fields
       allow update: if isAuthenticated() &&
                       request.auth.uid == userId &&
                       request.resource.data.type == resource.data.type && // Prevent userType change
-                      request.resource.data.id == userId; // Prevent ID change
+                      request.resource.data.id == userId && // Prevent ID change
+                      !request.resource.data.diff(resource.data).affectedKeys()
+                        .hasAny(['orgId', 'platformAdmin', 'platformRole', 'businessRoles', 'primaryBusinessId', 'studentBusinessId', 'studentCustomerId']);
 
       // Platform admins can read all users
       allow read: if isPlatformAdmin();

@@ -9,7 +9,7 @@ import { useAuth } from '@/lib/contexts/AuthContext';
 export default function OnboardingSuccessPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { refreshToken } = useAuth();
+  const { refreshToken, firebaseUser } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
 
   useEffect(() => {
@@ -25,9 +25,20 @@ export default function OnboardingSuccessPage() {
 
     async function fetchAndRedirect() {
       try {
-        const res = await fetch(`/api/onboarding/get-checkout-session?sessionId=${sessionId}`);
+        if (!firebaseUser) {
+          if (!cancelled) setStatus('error');
+          return;
+        }
+        const idToken = await firebaseUser.getIdToken();
+        const res = await fetch(`/api/onboarding/get-checkout-session?sessionId=${sessionId}`, {
+          headers: { Authorization: `Bearer ${idToken}` },
+        });
         const data = await res.json();
         if (cancelled) return;
+        if (!res.ok) {
+          setStatus('error');
+          return;
+        }
 
         setStatus('success');
 
@@ -36,11 +47,14 @@ export default function OnboardingSuccessPage() {
 
         redirectTimer = setTimeout(async () => {
           await refreshToken();
-          // Set business slug cookie before redirect (middleware may not run for /tenant/*)
           if (businessId) {
+            const token = await firebaseUser.getIdToken();
             await fetch('/api/tenant/set-context', {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${token}`,
+              },
               body: JSON.stringify({ businessId }),
               credentials: 'include',
             });
@@ -49,8 +63,7 @@ export default function OnboardingSuccessPage() {
         }, 3000);
       } catch {
         if (cancelled) return;
-        setStatus('success');
-        setTimeout(() => { window.location.href = '/'; }, 3000);
+        setStatus('error');
       }
     }
 
@@ -60,7 +73,7 @@ export default function OnboardingSuccessPage() {
       cancelled = true;
       if (redirectTimer) clearTimeout(redirectTimer);
     };
-  }, [searchParams, refreshToken]);
+  }, [searchParams, refreshToken, firebaseUser]);
 
   if (status === 'loading') {
     return (
@@ -140,15 +153,22 @@ export default function OnboardingSuccessPage() {
         <button
           onClick={async () => {
             const sessionId = searchParams.get('session_id');
-            if (sessionId) {
+            if (sessionId && firebaseUser) {
               try {
-                const r = await fetch(`/api/onboarding/get-checkout-session?sessionId=${sessionId}`);
+                const idToken = await firebaseUser.getIdToken();
+                const r = await fetch(
+                  `/api/onboarding/get-checkout-session?sessionId=${sessionId}`,
+                  { headers: { Authorization: `Bearer ${idToken}` } }
+                );
                 const d = await r.json();
                 await refreshToken();
                 if (d.businessId) {
                   await fetch('/api/tenant/set-context', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Authorization: `Bearer ${idToken}`,
+                    },
                     body: JSON.stringify({ businessId: d.businessId }),
                     credentials: 'include',
                   });

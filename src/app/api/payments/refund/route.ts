@@ -54,6 +54,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const paidAmount = typeof paymentData.amount === 'number' ? paymentData.amount : 0;
+    const alreadyRefunded =
+      typeof paymentData.refundedAmount === 'number' ? paymentData.refundedAmount : 0;
+    const maxRefundable = Math.max(0, paidAmount - alreadyRefunded);
+
+    if (maxRefundable <= 0) {
+      return NextResponse.json(
+        { error: 'Payment has already been fully refunded' },
+        { status: 400 }
+      );
+    }
+
     // If amount not provided, calculate based on cancellation policy
     let refundAmount = amount;
     if (refundAmount === undefined && bookingId) {
@@ -77,19 +89,41 @@ export async function POST(request: NextRequest) {
             : 0;
 
           const calculation = calculateRefund(
-            paymentData.amount || 0,
+            paidAmount,
             businessData.settings.cancellationPolicy,
             hoursUntilService
           );
           refundAmount = calculation.refundAmount;
         } else {
-          refundAmount = paymentData.amount || 0; // Full refund if no policy
+          refundAmount = maxRefundable;
         }
       } else {
-        refundAmount = paymentData.amount || 0; // Full refund if booking not found
+        refundAmount = maxRefundable;
       }
     } else if (refundAmount === undefined) {
-      refundAmount = paymentData.amount || 0; // Full refund
+      refundAmount = maxRefundable;
+    }
+
+    if (
+      typeof refundAmount !== 'number' ||
+      !Number.isFinite(refundAmount) ||
+      !Number.isInteger(refundAmount) ||
+      refundAmount <= 0
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid refund amount' },
+        { status: 400 }
+      );
+    }
+
+    if (refundAmount > maxRefundable) {
+      return NextResponse.json(
+        {
+          error: 'Refund amount exceeds remaining refundable balance',
+          maxRefundable,
+        },
+        { status: 400 }
+      );
     }
 
     if (!paymentData.stripePaymentIntentId) {
@@ -123,8 +157,8 @@ export async function POST(request: NextRequest) {
     await refundsRef.add(refundData);
 
     // Update payment status
-    const newRefundedAmount = (paymentData.refundedAmount || 0) + refundAmount;
-    const newStatus = newRefundedAmount >= paymentData.amount ? 'refunded' : 'partially_refunded';
+    const newRefundedAmount = alreadyRefunded + refundAmount;
+    const newStatus = newRefundedAmount >= paidAmount ? 'refunded' : 'partially_refunded';
 
     await paymentRef.update({
       status: newStatus,
