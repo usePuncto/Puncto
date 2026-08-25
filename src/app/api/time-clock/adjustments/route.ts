@@ -7,14 +7,17 @@ import {
 } from '@/lib/time-clock/auth';
 import { getBrazilianLegalTime, retentionUntilFrom } from '@/lib/time-clock/legal-time';
 import { onlyDigits } from '@/lib/time-clock/fiscal-utils';
+import { assertRepPReady, resolveRepPEmployee } from '@/lib/time-clock/rep-employee';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Treatment adjustments — parallel to AFD. Never mutate original clockIns.
+ * Treatment adjustments (PTRP) — parallel to ARP/AFD. Never mutate original fiscal events.
  *
  * POST /api/time-clock/adjustments
  * GET  /api/time-clock/adjustments?businessId=
+ *
+ * manual_insert requires: markAt, reason (motivo), never creates ARP type-7 original.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -58,6 +61,7 @@ export async function GET(request: NextRequest) {
           id: d.id,
           ...data,
           date: serializeTimestamp(data.date),
+          markAt: serializeTimestamp(data.markAt),
           createdAt: serializeTimestamp(data.createdAt),
         };
       }),
@@ -76,21 +80,29 @@ export async function POST(request: NextRequest) {
       userId,
       kind,
       date,
+      markAt,
+      markType,
       minutes,
       notes,
+      reason,
       relatedNsr,
       relatedClockInId,
       employeeCpf,
+      disregardNsr,
     } = body as {
       businessId?: string;
       userId?: string;
       kind?: string;
       date?: string;
+      markAt?: string;
+      markType?: 'E' | 'S' | 'D' | 'in' | 'out' | 'break_start' | 'break_end';
       minutes?: number;
       notes?: string;
+      reason?: string;
       relatedNsr?: number;
       relatedClockInId?: string;
       employeeCpf?: string;
+      disregardNsr?: number;
     };
 
     if (!businessId || !userId || !kind || !date) {
@@ -100,7 +112,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const allowed = ['absence', 'medical', 'time_bank', 'manual_insert', 'other'];
+    const allowed = [
+      'absence',
+      'medical',
+      'time_bank',
+      'manual_insert',
+      'disregard',
+      'dsr',
+      'holiday_comp',
+      'other',
+    ];
     if (!allowed.includes(kind)) {
       return NextResponse.json({ error: 'Invalid kind' }, { status: 400 });
     }
@@ -111,7 +132,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Guard: never allow calling this endpoint to mutate clockIns
+    const motivo = (reason || notes || '').trim();
+    if (kind === 'manual_insert' || kind === 'disregard') {
+      if (!motivo) {
+        return NextResponse.json(
+          { error: 'Motivo obrigatório para inclusão manual ou desconsideração' },
+          { status: 400 }
+        );
+      }
+    }
+    if (kind === 'manual_insert' && !markAt) {
+      return NextResponse.json(
+        { error: 'markAt (horário incluído) é obrigatório para inclusão manual' },
+        { status: 400 }
+      );
+    }
+
+    // Never mutate originals
     if (relatedClockInId) {
       const original = await db
         .collection('businesses')
@@ -120,23 +157,20 @@ export async function POST(request: NextRequest) {
         .doc(relatedClockInId)
         .get();
       if (original.exists && original.data()?.immutable) {
-        // reference only — do not update original
+        // reference only
       }
     }
 
     const legal = await getBrazilianLegalTime();
     const adjDate = new Date(date);
+    const includedAt = markAt ? new Date(markAt) : null;
     const retentionUntil = retentionUntilFrom(legal.date);
 
-    let cpf = onlyDigits(employeeCpf || '');
-    if (!cpf) {
-      const staff = await db
-        .collection('businesses')
-        .doc(businessId)
-        .collection('staff')
-        .doc(userId)
-        .get();
-      cpf = onlyDigits(staff.data()?.cpf || '');
+    let employee = await resolveRepPEmployee(businessId, userId);
+    let cpf = onlyDigits(employeeCpf || employee.cpf || '');
+    if (kind === 'manual_insert') {
+      employee = await assertRepPReady(businessId, userId);
+      cpf = employee.cpf!;
     }
 
     const ref = await db
@@ -147,29 +181,61 @@ export async function POST(request: NextRequest) {
         businessId,
         userId,
         employeeCpf: cpf || null,
+        employeeName: employee.name,
         kind,
         date: adjDate,
+        markAt: includedAt,
+        markType: markType || null,
         minutes: minutes ?? null,
         notes: notes || null,
-        relatedNsr: relatedNsr ?? null,
+        reason: motivo || null,
+        relatedNsr: relatedNsr ?? disregardNsr ?? null,
         relatedClockInId: relatedClockInId || null,
+        /** AEJ fonteMarc = I for manual_insert */
+        origin: kind === 'manual_insert' ? 'manual_insert' : kind,
+        fonteMarc: kind === 'manual_insert' ? 'I' : kind === 'disregard' ? 'O' : null,
+        tpMarc: kind === 'disregard' ? 'D' : null,
         createdAt: legal.date,
         createdBy: authResult.actor.uid,
+        createdByEmail: authResult.actor.email || null,
         retentionUntil,
         retentionYears: 5,
-        /** Explicit: this never overwrites AFD */
         parallelToAfd: true,
+        auditTrail: {
+          action: 'ptrp_adjustment',
+          actorUid: authResult.actor.uid,
+          at: legal.date.toISOString(),
+          reason: motivo || null,
+        },
+      });
+
+    // Audit log (append-only admin ops)
+    await db
+      .collection('businesses')
+      .doc(businessId)
+      .collection('timeClockAuditLog')
+      .add({
+        type: 'adjustment',
+        adjustmentId: ref.id,
+        userId,
+        kind,
+        actorUid: authResult.actor.uid,
+        reason: motivo || null,
+        createdAt: legal.date,
       });
 
     return NextResponse.json({
       id: ref.id,
       kind,
       date: adjDate.toISOString(),
+      markAt: includedAt?.toISOString() || null,
+      origin: kind === 'manual_insert' ? 'manual_insert' : kind,
       message:
-        'Ajuste registrado no módulo de tratamento (AEJ). O registro original do AFD permanece imutável.',
+        'Ajuste registrado no módulo de tratamento (PTRP/AEJ). O registro original da ARP/AFD permanece imutável.',
     });
   } catch (error) {
     console.error('[time-clock adjustments POST]', error);
-    return NextResponse.json({ error: 'Failed to create adjustment' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Failed to create adjustment';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

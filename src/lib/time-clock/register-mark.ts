@@ -1,8 +1,9 @@
 /**
- * Immutable punch registration (AFD source of truth).
+ * Immutable punch registration (AFD source of truth via ARP repFiscalEvents).
  * - Timestamp from Hora Legal Brasileira (NTP.br / Observatório Nacional)
- * - Never reject by time-of-day or require manager unlock for overtime
+ * - userId always = authenticated actor (never impersonation)
  * - Never overwrite original mark fields
+ * - CPF obrigatório + repPReady
  */
 
 import { db } from '@/lib/firebaseAdmin';
@@ -10,22 +11,25 @@ import type { Business } from '@/types/business';
 import type { ClockInType } from '@/types/timeClock';
 import {
   buildMarkIntegrityPayload,
-  getBrazilianLegalTime,
+  assertHlbReadyForMark,
   retentionUntilFrom,
   sha256Hex,
 } from './legal-time';
-import { computeMarkHash } from './afd';
-import { formatAfdDateTime, onlyDigits, padLeft } from './fiscal-utils';
+import { appendMarkEvent, getRepPGoLiveAt } from './arp';
+import { assertRepPReady } from './rep-employee';
+import { resolveRepEstablishment } from './establishment';
 import { generatePunchReceipt } from './receipt';
 import { calculateOvertime, calculateShiftHours } from './calculations';
 
 export type RegisterMarkInput = {
   business: Business;
   businessId: string;
+  /** MUST equal authenticated Firebase uid */
   userId: string;
   type: ClockInType;
   actorUid: string;
   location?: { lat: number; lng: number };
+  locationPurpose?: string;
   deviceId?: string;
   ipAddress?: string;
   notes?: string;
@@ -42,39 +46,6 @@ function toDate(value: unknown): Date | null {
   return null;
 }
 
-async function resolveEmployeeIdentity(
-  businessId: string,
-  userId: string
-): Promise<{ name: string; cpf: string }> {
-  const [staff, pros] = await Promise.all([
-    db.collection('businesses').doc(businessId).collection('staff').doc(userId).get(),
-    db
-      .collection('businesses')
-      .doc(businessId)
-      .collection('professionals')
-      .where('userId', '==', userId)
-      .limit(1)
-      .get(),
-  ]);
-
-  const staffData = staff.data();
-  const proData = pros.empty ? null : pros.docs[0].data();
-
-  return {
-    name:
-      (proData?.name as string) ||
-      (staffData?.name as string) ||
-      (staffData?.displayName as string) ||
-      userId.slice(0, 8),
-    cpf: onlyDigits(
-      (staffData?.cpf as string) ||
-        (proData?.cpf as string) ||
-        (staffData?.document as string) ||
-        ''
-    ),
-  };
-}
-
 function collectorFromDevice(deviceId?: string): { id: string; label: string } {
   const d = (deviceId || 'web').toLowerCase();
   if (d.includes('mobile') || d.includes('app')) {
@@ -86,9 +57,6 @@ function collectorFromDevice(deviceId?: string): { id: string; label: string } {
   return { id: '02', label: 'Navegador (browser)' };
 }
 
-/**
- * Best-effort shift UX update — failures never block the immutable AFD mark.
- */
 async function updateShiftBestEffort(params: {
   businessId: string;
   userId: string;
@@ -208,101 +176,120 @@ async function updateShiftBestEffort(params: {
 }
 
 export async function registerImmutableMark(input: RegisterMarkInput) {
-  const legal = await getBrazilianLegalTime();
+  if (input.userId !== input.actorUid) {
+    throw new Error(
+      'Marcação REP-P original só pode ser feita pelo próprio trabalhador autenticado'
+    );
+  }
+
+  const establishment = resolveRepEstablishment(input.business);
+  const goLive = await getRepPGoLiveAt(input.businessId, establishment.repEstablishmentId);
+  if (!goLive) {
+    const err = new Error(
+      'REP-P ainda não foi ativado para este estabelecimento (repPGoLiveAt ausente). Defina a data de início oficial antes de registrar marcações fiscais.'
+    );
+    (err as Error & { code: string }).code = 'REP_P_NOT_LIVE';
+    throw err;
+  }
+
+  const hlb = await assertHlbReadyForMark();
+  if (!hlb.ok) {
+    const err = new Error(hlb.message);
+    (err as Error & { code: string }).code = hlb.code;
+    throw err;
+  }
+
+  // AFD tipo 4 NÃO é emitido aqui.
+  // Desvio ≥30s ≠ ajuste de relógio. Tipo 4 só via applyLogicalClockAdjust (CPF explícito).
+  // PUNCTO_CLOCK_ADJUST_RESPONSIBLE_CPF não é usado (ambiguidade jurídica — ver AFD_TYPE4.md).
+
+  const employee = await assertRepPReady(input.businessId, input.userId);
+  if (!employee.employmentRelationshipId) {
+    const err = new Error(
+      'Vínculo (employmentRelationshipId) ausente — necessário para AEJ com múltiplos contratos no mesmo CPF'
+    );
+    (err as Error & { code: string }).code = 'VINULO_REQUIRED';
+    throw err;
+  }
+
+  const legal = hlb.legal;
   const markAt = legal.date;
-  const identity = await resolveEmployeeIdentity(input.businessId, input.userId);
   const collector = collectorFromDevice(input.deviceId);
   const retentionUntil = retentionUntilFrom(markAt);
 
-  const counterRef = db
-    .collection('businesses')
-    .doc(input.businessId)
-    .collection('timeClockMeta')
-    .doc('nsr');
+  const fiscal = await appendMarkEvent(input.businessId, establishment, input.actorUid, {
+    userId: input.userId,
+    employeeCpf: employee.cpf!,
+    employeeName: employee.name,
+    employmentRelationshipId: employee.employmentRelationshipId,
+    esocialRegistration: employee.esocialRegistration,
+    markAt,
+    markType: input.type,
+    collectorId: collector.id,
+    offline: false,
+    location: input.location || null,
+    deviceId: input.deviceId || 'web',
+    ipAddress: input.ipAddress || null,
+    notes: input.notes || null,
+    clientReportedAt: input.clientReportedAt || null,
+  });
+
+  const integrityPayload = buildMarkIntegrityPayload({
+    businessId: input.businessId,
+    userId: input.userId,
+    type: input.type,
+    nsr: fiscal.nsr,
+    timestampIso: markAt.toISOString(),
+  });
+
   const clockInsRef = db.collection('businesses').doc(input.businessId).collection('clockIns');
   const docRef = clockInsRef.doc();
 
-  const { nsr, afdHash, previousHash, integrityHash, clockInData } = await db.runTransaction(
-    async (tx) => {
-      const snap = await tx.get(counterRef);
-      const lastNsr = snap.exists ? Number(snap.data()?.lastNsr || 0) : 0;
-      const prevHash = snap.exists ? String(snap.data()?.lastMarkHash || '') : '';
-      const nextNsr = lastNsr + 1;
+  const clockInData = {
+    businessId: input.businessId,
+    repEstablishmentId: establishment.repEstablishmentId,
+    userId: input.userId,
+    employmentRelationshipId: employee.employmentRelationshipId,
+    type: input.type,
+    timestamp: markAt,
+    timestampSource: legal.source,
+    ntpServer: legal.ntpServer || null,
+    ntpOffsetMs: legal.offsetMs,
+    hlbTraceability: legal.hlbTraceability,
+    nsr: fiscal.nsr,
+    fiscalEventId: fiscal.id,
+    previousHash: fiscal.previousHash || null,
+    afdHash: fiscal.afdHash || null,
+    integrityHash: sha256Hex(integrityPayload),
+    employeeCpf: employee.cpf,
+    employeeName: employee.name,
+    esocialRegistration: employee.esocialRegistration || null,
+    collectorId: collector.id,
+    offline: false,
+    immutable: true,
+    origin: 'rep_p_original' as const,
+    retentionUntil,
+    retentionYears: 5,
+    location: input.location || null,
+    locationPurpose: input.location
+      ? input.locationPurpose ||
+        'Validação de jornada no momento da marcação (dado pessoal, não sensível)'
+      : null,
+    deviceId: input.deviceId || 'web',
+    ipAddress: input.ipAddress || null,
+    clientReportedAt: input.clientReportedAt || null,
+    notes: input.notes || null,
+    rhReviewed: false,
+    rhReviewedBy: null,
+    rhReviewedAt: null,
+    receiptStatus: 'pending' as const,
+    receiptId: null,
+    receiptAvailableUntil: null,
+    createdAt: markAt,
+    createdBy: input.actorUid,
+  };
 
-      const markDh = formatAfdDateTime(markAt);
-      const cpf12 = padLeft(identity.cpf || '0', 12);
-      const hash = computeMarkHash({
-        nsr: nextNsr,
-        markDh,
-        cpf12,
-        recordedDh: markDh,
-        collectorId: collector.id,
-        offlineFlag: '0',
-        previousHash: prevHash,
-      });
-
-      const integrityPayload = buildMarkIntegrityPayload({
-        businessId: input.businessId,
-        userId: input.userId,
-        type: input.type,
-        nsr: nextNsr,
-        timestampIso: markAt.toISOString(),
-      });
-
-      const data = {
-        businessId: input.businessId,
-        userId: input.userId,
-        type: input.type,
-        timestamp: markAt,
-        timestampSource: legal.source,
-        ntpServer: legal.ntpServer || null,
-        ntpOffsetMs: legal.offsetMs,
-        nsr: nextNsr,
-        previousHash: prevHash || null,
-        afdHash: hash,
-        integrityHash: sha256Hex(integrityPayload),
-        employeeCpf: identity.cpf || null,
-        employeeName: identity.name,
-        collectorId: collector.id,
-        offline: false,
-        immutable: true,
-        retentionUntil,
-        retentionYears: 5,
-        location: input.location || null,
-        deviceId: input.deviceId || 'web',
-        ipAddress: input.ipAddress || null,
-        clientReportedAt: input.clientReportedAt || null,
-        notes: input.notes || null,
-        rhReviewed: false,
-        rhReviewedBy: null,
-        rhReviewedAt: null,
-        receiptStatus: 'pending' as const,
-        receiptId: null,
-        receiptAvailableUntil: null,
-        createdAt: markAt,
-        createdBy: input.actorUid,
-      };
-
-      tx.set(docRef, data);
-      tx.set(
-        counterRef,
-        {
-          lastNsr: nextNsr,
-          lastMarkHash: hash,
-          updatedAt: markAt,
-        },
-        { merge: true }
-      );
-
-      return {
-        nsr: nextNsr,
-        afdHash: hash,
-        previousHash: prevHash,
-        integrityHash: data.integrityHash,
-        clockInData: data,
-      };
-    }
-  );
+  await docRef.set(clockInData);
 
   const shiftId = await updateShiftBestEffort({
     businessId: input.businessId,
@@ -318,15 +305,15 @@ export async function registerImmutableMark(input: RegisterMarkInput) {
       businessId: input.businessId,
       businessLegalName: input.business.legalName || input.business.displayName,
       businessTaxId: input.business.taxId || '',
-      employeeName: identity.name,
-      employeeCpf: identity.cpf || 'Não informado',
+      employeeName: employee.name,
+      employeeCpf: employee.cpf!,
       clockInId: docRef.id,
-      nsr,
+      nsr: fiscal.nsr,
       type: input.type,
       markAt,
       timeSource: legal.source,
       ntpServer: legal.ntpServer,
-      integrityHash: afdHash,
+      integrityHash: fiscal.afdHash || '',
       collectorLabel: collector.label,
     });
 
@@ -340,7 +327,7 @@ export async function registerImmutableMark(input: RegisterMarkInput) {
       clockInId: docRef.id,
       businessId: input.businessId,
       userId: input.userId,
-      nsr,
+      nsr: fiscal.nsr,
       fileName: receipt.fileName,
       contentType: 'application/pdf',
       pdfBase64: receipt.pdf.toString('base64'),
@@ -349,7 +336,6 @@ export async function registerImmutableMark(input: RegisterMarkInput) {
       signatureStandard: receipt.signature.standard,
       signatureReason: receipt.signature.reason || null,
       signerSubject: receipt.signature.signerSubject || null,
-      /** PAdES is embedded in the PDF — no separate .p7s */
       padesEmbedded: receipt.signature.standard === 'PAdES-embedded',
       availableUntil: receipt.availableUntil,
       retentionUntil,
@@ -377,8 +363,9 @@ export async function registerImmutableMark(input: RegisterMarkInput) {
     shiftId,
     ...clockInData,
     ...receiptMeta,
-    previousHash,
-    integrityHash,
+    fiscalEventId: fiscal.id,
+    previousHash: fiscal.previousHash,
+    integrityHash: clockInData.integrityHash,
     timestamp: markAt.toISOString(),
     createdAt: markAt.toISOString(),
     retentionUntil: retentionUntil.toISOString(),

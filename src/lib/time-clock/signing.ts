@@ -1,7 +1,7 @@
 /**
- * Cryptographic signing for REP-P (Portaria 671):
- * - Vendor (Puncto): AFD CAdES .p7s + PDF PAdES via env PFX
- * - Employer (client): AEJ CAdES .p7s via uploaded PFX in Firestore
+ * Cryptographic signing for REP-P / PTRP (Portaria 671):
+ * - Puncto e-CNPJ (vendor): AFD CAdES .p7s, AEJ CAdES .p7s, comprovante PAdES
+ * Employer PFX upload is no longer used for AEJ.
  */
 
 import { createHash, X509Certificate } from 'crypto';
@@ -17,10 +17,6 @@ import {
   SUBFILTER_ETSI_CADES_DETACHED,
 } from '@signpdf/utils';
 import { extractPemFromPfx } from './pfx';
-import {
-  loadEmployerPfxCredentials,
-  type EmployerCertPublicMeta,
-} from './employer-cert';
 
 export type SignatureResult = {
   status: 'signed' | 'pending_icp_cert' | 'failed';
@@ -129,28 +125,26 @@ export function signAfdCades(content: Buffer | string): SignatureResult {
 }
 
 /**
- * AEJ — employer certificate from Firestore (uploaded by client admin).
- * Never uses Puncto vendor cert.
+ * AEJ — Puncto PTRP developer certificate (same vendor PFX as AFD).
+ * Portaria 671: AEJ is produced/signed by the treatment software developer.
  */
-export async function signAejCades(
-  businessId: string,
-  content: Buffer | string
-): Promise<SignatureResult & { employerMeta?: EmployerCertPublicMeta }> {
-  const creds = await loadEmployerPfxCredentials(businessId);
-  if (!creds) {
+export function signAejCades(
+  content: Buffer | string,
+  _businessId?: string
+): SignatureResult {
+  const vendor = loadVendorPfx();
+  if (!vendor) {
     return {
       status: 'pending_icp_cert',
       standard: 'none',
       reason:
-        'Empregador ainda não enviou o certificado e-CNPJ A1. Faça upload em Configurações de ponto / Certificado digital.',
+        'Configure PUNCTO_VENDOR_ICP_PFX_PATH + PUNCTO_VENDOR_ICP_PFX_PASSWORD para assinar o AEJ.',
     };
   }
-  if ('error' in creds) {
-    return { status: 'failed', standard: 'none', reason: creds.error };
+  if ('error' in vendor) {
+    return { status: 'failed', standard: 'none', reason: vendor.error };
   }
-
-  const result = signDetachedCadesWithPfx(content, creds.pfx, creds.password);
-  return { ...result, employerMeta: creds.meta };
+  return signDetachedCadesWithPfx(content, vendor.pfx, vendor.password);
 }
 
 /**
@@ -228,18 +222,11 @@ export async function signPdfPadesEmbedded(
   }
 }
 
-/** @deprecated use signAfdCades */
+/** @deprecated use signAfdCades / signAejCades */
 export function signDetachedCades(
   content: Buffer | string,
-  role: 'VENDOR' | 'EMPLOYER' = 'VENDOR'
+  _role: 'VENDOR' | 'EMPLOYER' = 'VENDOR'
 ): SignatureResult {
-  if (role === 'EMPLOYER') {
-    return {
-      status: 'pending_icp_cert',
-      standard: 'none',
-      reason: 'Use signAejCades(businessId, content) para assinar AEJ com o certificado do cliente.',
-    };
-  }
   return signAfdCades(content);
 }
 

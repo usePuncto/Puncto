@@ -488,21 +488,57 @@ service cloud.firestore {
         allow write: if isBusinessOwner(businessId) || isPlatformAdmin();
       }
 
-      // Phase 3: Time Clock Module
+      // Phase 3: Time Clock Module — ARP append-only via Admin SDK only
       match /clockIns/{clockInId} {
-        // Employees can create their own clock-ins only if they are staff of this business
-        allow create: if isAuthenticated() &&
-                        request.resource.data.userId == request.auth.uid &&
-                        isBusinessStaff(businessId);
-        // Staff can read all clock-ins
         allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
-        // Only staff can update (for validation)
-        allow update: if isBusinessOwner(businessId) || hasPermission(businessId, 'manageBookings') || isPlatformAdmin();
+        // Client SDK cannot create/update/delete fiscal marks — API/Admin SDK only
+        allow create, update, delete: if false;
+      }
+
+      match /repFiscalEvents/{eventId} {
+        allow read: if isBusinessOwner(businessId) || hasPermission(businessId, 'manageBookings') || isPlatformAdmin();
+        // Append-only fiscal ledger — no client writes
+        allow create, update, delete: if false;
+      }
+
+      match /timeClockAdjustments/{adjId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow create, update, delete: if false;
+      }
+
+      match /timeClockMeta/{docId} {
+        allow read: if isBusinessOwner(businessId) || isPlatformAdmin();
+        allow write: if false;
+      }
+
+      match /timeClockAuditLog/{logId} {
+        allow read: if isBusinessOwner(businessId) || isPlatformAdmin();
+        allow write: if false;
+      }
+
+      match /contractualSchedules/{scheduleId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow write: if false;
+      }
+
+      match /fiscalExports/{exportId} {
+        allow read: if isBusinessOwner(businessId) || hasPermission(businessId, 'manageBookings') || isPlatformAdmin();
+        allow write: if false;
+      }
+
+      match /espelhoSignatures/{sigId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow write: if false;
+      }
+
+      match /espelhoContestacoes/{cId} {
+        allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
+        allow write: if false;
       }
 
       match /shifts/{shiftId} {
         allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
-        allow write: if isBusinessOwner(businessId) || hasPermission(businessId, 'manageBookings') || isPlatformAdmin();
+        allow write: if false;
       }
 
       match /shiftSchedules/{scheduleId} {

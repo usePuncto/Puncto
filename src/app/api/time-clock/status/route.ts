@@ -111,10 +111,19 @@ export async function GET(request: NextRequest) {
         ntpServer: legal.ntpServer || null,
       },
       compliance: {
-        unrestrictedMarks: true,
         noContractualAutoFill: true,
+        contractualScheduleSupported: true,
+        preAssinalacaoIntervalo: false,
         noOvertimePreApproval: true,
+        unrestrictedMarks: true,
         immutableOriginals: true,
+        noProxyPunch: true,
+        afdLayoutVersion: '004',
+        aejLayoutVersion: '002',
+        afdSource: 'repFiscalEvents_only',
+        nsrScopedBy: 'repEstablishmentId',
+        internalOperationalTargetAvailabilityPercent: 99.9,
+        portaria671DoesNotFixAvailabilityPercent: true,
       },
     });
   } catch (error) {

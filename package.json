@@ -8,6 +8,7 @@
     "postbuild": "next-sitemap",
     "start": "next start",
     "lint": "next lint",
+    "test:fiscal": "tsx src/lib/time-clock/__tests__/fiscal-layouts.test.ts && tsx src/lib/time-clock/__tests__/signature-bytes.test.ts",
     "seed": "tsx scripts/seed.ts",
     "set-admin": "tsx scripts/set-admin.ts",
     "create-admin": "tsx scripts/create-platform-admin.ts",

@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ClockInType } from '@/types/timeClock';
-import {
-  canManageTimeClock,
-  requireTimeClockAuth,
-} from '@/lib/time-clock/auth';
+import { requireTimeClockAuth } from '@/lib/time-clock/auth';
 import { registerImmutableMark } from '@/lib/time-clock/register-mark';
 
 /**
@@ -11,9 +8,9 @@ import { registerImmutableMark } from '@/lib/time-clock/register-mark';
  *
  * Compliance (Portaria 671 / REP-P):
  * - Official time from HLB (NTP.br), never device clock
- * - Mark always accepted (no time-of-day lock, no overtime pre-approval)
- * - Original mark is immutable (AFD); shifts are best-effort UX only
- * - Generates digital comprovante PDF immediately (≤48h availability)
+ * - Mark always attributed to authenticated Firebase uid (no proxy punch)
+ * - Original mark is immutable (ARP/AFD); corrections via PTRP adjustments only
+ * - CPF + repPReady required
  */
 export async function POST(request: NextRequest) {
   try {
@@ -22,20 +19,34 @@ export async function POST(request: NextRequest) {
       businessId,
       type,
       location,
+      locationPurpose,
       deviceId,
       notes,
-      userId: bodyUserId,
       clientReportedAt,
+      userId: _ignoredUserId,
+      employeeId: _ignoredEmployeeId,
     } = body as {
       businessId?: string;
       type?: ClockInType;
       location?: { lat: number; lng: number };
+      locationPurpose?: string;
       deviceId?: string;
       notes?: string;
-      userId?: string;
-      /** Ignored for official time — audit only */
       clientReportedAt?: string;
+      userId?: string;
+      employeeId?: string;
     };
+
+    // Explicitly reject impersonation attempts
+    if (_ignoredUserId || _ignoredEmployeeId) {
+      return NextResponse.json(
+        {
+          error:
+            'Não é permitido informar userId/employeeId na batida. A marcação REP-P pertence exclusivamente ao usuário autenticado. Use o módulo de tratamento (PTRP) para inclusões manuais.',
+        },
+        { status: 400 }
+      );
+    }
 
     if (!businessId || !type) {
       return NextResponse.json(
@@ -54,20 +65,14 @@ export async function POST(request: NextRequest) {
 
     const { actor, business } = authResult;
 
-    const targetUserId =
-      bodyUserId && canManageTimeClock(actor) ? bodyUserId : actor.uid;
-
-    if (targetUserId !== actor.uid && !canManageTimeClock(actor)) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
     const result = await registerImmutableMark({
       business,
       businessId,
-      userId: targetUserId,
+      userId: actor.uid,
       type,
       actorUid: actor.uid,
       location,
+      locationPurpose,
       deviceId,
       ipAddress:
         request.headers.get('x-forwarded-for') ||
@@ -79,7 +84,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to clock in/out';
+    const code = (error as { code?: string })?.code;
     console.error('[time-clock clock POST] Error:', error);
-    return NextResponse.json({ error: 'Failed to clock in/out' }, { status: 500 });
+    const status = code === 'REP_P_NOT_READY' ? 403 : 500;
+    return NextResponse.json(
+      { error: message, code: code || 'CLOCK_ERROR' },
+      { status }
+    );
   }
 }

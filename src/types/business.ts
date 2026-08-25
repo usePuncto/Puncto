@@ -305,6 +305,19 @@ export interface Staff {
   businessId: string;
   userId: string;
   role: 'owner' | 'manager' | 'professional';
+  /** CPF do colaborador — obrigatório para REP-P */
+  cpf?: string | null;
+  name?: string;
+  displayName?: string;
+  document?: string;
+  /** Matrícula do vínculo no eSocial (AEJ tipo 06) — sem transmissão S-2200 */
+  esocialRegistration?: string | null;
+  /** Identificador interno do vínculo — obrigatório se o mesmo CPF tiver >1 contrato no AEJ */
+  employmentRelationshipId?: string | null;
+  /** Habilitado explicitamente no REP-P após CPF válido */
+  repPEnabled?: boolean;
+  repPReady?: boolean;
+  repPBlockers?: string[];
   permissions?: {
     manageServices: boolean;
     manageProfessionals: boolean;

@@ -144,6 +144,7 @@ export default function LGPDPage() {
         <ul>
           <li><strong>Transparência:</strong> Informe seus clientes e colaboradores que você utiliza o Puncto como sistema de gestão.</li>
           <li><strong>Base Legal Correta (RH):</strong> Para o registro de ponto de funcionários, a base legal geralmente é a <em>Execução de Contrato</em> ou <em>Obrigação Legal</em>, não sendo necessário pedir &quot;consentimento&quot; para o registro da jornada.</li>
+          <li><strong>Geolocalização:</strong> Quando habilitada na batida, trata-se de <em>dado pessoal</em> (não sensível). Coleta apenas no instante da marcação, com finalidade de validação de jornada; sem rastreamento contínuo.</li>
           <li><strong>Base Legal Correta (Clientes):</strong> Para enviar marketing aos seus clientes finais, certifique-se de ter o consentimento deles ou uma relação prévia que justifique o legítimo interesse.</li>
           <li><strong>Direitos:</strong> Utilize as ferramentas de exportação de dados do Puncto para atender solicitações de seus clientes quando necessário.</li>
         </ul>

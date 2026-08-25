@@ -166,7 +166,9 @@ export async function GET(request: NextRequest) {
         daysWorked: days.filter((d) => d.marks.length > 0).length,
       },
       retentionYears: 5,
-      employeeSignedAt: sig ? serializeTimestamp(sig.signedAt) : null,
+      employeeSignedAt: sig
+        ? serializeTimestamp(sig.acknowledgedAt || sig.signedAt)
+        : null,
       employeeSignatureMethod: sig?.method || null,
     };
 
@@ -180,18 +182,48 @@ export async function GET(request: NextRequest) {
       });
     }
 
+    const contests = await db
+      .collection('businesses')
+      .doc(businessId)
+      .collection('espelhoContestacoes')
+      .where('userId', '==', userId)
+      .where('month', '==', month)
+      .get()
+      .catch(() => ({ docs: [] as FirebaseFirestore.QueryDocumentSnapshot[] }));
+
     return NextResponse.json({
       ...report,
+      acknowledgedAt: sig
+        ? serializeTimestamp(sig.acknowledgedAt || sig.signedAt)
+        : null,
+      acknowledgementDoesNotConditionValidity: true,
+      acknowledgement: sig
+        ? {
+            userId: sig.userId,
+            acknowledgedAt: serializeTimestamp(sig.acknowledgedAt || sig.signedAt),
+            ipAddress: sig.ipAddress || null,
+            userAgent: sig.userAgent || null,
+            acceptedText: sig.acceptedText || null,
+            method: sig.method || null,
+            doesNotConditionValidity: true,
+          }
+        : null,
+      /** @deprecated use acknowledgement */
       signatureAudit: sig
         ? {
             userId: sig.userId,
-            signedAt: serializeTimestamp(sig.signedAt),
+            signedAt: serializeTimestamp(sig.acknowledgedAt || sig.signedAt),
             ipAddress: sig.ipAddress || null,
             userAgent: sig.userAgent || null,
             acceptedText: sig.acceptedText || null,
             method: sig.method || null,
           }
         : null,
+      contestacoes: contests.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        createdAt: serializeTimestamp(d.data().createdAt),
+      })),
     });
   } catch (error) {
     console.error('[time-clock espelho GET]', error);
@@ -202,27 +234,25 @@ export async function GET(request: NextRequest) {
 /**
  * POST /api/time-clock/espelho
  * Body: { businessId, month, accepted: true }
- * Persists: userId, HLB timestamp, IP, User-Agent ("Li e Aceito").
+ * OR contest: { businessId, month, action: 'contest', message }
+ *
+ * "Li e Aceito" → acknowledgedAt (audit only — does NOT condition ponto validity / payroll close).
+ * Contestação → PTRP queue; never alters ARP originals.
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { businessId, month, accepted } = body as {
+    const { businessId, month, accepted, action, message } = body as {
       businessId?: string;
       month?: string;
       accepted?: boolean;
+      action?: 'acknowledge' | 'contest';
+      message?: string;
     };
 
     if (!businessId || !month || !/^\d{4}-\d{2}$/.test(month)) {
       return NextResponse.json(
         { error: 'businessId and month (YYYY-MM) are required' },
-        { status: 400 }
-      );
-    }
-
-    if (accepted !== true) {
-      return NextResponse.json(
-        { error: 'É necessário confirmar accepted: true (Li e Aceito)' },
         { status: 400 }
       );
     }
@@ -234,6 +264,62 @@ export async function POST(request: NextRequest) {
     const userId = authResult.actor.uid;
     const ipAddress = clientIp(request);
     const userAgent = request.headers.get('user-agent') || 'unknown';
+
+    if (action === 'contest') {
+      const msg = (message || '').trim();
+      if (msg.length < 5) {
+        return NextResponse.json(
+          { error: 'Informe o motivo da contestação (mín. 5 caracteres)' },
+          { status: 400 }
+        );
+      }
+      const ref = await db
+        .collection('businesses')
+        .doc(businessId)
+        .collection('espelhoContestacoes')
+        .add({
+          businessId,
+          userId,
+          month,
+          message: msg,
+          status: 'open',
+          createdAt: legal.date,
+          createdBy: userId,
+          doesNotAlterArp: true,
+          routedTo: 'ptrp_treatment',
+          ipAddress,
+          userAgent,
+        });
+
+      await db
+        .collection('businesses')
+        .doc(businessId)
+        .collection('timeClockAuditLog')
+        .add({
+          type: 'espelho_contest',
+          contestId: ref.id,
+          userId,
+          month,
+          message: msg,
+          actorUid: userId,
+          createdAt: legal.date,
+        });
+
+      return NextResponse.json({
+        ok: true,
+        contestId: ref.id,
+        message:
+          'Contestação registrada para tratamento/RH. Os registros originais da ARP não foram alterados.',
+      });
+    }
+
+    if (accepted !== true && action !== 'acknowledge') {
+      return NextResponse.json(
+        { error: 'É necessário confirmar accepted: true (Li e Aceito) ou action: contest' },
+        { status: 400 }
+      );
+    }
+
     const acceptedText = 'Li e Aceito';
 
     const ref = db
@@ -243,12 +329,15 @@ export async function POST(request: NextRequest) {
       .doc(`${userId}_${month}`);
 
     const existing = await ref.get();
-    if (existing.exists && existing.data()?.signedAt) {
+    if (existing.exists && (existing.data()?.acknowledgedAt || existing.data()?.signedAt)) {
       return NextResponse.json({
         ok: true,
-        alreadySigned: true,
-        signedAt: serializeTimestamp(existing.data()?.signedAt),
-        message: 'Espelho já havia sido assinado anteriormente.',
+        alreadyAcknowledged: true,
+        acknowledgedAt: serializeTimestamp(
+          existing.data()?.acknowledgedAt || existing.data()?.signedAt
+        ),
+        message: 'Espelho já havia registrado ciência anteriormente.',
+        note: 'A ciência não condiciona a validade do ponto nem o fechamento da folha.',
         audit: {
           userId: existing.data()?.userId,
           ipAddress: existing.data()?.ipAddress,
@@ -261,6 +350,8 @@ export async function POST(request: NextRequest) {
       businessId,
       userId,
       month,
+      acknowledgedAt: legal.date,
+      /** @deprecated alias — prefer acknowledgedAt */
       signedAt: legal.date,
       signedAtSource: legal.source,
       ntpServer: legal.ntpServer || null,
@@ -270,18 +361,20 @@ export async function POST(request: NextRequest) {
       ipAddress,
       userAgent,
       retentionYears: 5,
-      /** Explicit: no ICP certificate — simple electronic signature */
       certificateUsed: false,
+      doesNotConditionValidity: true,
+      doesNotConditionPayrollClose: true,
     });
 
     return NextResponse.json({
       ok: true,
-      alreadySigned: false,
-      signedAt: legal.date.toISOString(),
-      message: 'Espelho de ponto assinado com "Li e Aceito".',
+      alreadyAcknowledged: false,
+      acknowledgedAt: legal.date.toISOString(),
+      message: 'Ciência do espelho registrada com "Li e Aceito".',
+      note: 'A ciência é auditoria adicional e não condiciona a validade do ponto nem o fechamento da folha.',
       audit: {
         userId,
-        signedAt: legal.date.toISOString(),
+        acknowledgedAt: legal.date.toISOString(),
         ipAddress,
         userAgent,
         acceptedText,
@@ -289,6 +382,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('[time-clock espelho POST]', error);
-    return NextResponse.json({ error: 'Failed to sign espelho' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to process espelho action' }, { status: 500 });
   }
 }

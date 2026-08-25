@@ -1,42 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createHmac, timingSafeEqual } from 'crypto';
 import { z } from 'zod';
 import { db } from '@/lib/firebaseAdmin';
 import { checkIpRateLimit, clientIpFromRequest } from '@/lib/api/ipRateLimit';
+import { verifyNewsletterUnsubscribeToken } from '@/lib/newsletter/unsubscribe-token';
 
 const newsletterSchema = z.object({
   email: z.string().email('Email inválido'),
 });
-
-function unsubscribeSecret(): string {
-  const secret =
-    process.env.NEWSLETTER_UNSUBSCRIBE_SECRET?.trim() ||
-    process.env.CALENDAR_LINK_SECRET?.trim();
-  if (secret && secret.length >= 16) return secret;
-  if (process.env.NODE_ENV !== 'production') {
-    return 'puncto-dev-newsletter-secret';
-  }
-  throw new Error('NEWSLETTER_UNSUBSCRIBE_SECRET or CALENDAR_LINK_SECRET required');
-}
-
-export function signNewsletterUnsubscribeToken(email: string): string {
-  return createHmac('sha256', unsubscribeSecret())
-    .update(email.trim().toLowerCase())
-    .digest('hex')
-    .slice(0, 32);
-}
-
-function verifyUnsubscribeToken(email: string, token: string | null): boolean {
-  if (!token || token.length < 16) return false;
-  try {
-    const expected = signNewsletterUnsubscribeToken(email);
-    const a = Buffer.from(expected, 'utf8');
-    const b = Buffer.from(token, 'utf8');
-    return a.length === b.length && timingSafeEqual(a, b);
-  } catch {
-    return false;
-  }
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -54,7 +24,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
-    // Validate input
     const result = newsletterSchema.safeParse(body);
     if (!result.success) {
       return NextResponse.json(
@@ -66,7 +35,6 @@ export async function POST(request: NextRequest) {
     const { email } = result.data;
     const emailNorm = email.toLowerCase();
 
-    // Check if email already exists
     const existingSubscriber = await db
       .collection('newsletter_subscribers')
       .where('email', '==', emailNorm)
@@ -74,7 +42,6 @@ export async function POST(request: NextRequest) {
       .get();
 
     if (!existingSubscriber.empty) {
-      // Already subscribed, just return success
       return NextResponse.json({
         success: true,
         message: 'Você já está inscrito em nossa newsletter',
@@ -82,12 +49,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // Get UTM parameters
     const utmSource = request.headers.get('x-utm-source') || null;
     const utmMedium = request.headers.get('x-utm-medium') || null;
     const utmCampaign = request.headers.get('x-utm-campaign') || null;
 
-    // Store newsletter subscription
     await db.collection('newsletter_subscribers').add({
       email: emailNorm,
       status: 'active',
@@ -98,11 +63,10 @@ export async function POST(request: NextRequest) {
         referrer: request.headers.get('referer') || null,
       },
       subscribedAt: new Date(),
-      confirmedAt: null, // Will be set after double opt-in confirmation
+      confirmedAt: null,
       unsubscribedAt: null,
     });
 
-    // Also add to leads collection for marketing follow-up
     await db.collection('leads').add({
       type: 'newsletter',
       email: emailNorm,
@@ -139,7 +103,6 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Unsubscribe endpoint — requires HMAC token derived from email
 export async function DELETE(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -153,11 +116,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    if (!verifyUnsubscribeToken(email, token)) {
+    if (!verifyNewsletterUnsubscribeToken(email, token)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Find subscriber
     const subscriberQuery = await db
       .collection('newsletter_subscribers')
       .where('email', '==', email.toLowerCase())
@@ -171,7 +133,6 @@ export async function DELETE(request: NextRequest) {
       });
     }
 
-    // Update subscriber status
     const subscriberDoc = subscriberQuery.docs[0];
     await subscriberDoc.ref.update({
       status: 'unsubscribed',

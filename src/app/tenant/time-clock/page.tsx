@@ -101,6 +101,7 @@ export default function TimeClockPage() {
     setError(null);
     try {
       let location: { lat: number; lng: number } | undefined;
+      let locationPurpose: string | undefined;
       if (navigator.geolocation) {
         try {
           const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -110,6 +111,8 @@ export default function TimeClockPage() {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           };
+          locationPurpose =
+            'Validação de jornada no momento da marcação (dado pessoal; coleta pontual, sem rastreamento contínuo)';
         } catch {
           // optional
         }
@@ -126,6 +129,7 @@ export default function TimeClockPage() {
           businessId: business.id,
           type,
           location,
+          locationPurpose,
           deviceId: 'web',
           // Explicitly sent only for audit — server ignores for official time
           clientReportedAt: new Date().toISOString(),
@@ -183,6 +187,11 @@ export default function TimeClockPage() {
           <h1 className="mt-1 text-3xl font-bold text-neutral-900">Ponto Eletrônico</h1>
           <p className="mt-2 text-sm text-neutral-600">
             {status?.displayName || user.displayName || user.email}
+          </p>
+          <p className="mt-2 text-[11px] text-neutral-500">
+            Identificação pela sua conta Firebase. Se a localização do navegador for
+            solicitada, ela é coletada só no instante da batida (dado pessoal, não sensível),
+            sem rastreamento contínuo.
           </p>
           {status?.serverLegalTime && (
             <p className="mt-2 text-[11px] text-neutral-400">

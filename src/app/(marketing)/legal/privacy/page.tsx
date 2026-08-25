@@ -41,7 +41,7 @@ export default function PrivacyPage() {
         <h3>2.2. Dos Funcionários do Assinante (Módulo RH e Gestão)</h3>
         <ul>
           <li><strong>Identificação:</strong> Nome, cargo, CPF e matrícula.</li>
-          <li><strong>Registro de Ponto:</strong> Horários de entrada e saída, intervalos e, quando ativado pelo Assinante, a <strong>geolocalização</strong> exata no momento do registro do ponto para validação de jornada externa ou remota.</li>
+          <li><strong>Registro de Ponto:</strong> Horários de entrada e saída, intervalos e, quando ativado pelo Assinante, a <strong>geolocalização</strong> (dado pessoal — não classificado como dado sensível) coletada somente no momento da marcação, para validação de jornada externa ou remota. Finalidade: comprovar o local da batida. Não há coleta contínua de localização. Retenção alinhada aos registros de ponto (mínimo 5 anos).</li>
           <li><strong>Dados de Acesso:</strong> Credenciais de login na plataforma.</li>
         </ul>
 

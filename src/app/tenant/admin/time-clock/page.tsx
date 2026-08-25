@@ -93,20 +93,13 @@ export default function AdminTimeClockPage() {
   const [error, setError] = useState<string | null>(null);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [fiscalMsg, setFiscalMsg] = useState<string | null>(null);
-  const [employerCert, setEmployerCert] = useState<{
-    hasCertificate: boolean;
-    subjectCN?: string;
-    validTo?: string;
-    encryptionConfigured?: boolean;
-  } | null>(null);
-  const [certPassword, setCertPassword] = useState('');
-  const [certFile, setCertFile] = useState<File | null>(null);
-  const [certUploading, setCertUploading] = useState(false);
   const [adjForm, setAdjForm] = useState({
     userId: '',
-    kind: 'medical',
+    kind: 'manual_insert',
     date: new Date().toISOString().slice(0, 10),
+    markAt: '',
     notes: '',
+    reason: '',
     minutes: '',
   });
 
@@ -189,21 +182,6 @@ export default function AdminTimeClockPage() {
     }
   }, [authHeaders, business?.id, firebaseUser, month]);
 
-  const loadEmployerCert = useCallback(async () => {
-    if (!business?.id || !firebaseUser) return;
-    try {
-      const headers = await authHeaders();
-      const res = await fetch(
-        `/api/time-clock/employer-certificate?businessId=${business.id}`,
-        { headers }
-      );
-      const data = await res.json();
-      if (res.ok) setEmployerCert(data);
-    } catch {
-      /* ignore */
-    }
-  }, [authHeaders, business?.id, firebaseUser]);
-
   const loadAdjustments = useCallback(async () => {
     if (!business?.id || !firebaseUser) return;
     setLoading(true);
@@ -230,9 +208,8 @@ export default function AdminTimeClockPage() {
     else if (tab === 'treatment') void loadAdjustments();
     else if (tab === 'fiscal') {
       setLoading(false);
-      void loadEmployerCert();
     } else setLoading(false);
-  }, [tab, loadLive, loadHistory, loadReports, loadAdjustments, loadEmployerCert]);
+  }, [tab, loadLive, loadHistory, loadReports, loadAdjustments]);
 
   const reviewClockIn = async (clockInId: string, rhReviewed: boolean) => {
     if (!business?.id) return;
@@ -325,57 +302,20 @@ export default function AdminTimeClockPage() {
     );
   };
 
-  const uploadEmployerCert = async () => {
-    if (!business?.id || !firebaseUser || !certFile || !certPassword) {
-      alert('Selecione o .pfx e informe a senha');
-      return;
-    }
-    setCertUploading(true);
-    try {
-      const token = await firebaseUser.getIdToken();
-      const form = new FormData();
-      form.append('businessId', business.id);
-      form.append('password', certPassword);
-      form.append('file', certFile);
-      const res = await fetch('/api/time-clock/employer-certificate', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: form,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Falha no upload');
-      setCertPassword('');
-      setCertFile(null);
-      setFiscalMsg(data.message || 'Certificado salvo');
-      await loadEmployerCert();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro no upload');
-    } finally {
-      setCertUploading(false);
-    }
-  };
-
-  const removeEmployerCert = async () => {
-    if (!business?.id || !firebaseUser) return;
-    if (!confirm('Remover certificado do empregador? O AEJ não poderá ser assinado até novo upload.')) {
-      return;
-    }
-    const token = await firebaseUser.getIdToken();
-    const res = await fetch(
-      `/api/time-clock/employer-certificate?businessId=${business.id}`,
-      { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (!res.ok) {
-      alert('Erro ao remover');
-      return;
-    }
-    await loadEmployerCert();
-    setFiscalMsg('Certificado do empregador removido.');
-  };
-
   const createAdjustment = async () => {
     if (!business?.id || !adjForm.userId) {
       alert('Informe o userId do colaborador');
+      return;
+    }
+    if (
+      (adjForm.kind === 'manual_insert' || adjForm.kind === 'disregard') &&
+      !(adjForm.reason || adjForm.notes)?.trim()
+    ) {
+      alert('Motivo obrigatório para inclusão manual ou desconsideração');
+      return;
+    }
+    if (adjForm.kind === 'manual_insert' && !adjForm.markAt) {
+      alert('Informe o horário incluído (markAt) para inclusão manual');
       return;
     }
     const headers = await authHeaders();
@@ -387,7 +327,9 @@ export default function AdminTimeClockPage() {
         userId: adjForm.userId,
         kind: adjForm.kind,
         date: adjForm.date,
+        markAt: adjForm.markAt || undefined,
         notes: adjForm.notes || undefined,
+        reason: adjForm.reason || adjForm.notes || undefined,
         minutes: adjForm.minutes ? Number(adjForm.minutes) : undefined,
       }),
     });
@@ -465,62 +407,10 @@ export default function AdminTimeClockPage() {
       ) : tab === 'fiscal' ? (
         <div className="space-y-6">
           <div className="rounded-lg border border-neutral-200 bg-white p-6">
-            <h2 className="text-lg font-semibold">Certificado e-CNPJ do empregador (AEJ)</h2>
+            <h2 className="text-lg font-semibold">Arquivos fiscais (geração imediata)</h2>
             <p className="mt-1 text-sm text-neutral-600">
-              Upload do .pfx A1 do cliente. A senha é criptografada (AES-256-GCM) no banco. Usado
-              apenas na assinatura CAdES do AEJ — nunca no AFD/comprovante (assinados pela Puncto).
-            </p>
-            {employerCert?.hasCertificate ? (
-              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-900">
-                <p className="font-medium">Certificado ativo</p>
-                <p className="mt-1 text-xs">{employerCert.subjectCN}</p>
-                {employerCert.validTo && (
-                  <p className="text-xs">Válido até {new Date(employerCert.validTo).toLocaleDateString('pt-BR')}</p>
-                )}
-                <button
-                  type="button"
-                  onClick={() => void removeEmployerCert()}
-                  className="mt-3 text-xs text-red-700 underline"
-                >
-                  Remover certificado
-                </button>
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <input
-                  type="file"
-                  accept=".pfx,.p12"
-                  onChange={(e) => setCertFile(e.target.files?.[0] || null)}
-                  className="text-sm"
-                />
-                <input
-                  type="password"
-                  placeholder="Senha do .pfx"
-                  value={certPassword}
-                  onChange={(e) => setCertPassword(e.target.value)}
-                  className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
-                />
-                <button
-                  type="button"
-                  disabled={certUploading}
-                  onClick={() => void uploadEmployerCert()}
-                  className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 sm:col-span-2"
-                >
-                  {certUploading ? 'Enviando...' : 'Salvar certificado do empregador'}
-                </button>
-              </div>
-            )}
-            {employerCert && !employerCert.encryptionConfigured && (
-              <p className="mt-2 text-xs text-amber-700">
-                Aviso: PUNCTO_SECRETS_ENCRYPTION_KEY não está configurada no servidor.
-              </p>
-            )}
-          </div>
-
-          <div className="rounded-lg border border-neutral-200 bg-white p-6">
-            <h2 className="text-lg font-semibold">Exportações Portaria 671</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              AFD + .p7s (Puncto). AEJ + .p7s (empregador). Retenção mínima de 5 anos.
+              Selecione o período e baixe AFD 004 (.txt + .p7s) e AEJ 002 (.txt + .p7s) sob demanda.
+              Assinaturas CAdES com certificado ICP-Brasil da Puncto. Sem prazo de 48h para geração.
             </p>
             <div className="mt-4 flex flex-wrap items-end gap-3">
               <div>
@@ -537,40 +427,38 @@ export default function AdminTimeClockPage() {
                 onClick={() => void exportFiscal('afd', 'txt')}
                 className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
               >
-                AFD (.txt)
+                Gerar AFD (.txt)
               </button>
               <button
                 type="button"
                 onClick={() => void exportFiscal('afd', 'p7s')}
                 className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50"
               >
-                AFD (.p7s)
+                Baixar AFD (.p7s)
               </button>
               <button
                 type="button"
                 onClick={() => void exportFiscal('aej', 'txt')}
-                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50"
+                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
               >
-                AEJ (.txt)
+                Gerar AEJ (.txt)
               </button>
               <button
                 type="button"
                 onClick={() => void exportFiscal('aej', 'p7s')}
                 className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50"
               >
-                AEJ (.p7s)
+                Baixar AEJ (.p7s)
               </button>
             </div>
-            {fiscalMsg && (
-              <p className="mt-4 text-sm text-neutral-700">{fiscalMsg}</p>
-            )}
+            {fiscalMsg && <p className="mt-4 text-sm text-neutral-700">{fiscalMsg}</p>}
           </div>
         </div>
       ) : tab === 'treatment' ? (
         <div className="space-y-6">
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            Ajustes (atestados, faltas, banco de horas) nunca alteram o registro original do AFD.
-            Eles entram apenas no AEJ.
+            Inclusões por esquecimento usam o PTRP (nunca criam marcação original na ARP).
+            Informe motivo obrigatório. O AFD permanece imutável; o AEJ diferencia fonte &quot;I&quot;.
           </div>
           <div className="rounded-lg border border-neutral-200 bg-white p-6">
             <h2 className="mb-4 text-lg font-semibold">Novo ajuste de tratamento</h2>
@@ -586,10 +474,11 @@ export default function AdminTimeClockPage() {
                 onChange={(e) => setAdjForm((f) => ({ ...f, kind: e.target.value }))}
                 className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
               >
+                <option value="manual_insert">Inclusão manual (esquecimento)</option>
+                <option value="disregard">Desconsiderar marcação</option>
                 <option value="medical">Atestado médico</option>
                 <option value="absence">Falta</option>
                 <option value="time_bank">Banco de horas</option>
-                <option value="manual_insert">Inserção manual (esquecimento)</option>
                 <option value="other">Outro</option>
               </select>
               <input
@@ -597,6 +486,19 @@ export default function AdminTimeClockPage() {
                 value={adjForm.date}
                 onChange={(e) => setAdjForm((f) => ({ ...f, date: e.target.value }))}
                 className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              />
+              <input
+                type="datetime-local"
+                placeholder="Horário incluído"
+                value={adjForm.markAt}
+                onChange={(e) => setAdjForm((f) => ({ ...f, markAt: e.target.value }))}
+                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+              />
+              <input
+                placeholder="Motivo (obrigatório p/ inclusão)"
+                value={adjForm.reason}
+                onChange={(e) => setAdjForm((f) => ({ ...f, reason: e.target.value }))}
+                className="rounded-lg border border-neutral-300 px-3 py-2 text-sm sm:col-span-2"
               />
               <input
                 placeholder="Minutos (opcional)"

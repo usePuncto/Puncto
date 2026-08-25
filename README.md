@@ -22,7 +22,7 @@ O Puncto simplifica as operações diárias de pequenas e médias empresas de be
 - **Redução de Falta** — Lembretes multicanal (WhatsApp, e-mail, SMS)
 - **Pagamentos Integrados** — PIX, cartões de crédito, divisão de comissões via Stripe
 - **Cardápio Digital e Contas Virtuais** — Pedidos em mesa com QR codes e atualizações em tempo real
-- **Relógio de Ponto Eletrônico** — Controle de ponto por PIN/biometria com gestão de turnos
+- **Relógio de Ponto Eletrônico (REP-P)** — Identificação por autenticação Firebase individual (sessão do colaborador). Sem PIN/biometria neste momento. ARP append-only, AFD 004 e AEJ 002.
 - **Gestão Unificada** — Agendamentos, vendas, estoque, equipe e relatórios financeiros
 - **Pronto para o Brasil** — Gestão de notas fiscais (NFS-e/NFC-e/NF-e), PIX, conformidade LGPD
 
