@@ -75,7 +75,7 @@ export type AejBuildInput = {
 };
 
 const DEFAULT_INPI = onlyDigits(
-  process.env.PUNCTO_AFD_INPI_ID || process.env.PUNCTO_INPI_ID || '0'
+  process.env.PUNCTO_AFD_INPI_ID || process.env.PUNCTO_INPI_ID || ''
 ).padStart(17, '0');
 const DEFAULT_DEV_CNPJ = onlyDigits(
   process.env.PUNCTO_VENDOR_CNPJ || process.env.PUNCTO_MANUFACTURER_CNPJ || ''

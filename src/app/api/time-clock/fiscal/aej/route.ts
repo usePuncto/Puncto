@@ -304,7 +304,20 @@ export async function GET(request: NextRequest) {
       ausencias,
     });
 
-    const signature = signAejCades(aej.content, businessId);
+    const signature = await signAejCades(aej.content, businessId);
+    if (
+      process.env.VERCEL_ENV === 'production' &&
+      signature.status !== 'signed'
+    ) {
+      return NextResponse.json(
+        {
+          error: signature.reason || 'Assinatura ICP-Brasil obrigatória em production',
+          code: 'ICP_SIGNATURE_REQUIRED',
+          signatureStatus: signature.status,
+        },
+        { status: 422 }
+      );
+    }
     const retentionUntil = retentionUntilFrom(legal.date);
 
     const exportRef = await db

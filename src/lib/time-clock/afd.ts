@@ -90,7 +90,7 @@ export type AfdBuildInput = {
 };
 
 const DEFAULT_INPI = padLeft(
-  onlyDigits(process.env.PUNCTO_AFD_INPI_ID || process.env.PUNCTO_INPI_ID || '0'),
+  onlyDigits(process.env.PUNCTO_AFD_INPI_ID || process.env.PUNCTO_INPI_ID || ''),
   17
 );
 const DEFAULT_MANUFACTURER_TAX = onlyDigits(

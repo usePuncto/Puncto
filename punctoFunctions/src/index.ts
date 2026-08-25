@@ -45,6 +45,7 @@ export { onClockIn } from "./triggers/onClockIn";
 export { monitorRepPAvailability } from "./scheduled/repPHealthMonitor";
 export { syncRepPHlb } from "./scheduled/syncRepPHlb";
 export { probeRepPHlb } from "./scheduled/probeRepPHlb";
+export { repPSigningService } from "./signing/repPSigningService";
 
 // ===== Phase 4: Webhook Functions =====
 export { onWebhookDeliveryCreated } from "./webhooks/deliver";

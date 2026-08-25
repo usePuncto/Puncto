@@ -6,6 +6,7 @@ import {
 import { resolveRepEstablishment } from '@/lib/time-clock/establishment';
 import { getRepPGoLiveAt, setRepPGoLiveAt } from '@/lib/time-clock/arp';
 import { getBrazilianLegalTime } from '@/lib/time-clock/legal-time';
+import { assertRepPVendorReadyForGoLive } from '@/lib/time-clock/vendor-cert';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +73,20 @@ export async function POST(request: NextRequest) {
   const at = goLiveAt ? new Date(goLiveAt) : legal.date;
   if (Number.isNaN(at.getTime())) {
     return NextResponse.json({ error: 'goLiveAt inválido' }, { status: 400 });
+  }
+
+  try {
+    await assertRepPVendorReadyForGoLive();
+  } catch (e) {
+    const err = e as Error & { code?: string; blockers?: string[] };
+    return NextResponse.json(
+      {
+        error: err.message,
+        code: err.code || 'REP_P_VENDOR_NOT_READY',
+        blockers: err.blockers || [err.message],
+      },
+      { status: 422 }
+    );
   }
 
   await setRepPGoLiveAt(businessId, establishment, at, authResult.actor.uid);

@@ -1,21 +1,16 @@
-/**
- * Extract PEM certificate + private key from a PKCS#12 (.pfx / .p12) buffer.
- * Used for Puncto vendor ICP-Brasil signing (AFD/AEJ/PAdES).
- */
-
 import forge from 'node-forge';
 
 export type PfxPemMaterial = {
   certPem: string;
-  keyPem: string;
   certificate: forge.pki.Certificate;
   privateKey: forge.pki.PrivateKey;
   subjectCN: string;
   subjectRaw: string;
-  /** CNPJ/CPF digits extracted from CN when present (e.g. RAZAO:00000000000000) */
   taxIdFromCert: string | null;
   validFrom: Date;
   validTo: Date;
+  serialNumber: string;
+  issuerCN: string;
 };
 
 function matchCertToKey(
@@ -43,10 +38,7 @@ function extractTaxId(cn: string): string | null {
   return m ? m[1] : null;
 }
 
-export function extractPemFromPfx(
-  pfxBuffer: Buffer,
-  password: string
-): PfxPemMaterial {
+export function extractPemFromPfx(pfxBuffer: Buffer, password: string): PfxPemMaterial {
   const der = pfxBuffer.toString('binary');
   const asn1 = forge.asn1.fromDer(der);
   const p12 = forge.pkcs12.pkcs12FromAsn1(asn1, password);
@@ -61,23 +53,19 @@ export function extractPemFromPfx(
     p12.getBags({ bagType: forge.pki.oids.certBag })[forge.pki.oids.certBag] || [];
 
   const privateKey = keyBags[0]?.key;
-  if (!privateKey) {
-    throw new Error('PFX sem chave privada');
-  }
+  if (!privateKey) throw new Error('PFX sem chave privada');
 
   const certificate = matchCertToKey(certBags, privateKey);
-  if (!certificate) {
-    throw new Error('PFX sem certificado correspondente à chave');
-  }
+  if (!certificate) throw new Error('PFX sem certificado correspondente à chave');
 
   const subjectCN = (certificate.subject.getField('CN')?.value as string) || '';
+  const issuerCN = (certificate.issuer.getField('CN')?.value as string) || '';
   const subjectRaw = certificate.subject.attributes
     .map((a) => `${a.shortName || a.name}=${a.value}`)
     .join(', ');
 
   return {
     certPem: forge.pki.certificateToPem(certificate),
-    keyPem: forge.pki.privateKeyToPem(privateKey),
     certificate,
     privateKey,
     subjectCN,
@@ -85,17 +73,7 @@ export function extractPemFromPfx(
     taxIdFromCert: extractTaxId(subjectCN),
     validFrom: certificate.validity.notBefore,
     validTo: certificate.validity.notAfter,
-  };
-}
-
-/** Inspect PFX without keeping material longer than needed */
-export function inspectPfx(pfxBuffer: Buffer, password: string) {
-  const m = extractPemFromPfx(pfxBuffer, password);
-  return {
-    subjectCN: m.subjectCN,
-    subjectRaw: m.subjectRaw,
-    taxIdFromCert: m.taxIdFromCert,
-    validFrom: m.validFrom.toISOString(),
-    validTo: m.validTo.toISOString(),
+    serialNumber: certificate.serialNumber,
+    issuerCN,
   };
 }

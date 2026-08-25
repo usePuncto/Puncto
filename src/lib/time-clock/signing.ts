@@ -1,12 +1,11 @@
 /**
- * Cryptographic signing for REP-P / PTRP (Portaria 671):
- * - Puncto e-CNPJ (vendor): AFD CAdES .p7s, AEJ CAdES .p7s, comprovante PAdES
- * Employer PFX upload is no longer used for AEJ.
+ * Cryptographic signing for REP-P / PTRP (Portaria 671).
+ *
+ * Production: Vercel → IAM + secret → Puncto Signing Service (privado) → GSM → assina
+ * Dev/Preview: PFX local de teste ou pending_icp_cert — NUNCA certificado real
  */
 
 import { createHash, X509Certificate } from 'crypto';
-import fs from 'fs';
-import path from 'path';
 import forge from 'node-forge';
 import { PDFDocument } from 'pdf-lib';
 import signpdf from '@signpdf/signpdf';
@@ -17,37 +16,16 @@ import {
   SUBFILTER_ETSI_CADES_DETACHED,
 } from '@signpdf/utils';
 import { extractPemFromPfx } from './pfx';
+import { loadVendorPfxAsync } from './vendor-cert';
+import {
+  isProductionSigningEnabled,
+  remoteSignAfd,
+  remoteSignAej,
+  remoteSignRepPReceipt,
+} from './signing-client';
 
-export type SignatureResult = {
-  status: 'signed' | 'pending_icp_cert' | 'failed';
-  standard: 'CAdES-detached' | 'PAdES-embedded' | 'none';
-  p7s?: Buffer;
-  /** For PAdES: the fully signed PDF bytes */
-  signedPdf?: Buffer;
-  reason?: string;
-  signerSubject?: string;
-};
-
-function resolvePath(p: string): string {
-  return path.isAbsolute(p) ? p : path.resolve(process.cwd(), p);
-}
-
-/** Puncto developer PFX from environment */
-export function loadVendorPfx():
-  | { pfx: Buffer; password: string }
-  | { error: string }
-  | null {
-  const pfxPath =
-    process.env.PUNCTO_VENDOR_ICP_PFX_PATH || process.env.PUNCTO_ICP_PFX_PATH;
-  const password =
-    process.env.PUNCTO_VENDOR_ICP_PFX_PASSWORD || process.env.PUNCTO_ICP_PFX_PASSWORD;
-  if (!pfxPath || !password) return null;
-  const abs = resolvePath(pfxPath);
-  if (!fs.existsSync(abs)) {
-    return { error: `PFX da desenvolvedora não encontrado: ${abs}` };
-  }
-  return { pfx: fs.readFileSync(abs), password };
-}
+import type { SignatureResult } from './signing-result';
+export type { SignatureResult } from './signing-result';
 
 function signPkcs7Detached(
   content: Buffer,
@@ -80,9 +58,7 @@ function subjectFromCertPem(certPem: string, fallback?: string): string | undefi
   }
 }
 
-/**
- * CAdES detached (.p7s) from an arbitrary PFX buffer + password.
- */
+/** Unit tests / dev local PFX only */
 export function signDetachedCadesWithPfx(
   content: Buffer | string,
   pfxBuffer: Buffer,
@@ -107,50 +83,51 @@ export function signDetachedCadesWithPfx(
   }
 }
 
-/** AFD — always Puncto (vendor) certificate from env */
-export function signAfdCades(content: Buffer | string): SignatureResult {
-  const vendor = loadVendorPfx();
+async function loadDevVendorForSigning(): Promise<
+  { pfx: Buffer; password: string } | SignatureResult
+> {
+  if (process.env.VERCEL_ENV === 'production' || process.env.NODE_ENV === 'production') {
+    return {
+      status: 'pending_icp_cert',
+      standard: 'none',
+      reason: 'Production exige Puncto Signing Service — PFX local bloqueado',
+    };
+  }
+  const vendor = await loadVendorPfxAsync();
   if (!vendor) {
     return {
       status: 'pending_icp_cert',
       standard: 'none',
-      reason:
-        'Configure PUNCTO_VENDOR_ICP_PFX_PATH + PUNCTO_VENDOR_ICP_PFX_PASSWORD para assinar o AFD.',
+      reason: 'Configure PFX de teste local (dev) ou Puncto Signing Service (production)',
     };
   }
   if ('error' in vendor) {
     return { status: 'failed', standard: 'none', reason: vendor.error };
   }
+  return { pfx: vendor.pfx, password: vendor.password };
+}
+
+export async function signAfdCades(content: Buffer | string): Promise<SignatureResult> {
+  if (isProductionSigningEnabled()) {
+    return remoteSignAfd(content);
+  }
+  const vendor = await loadDevVendorForSigning();
+  if ('status' in vendor) return vendor;
   return signDetachedCadesWithPfx(content, vendor.pfx, vendor.password);
 }
 
-/**
- * AEJ — Puncto PTRP developer certificate (same vendor PFX as AFD).
- * Portaria 671: AEJ is produced/signed by the treatment software developer.
- */
-export function signAejCades(
+export async function signAejCades(
   content: Buffer | string,
-  _businessId?: string
-): SignatureResult {
-  const vendor = loadVendorPfx();
-  if (!vendor) {
-    return {
-      status: 'pending_icp_cert',
-      standard: 'none',
-      reason:
-        'Configure PUNCTO_VENDOR_ICP_PFX_PATH + PUNCTO_VENDOR_ICP_PFX_PASSWORD para assinar o AEJ.',
-    };
+  businessId?: string
+): Promise<SignatureResult> {
+  if (isProductionSigningEnabled()) {
+    return remoteSignAej(content, businessId);
   }
-  if ('error' in vendor) {
-    return { status: 'failed', standard: 'none', reason: vendor.error };
-  }
+  const vendor = await loadDevVendorForSigning();
+  if ('status' in vendor) return vendor;
   return signDetachedCadesWithPfx(content, vendor.pfx, vendor.password);
 }
 
-/**
- * PAdES-BES (ETSI.CAdES.detached) embedded in PDF using pdf-lib ByteRange placeholder + @signpdf.
- * Signed with Puncto vendor PFX.
- */
 export async function signPdfPadesEmbedded(
   unsignedPdf: Buffer,
   options?: {
@@ -159,20 +136,15 @@ export async function signPdfPadesEmbedded(
     name?: string;
     location?: string;
     signingTime?: Date;
+    establishmentId?: string;
   }
 ): Promise<SignatureResult> {
-  const vendor = loadVendorPfx();
-  if (!vendor) {
-    return {
-      status: 'pending_icp_cert',
-      standard: 'none',
-      reason:
-        'Configure PUNCTO_VENDOR_ICP_PFX_PATH + PASSWORD para assinar o comprovante em PAdES.',
-    };
+  if (isProductionSigningEnabled()) {
+    return remoteSignRepPReceipt(unsignedPdf, options?.establishmentId, options);
   }
-  if ('error' in vendor) {
-    return { status: 'failed', standard: 'none', reason: vendor.error };
-  }
+
+  const vendor = await loadDevVendorForSigning();
+  if ('status' in vendor) return vendor;
 
   try {
     const pdfDoc = await PDFDocument.load(unsignedPdf);
@@ -181,7 +153,7 @@ export async function signPdfPadesEmbedded(
       const material = extractPemFromPfx(vendor.pfx, vendor.password);
       signerName = material.subjectCN || signerName;
     } catch {
-      /* keep default name */
+      /* keep default */
     }
 
     pdflibAddPlaceholder({
@@ -193,7 +165,6 @@ export async function signPdfPadesEmbedded(
       name: signerName,
       location: options?.location || 'Brasil',
       signingTime: options?.signingTime || new Date(),
-      // ICP-Brasil A1 + attributes need generous placeholder
       signatureLength: 16384,
       byteRangePlaceholder: DEFAULT_BYTE_RANGE_PLACEHOLDER,
       subFilter: SUBFILTER_ETSI_CADES_DETACHED,
@@ -203,7 +174,6 @@ export async function signPdfPadesEmbedded(
     const pdfWithPlaceholder = Buffer.from(
       await pdfDoc.save({ useObjectStreams: false })
     );
-
     const signer = new P12Signer(vendor.pfx, { passphrase: vendor.password });
     const signedPdf = Buffer.from(await signpdf.sign(pdfWithPlaceholder, signer));
 
@@ -222,11 +192,10 @@ export async function signPdfPadesEmbedded(
   }
 }
 
-/** @deprecated use signAfdCades / signAejCades */
-export function signDetachedCades(
+export async function signDetachedCades(
   content: Buffer | string,
   _role: 'VENDOR' | 'EMPLOYER' = 'VENDOR'
-): SignatureResult {
+): Promise<SignatureResult> {
   return signAfdCades(content);
 }
 
