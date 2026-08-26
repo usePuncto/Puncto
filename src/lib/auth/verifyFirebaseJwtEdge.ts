@@ -13,9 +13,25 @@ function getFirebaseProjectId(): string | null {
   );
 }
 
-function claimsFromPayload(payload: JWTPayload): CustomClaims {
+function claimsFromPayload(payload: JWTPayload): CustomClaims | null {
+  let userType = payload.userType as UserType | undefined;
+  // Infer type from claims when userType was omitted by older claim writers
+  if (!userType && payload.platformAdmin === true) {
+    userType = 'platform_admin';
+  }
+  if (
+    !userType &&
+    payload.businessRoles &&
+    typeof payload.businessRoles === 'object' &&
+    Object.keys(payload.businessRoles as object).length > 0
+  ) {
+    userType = 'business_user';
+  }
+  // Do not default to "customer" — that blocked real business users on .gestao
+  if (!userType) return null;
+
   return {
-    userType: (payload.userType as UserType) || 'customer',
+    userType,
     platformAdmin: payload.platformAdmin as boolean | undefined,
     platformRole: payload.platformRole as CustomClaims['platformRole'],
     businessRoles: payload.businessRoles as CustomClaims['businessRoles'],

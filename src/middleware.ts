@@ -48,13 +48,34 @@ function subscriptionEndedLoginUrl(request: NextRequest, slug: string, appGestao
 }
 
 function buildGestaoLoginRedirect(request: NextRequest, returnPath: string): URL {
-  const loginUrl = new URL('/auth/login', request.url);
-  loginUrl.searchParams.set('returnUrl', returnPath || '/');
+  const host = stripHostPort(request.headers.get('host') || '');
+  const isLocal =
+    host.includes('localhost') ||
+    host.includes('127.0.0.1') ||
+    host.includes('ngrok') ||
+    host.endsWith('.puncto.local');
+
+  // Prefer apex login so session cookie (domain=.puncto.com.br) is set once, then redirect to gestao
+  const loginUrl = isLocal
+    ? new URL('/auth/login', request.url)
+    : new URL('https://www.puncto.com.br/auth/login');
+
+  const safeReturn =
+    !returnPath ||
+    returnPath.startsWith('/unauthorized') ||
+    returnPath.startsWith('/auth/')
+      ? '/tenant/admin/dashboard'
+      : returnPath;
+
+  loginUrl.searchParams.set('returnUrl', safeReturn);
   loginUrl.searchParams.set('app', 'gestao');
   const subdomain =
     request.cookies.get('x-business-slug')?.value ||
-    new URL(request.url).searchParams.get('subdomain');
-  if (subdomain) loginUrl.searchParams.set('subdomain', subdomain);
+    new URL(request.url).searchParams.get('subdomain') ||
+    (host.includes('.gestao.') ? host.split('.')[0] : null);
+  if (subdomain && subdomain !== 'www') {
+    loginUrl.searchParams.set('subdomain', subdomain);
+  }
   return loginUrl;
 }
 
@@ -320,19 +341,32 @@ export async function middleware(request: NextRequest) {
 
   // Business Admin (.gestao) — require session cookie + claims (aligned with platform)
   if (isGestaoApp) {
+    // /unauthorized must never be gated — otherwise cookie-without-access → redirect loop
+    if (url.pathname.startsWith('/unauthorized')) {
+      return NextResponse.next({ request: { headers: requestHeaders } });
+    }
+
     if (!url.pathname.startsWith('/auth/') && !url.pathname.startsWith('/api')) {
       if (!hasAuthCookie) {
         const loginUrl = buildGestaoLoginRedirect(request, url.pathname + url.search);
         return NextResponse.redirect(loginUrl);
       }
-      if (!customClaims || (customClaims.userType !== 'business_user' && !isPlatformAdmin(customClaims))) {
+      // Cookie present but JWT not verifiable → re-login (not unauthorized loop)
+      if (!customClaims) {
+        const loginUrl = buildGestaoLoginRedirect(request, url.pathname + url.search);
+        const res = NextResponse.redirect(loginUrl);
+        res.cookies.set('__session', '', { path: '/', maxAge: 0 });
+        res.cookies.set('__session', '', { path: '/', maxAge: 0, domain: '.puncto.com.br' });
+        return res;
+      }
+      if (customClaims.userType !== 'business_user' && !isPlatformAdmin(customClaims)) {
         return NextResponse.redirect(
           new URL('/unauthorized?reason=business_admin_required', request.url)
         );
       }
     }
 
-    if (!url.pathname.startsWith('/auth/')) {
+    if (!url.pathname.startsWith('/auth/') && !url.pathname.startsWith('/unauthorized')) {
       const blockedRedirect = await redirectIfBusinessSubscriptionBlocked(request, subdomain, true);
       if (blockedRedirect) return blockedRedirect;
     }
@@ -348,11 +382,8 @@ export async function middleware(request: NextRequest) {
 
     if (hasAuthCookie && customClaims) {
       let resolvedFirestoreId: string | null = null;
-      if (
-        customClaims.userType === 'business_user' &&
-        !isPlatformAdmin(customClaims) &&
-        !customClaims.businessRoles?.[subdomain]
-      ) {
+      if (customClaims.userType === 'business_user' && !isPlatformAdmin(customClaims)) {
+        // Always resolve slug → Firestore id (businessRoles keys are usually the doc id)
         const resolved = await resolveBusinessHostKey(request, subdomain);
         resolvedFirestoreId = resolved?.id ?? null;
       }
@@ -365,15 +396,23 @@ export async function middleware(request: NextRequest) {
         if (customClaims.userType === 'business_user' && customClaims.primaryBusinessId) {
           const primary = await resolveBusinessHostKey(request, customClaims.primaryBusinessId);
           const gestaoHost = primary?.slug || customClaims.primaryBusinessId;
+          // Same host without role → show unauthorized (do not redirect to self)
+          if (gestaoHost === subdomain) {
+            return NextResponse.redirect(
+              new URL('/unauthorized?reason=business_admin_required', request.url)
+            );
+          }
           if (useQuerySubdomain) {
             const redirectUrl = new URL(request.url);
             redirectUrl.searchParams.set('subdomain', gestaoHost);
             redirectUrl.searchParams.set('app', 'gestao');
             return NextResponse.redirect(redirectUrl);
           }
-          return NextResponse.redirect(new URL(`https://${gestaoHost}.gestao.puncto.com.br/`, request.url));
+          return NextResponse.redirect(
+            new URL(`https://${gestaoHost}.gestao.puncto.com.br/tenant/admin/dashboard`, request.url)
+          );
         }
-        return NextResponse.redirect(new URL('/auth/login', request.url));
+        return NextResponse.redirect(buildGestaoLoginRedirect(request, '/tenant/admin/dashboard'));
       }
     }
     // Professional area on gestao subdomain — must rewrite to /tenant/professional/*, not /tenant/admin/tenant/professional/*
