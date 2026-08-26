@@ -107,6 +107,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const hasRedirected = useRef(false);
+  const manualSubmitRef = useRef(false);
+  const bounceMsgShown = useRef(false);
 
   function resolveBusinessKey(
     u: { primaryBusinessId?: string; businessId?: string; customClaims?: { primaryBusinessId?: string } } | null,
@@ -232,14 +234,17 @@ export default function LoginPage() {
     window.location.href = href;
   }
 
-  // Redirect if already logged in (blocked when authBounce=1 to stop gestao↔login loops)
+  // Redirect if already logged in (blocked when authBounce=1 unless user just submitted the form)
   useEffect(() => {
     if (!user || loading || hasRedirected.current) return;
 
-    if (authBounce) {
-      setError(
-        'Não foi possível entrar no painel de gestão automaticamente. Faça login novamente (as permissões da conta serão sincronizadas).'
-      );
+    if (authBounce && !manualSubmitRef.current) {
+      if (!bounceMsgShown.current) {
+        bounceMsgShown.current = true;
+        setError(
+          'A sessão entre www e o painel precisa ser sincronizada. Informe e-mail e senha e clique em Entrar.'
+        );
+      }
       return;
     }
 
@@ -320,6 +325,15 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
+    manualSubmitRef.current = true;
+    hasRedirected.current = false;
+
+    // Drop authBounce from the URL so a refresh doesn't soft-lock again
+    if (typeof window !== 'undefined' && authBounce) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('authBounce');
+      window.history.replaceState({}, '', url.toString());
+    }
 
     try {
       await login(email, password);
@@ -342,6 +356,7 @@ export default function LoginPage() {
         subdomain ||
         claims.primaryBusinessId ||
         (claims.businessRoles ? Object.keys(claims.businessRoles)[0] : null) ||
+        user?.primaryBusinessId ||
         '';
 
       if (businessKey && (await blockIfSubscriptionEnded(businessKey))) {
@@ -352,11 +367,10 @@ export default function LoginPage() {
       const target =
         role === 'professional' ? '/tenant/professional' : '/tenant/admin/dashboard';
 
-      // Business login page: always open gestao via sync-session (sets Domain=.puncto.com.br cookies)
-      hasRedirected.current = false;
       await redirectToTenant(target, businessKey);
     } catch (err: any) {
       setError(err.message || 'Erro ao fazer login');
+      manualSubmitRef.current = false;
     } finally {
       setIsSubmitting(false);
     }

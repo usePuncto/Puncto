@@ -198,6 +198,17 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/auth/platform/login?subdomain=primazia&returnUrl=/platform/dashboard', request.url));
   }
 
+  // Auth helper APIs must bypass claims lookup (fallback fetch would recurse through middleware)
+  if (
+    url.pathname === '/api/auth/verify-session' ||
+    url.pathname === '/api/auth/session-to-client' ||
+    url.pathname === '/api/auth/sync-session' ||
+    url.pathname === '/api/auth/session' ||
+    url.pathname === '/api/auth/logout'
+  ) {
+    return NextResponse.next();
+  }
+
   // Check if user is authenticated (has Firebase auth cookie)
   const hasAuthCookie = request.cookies.has('__session');
 
@@ -357,17 +368,12 @@ export async function middleware(request: NextRequest) {
         const loginUrl = buildGestaoLoginRedirect(request, url.pathname + url.search);
         return NextResponse.redirect(loginUrl);
       }
-      // Cookie present but JWT not verifiable → re-login with bounce guard (no loop)
+      // Cookie present but claims still unknown after Edge+Admin fallback:
+      // do NOT clear cookie / bounce (that caused authBounce soft-lock).
+      // Allow rewrite; AuthContext restores client via /api/auth/session-to-client.
       if (!customClaims) {
-        const loginUrl = buildGestaoLoginRedirect(request, url.pathname + url.search);
-        const res = NextResponse.redirect(loginUrl);
-        for (const name of ['__session', 'x-business-slug']) {
-          res.cookies.set(name, '', { path: '/', maxAge: 0 });
-          res.cookies.set(name, '', { path: '/', maxAge: 0, domain: '.puncto.com.br' });
-        }
-        return res;
-      }
-      if (customClaims.userType !== 'business_user' && !isPlatformAdmin(customClaims)) {
+        // continue to rewrite below without role gate
+      } else if (customClaims.userType !== 'business_user' && !isPlatformAdmin(customClaims)) {
         return NextResponse.redirect(
           new URL('/unauthorized?reason=business_admin_required', request.url)
         );

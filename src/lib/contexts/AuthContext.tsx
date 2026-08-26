@@ -9,6 +9,7 @@ import {
   signOut,
   sendPasswordResetEmail,
   updateProfile,
+  signInWithCustomToken,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -41,7 +42,30 @@ export function AuthProvider({ children, ignoreAuth }: { children: ReactNode; ig
 
   // Listen to Firebase Auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+
+    async function restoreSessionFromCookie() {
+      // www → *.gestao: Firebase client persistence is per-origin; restore via __session cookie
+      if (ignoreAuth || auth.currentUser) return;
+      try {
+        const res = await fetch('/api/auth/session-to-client', {
+          method: 'POST',
+          credentials: 'include',
+        });
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as { customToken?: string };
+        if (data.customToken && !auth.currentUser && !cancelled) {
+          await signInWithCustomToken(auth, data.customToken);
+        }
+      } catch {
+        // No shared session — stay logged out until explicit login
+      }
+    }
+
+    void restoreSessionFromCookie().finally(() => {
+      if (cancelled) return;
+      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       setLoading(true);
       setError(null);
 
@@ -124,7 +148,12 @@ export function AuthProvider({ children, ignoreAuth }: { children: ReactNode; ig
             // Set business roles (only if userType is business_user)
             const businessRolesData =
               (claims.userType === 'business_user' || userData.type === 'business_user')
-                ? (claims.businessRoles as Record<string, 'owner' | 'manager' | 'professional'>) || {}
+                ? (claims.businessRoles as Record<string, 'owner' | 'manager' | 'professional'>) ||
+                  (userData.customClaims?.businessRoles as Record<
+                    string,
+                    'owner' | 'manager' | 'professional'
+                  >) ||
+                  {}
                 : {};
             setBusinessRoles(businessRolesData);
           } else {
@@ -145,8 +174,12 @@ export function AuthProvider({ children, ignoreAuth }: { children: ReactNode; ig
 
       setLoading(false);
     });
+    });
 
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [ignoreAuth]);
 
   const login = async (email: string, password: string) => {

@@ -82,6 +82,7 @@ export function ProtectedRoute({
     // No user - redirect to login
     if (!user) {
       const currentPath = window.location.pathname + window.location.search;
+      // Prefer www login from gestao so session cookie + sync-session stay consistent
       const isGestao =
         typeof window !== 'undefined' && window.location.hostname.includes('.gestao.');
       const subdomain = isGestao ? window.location.hostname.split('.')[0] : null;
@@ -90,7 +91,12 @@ export function ProtectedRoute({
         params.set('subdomain', subdomain);
         params.set('app', 'gestao');
       }
-      router.push(`${redirectTo}?${params.toString()}`);
+      const loginBase = isGestao ? 'https://www.puncto.com.br/auth/login' : redirectTo;
+      if (isGestao) {
+        window.location.href = `${loginBase}?${params.toString()}`;
+      } else {
+        router.push(`${redirectTo}?${params.toString()}`);
+      }
       return;
     }
 

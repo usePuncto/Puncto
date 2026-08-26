@@ -10,18 +10,37 @@ import { verifyFirebaseJwtClaims } from '@/lib/auth/verifyFirebaseJwtEdge';
 /**
  * Extract and cryptographically verify Firebase JWT from cookies.
  * Only trusts httpOnly `__session` (legacy cookie names are ignored).
+ * Edge jose first; Admin SDK fallback via /api/auth/verify-session (session cookies).
  */
 export async function getCustomClaimsFromRequest(
   request: NextRequest
 ): Promise<CustomClaims | null> {
   try {
     const token = request.cookies.get('__session')?.value;
+    if (!token) return null;
 
-    if (!token) {
-      return null;
+    const edgeClaims = await verifyFirebaseJwtClaims(token);
+    if (edgeClaims) return edgeClaims;
+
+    // Session cookies frequently fail Edge jose verification — fall back to Admin SDK
+    try {
+      const u = new URL('/api/auth/verify-session', request.url);
+      const res = await fetch(u.toString(), {
+        method: 'GET',
+        headers: {
+          cookie: `__session=${token}`,
+          'x-middleware-verify': '1',
+        },
+        cache: 'no-store',
+      });
+      if (res.ok) {
+        return (await res.json()) as CustomClaims;
+      }
+    } catch (err) {
+      console.error('[Middleware] verify-session fallback failed:', err);
     }
 
-    return await verifyFirebaseJwtClaims(token);
+    return null;
   } catch (error) {
     console.error('[Middleware] Error verifying custom claims:', error);
     return null;
