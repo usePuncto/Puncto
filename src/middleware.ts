@@ -222,11 +222,55 @@ export async function middleware(request: NextRequest) {
   }
 
   // Main domain (marketing site) - no business subdomain
+  // Exception: /tenant/* staff paths on www need business context (cookie/?subdomain=)
+  // or a redirect to gestao — otherwise TenantLayout notFound() → cryptic 404.
   if (!subdomain || subdomain === 'www' || hostNoPort === 'puncto.com.br' || hostNoPort === 'puncto.local') {
     if (url.pathname === '/blog' || url.pathname.startsWith('/blog/')) {
       return NextResponse.redirect(new URL('/', request.url));
     }
-    return NextResponse.next();
+
+    const isTenantStaffOnMain =
+      url.pathname.startsWith('/tenant/admin') ||
+      url.pathname.startsWith('/tenant/professional') ||
+      url.pathname.startsWith('/tenant/time-clock') ||
+      url.pathname.startsWith('/tenant/student');
+
+    if (isTenantStaffOnMain) {
+      const businessKey =
+        url.searchParams.get('subdomain')?.trim() ||
+        request.cookies.get('x-business-slug')?.value?.trim() ||
+        '';
+
+      if (businessKey && businessKey !== 'www') {
+        if (!useQuerySubdomain) {
+          const resolved = await resolveBusinessHostKey(request, businessKey);
+          const gestaoSlug = resolved?.slug || businessKey;
+          const destPath =
+            url.pathname.startsWith('/tenant/professional')
+              ? url.pathname
+              : url.pathname.startsWith('/tenant/time-clock')
+                ? url.pathname
+                : url.pathname.startsWith('/tenant/student')
+                  ? url.pathname
+                  : '/tenant/admin/dashboard';
+          return NextResponse.redirect(
+            new URL(`https://${gestaoSlug}.gestao.puncto.com.br${destPath}`, request.url)
+          );
+        }
+        // Localhost/ngrok: continue as gestao with query/cookie business key
+        subdomain = businessKey;
+        isGestaoApp =
+          url.pathname.startsWith('/tenant/admin') ||
+          url.pathname.startsWith('/tenant/professional') ||
+          url.searchParams.get('app') === 'gestao';
+      } else {
+        const loginUrl = new URL('/auth/login', request.url);
+        loginUrl.searchParams.set('returnUrl', url.pathname);
+        return NextResponse.redirect(loginUrl);
+      }
+    } else {
+      return NextResponse.next();
+    }
   }
 
   // Handle demo subdomain

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/firebaseAdmin';
 import type { CustomClaims } from '@/types/user';
 import { hasBusinessAccess, isPlatformAdmin } from '@/lib/auth/middleware-utils';
+import { authCookieBaseOptions, BUSINESS_SLUG_COOKIE } from '@/lib/auth/session-cookie';
 
 /**
  * Sets the business slug cookie so the tenant layout can identify the business.
@@ -62,13 +63,11 @@ export async function POST(request: NextRequest) {
     }
 
     const response = NextResponse.json({ ok: true });
-    response.cookies.set('x-business-slug', businessId, {
-      path: '/',
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 60 * 60,
-      secure: process.env.NODE_ENV === 'production',
-    });
+    response.cookies.set(
+      BUSINESS_SLUG_COOKIE,
+      businessId,
+      authCookieBaseOptions(60 * 60)
+    );
 
     return response;
   } catch {

@@ -6,8 +6,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/firebaseAdmin';
 import { updateLastLogin } from '@/lib/auth/user-access';
+import {
+  SESSION_COOKIE_NAME,
+  authCookieBaseOptions,
+  clearAuthCookieOptions,
+} from '@/lib/auth/session-cookie';
 
-const SESSION_COOKIE_NAME = '__session';
 const SESSION_MAX_AGE = 60 * 60 * 24 * 5; // 5 days (Firebase max is 2 weeks)
 
 export async function POST(request: NextRequest) {
@@ -34,13 +38,11 @@ export async function POST(request: NextRequest) {
     }
 
     const response = NextResponse.json({ ok: true });
-    response.cookies.set(SESSION_COOKIE_NAME, sessionCookie, {
-      path: '/',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: SESSION_MAX_AGE,
-    });
+    response.cookies.set(
+      SESSION_COOKIE_NAME,
+      sessionCookie,
+      authCookieBaseOptions(SESSION_MAX_AGE)
+    );
 
     return response;
   } catch (error: unknown) {
@@ -54,12 +56,8 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE() {
   const response = NextResponse.json({ ok: true });
-  response.cookies.set(SESSION_COOKIE_NAME, '', {
-    path: '/',
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 0,
-  });
+  for (const opts of clearAuthCookieOptions()) {
+    response.cookies.set(SESSION_COOKIE_NAME, '', opts);
+  }
   return response;
 }

@@ -39,6 +39,55 @@ function getRedirectUrl(
   return '/';
 }
 
+function isLocalOrPreviewHost(): boolean {
+  if (typeof window === 'undefined') return true;
+  const h = window.location.hostname;
+  return (
+    h.includes('localhost') ||
+    h.includes('127.0.0.1') ||
+    h.includes('ngrok') ||
+    h.endsWith('.vercel.app') ||
+    h.endsWith('.puncto.local')
+  );
+}
+
+/** Resolve production gestao URL (or local query-based path). */
+async function resolvePostLoginHref(
+  businessKey: string,
+  path: string
+): Promise<string> {
+  const cleanPath = path.includes('?') ? path.split('?')[0] : path;
+  const staffPath =
+    cleanPath.startsWith('/tenant/professional')
+      ? cleanPath
+      : cleanPath.startsWith('/tenant/time-clock')
+        ? cleanPath
+        : '/tenant/admin/dashboard';
+
+  if (typeof window !== 'undefined' && window.location.hostname.includes('.gestao.')) {
+    return staffPath;
+  }
+
+  if (isLocalOrPreviewHost()) {
+    return `${staffPath}?subdomain=${encodeURIComponent(businessKey)}&app=gestao`;
+  }
+
+  try {
+    const res = await fetch(
+      `/api/tenant/resolve-host?key=${encodeURIComponent(businessKey)}`,
+      { credentials: 'include' }
+    );
+    if (res.ok) {
+      const data = (await res.json()) as { slug?: string };
+      const slug = (data.slug || businessKey).trim();
+      return `https://${slug}.gestao.puncto.com.br${staffPath}`;
+    }
+  } catch {
+    // fall through
+  }
+  return `https://${businessKey}.gestao.puncto.com.br${staffPath}`;
+}
+
 export default function LoginPage() {
   const { login, loading, user, getBusinessRole } = useAuth();
   const router = useRouter();
@@ -128,16 +177,8 @@ export default function LoginPage() {
       // Continue redirect even if set-context fails (cookie may already be set)
     }
 
-    // On gestao subdomain: middleware rewrites /tenant/admin/* and /tenant/professional/* separately
-    const isGestaoDomain = typeof window !== 'undefined' && window.location.hostname.includes('.gestao.');
-    const pathWithoutQuery = targetUrl.includes('?') ? targetUrl.split('?')[0] : targetUrl;
-    const path = isGestaoDomain
-      ? pathWithoutQuery.startsWith('/tenant/professional')
-        ? pathWithoutQuery
-        : '/tenant/admin/dashboard'
-      : pathWithoutQuery;
-
-    window.location.href = path;
+    const href = await resolvePostLoginHref(businessId, targetUrl);
+    window.location.href = href;
   }
 
   // Redirect if already logged in
@@ -220,15 +261,9 @@ export default function LoginPage() {
           )
           .catch(() => {})
           .finally(() => {
-            const isGestaoDomain = typeof window !== 'undefined' && window.location.hostname.includes('.gestao.');
-            const pathWithoutQuery = url.includes('?') ? url.split('?')[0] : '/tenant/admin/dashboard';
-            const path =
-              isGestaoDomain && pathWithoutQuery.startsWith('/tenant/professional')
-                ? pathWithoutQuery
-                : isGestaoDomain
-                  ? '/tenant/admin/dashboard'
-                  : pathWithoutQuery;
-            window.location.href = path;
+            void resolvePostLoginHref(businessId, url).then((href) => {
+              window.location.href = href;
+            });
           });
         return;
       }
