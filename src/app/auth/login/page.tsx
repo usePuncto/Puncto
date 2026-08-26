@@ -23,8 +23,14 @@ function getRedirectUrl(
   subdomain: string | null
 ): string {
   const safe = safeReturnUrl(explicitReturnUrl, '');
-  if (safe && safe !== '/') {
-    return safe;
+  // Never honor marketing returnUrls for business login (e.g. /industries from gestao bounce)
+  const safeStaffReturn =
+    safe &&
+    (safe.startsWith('/tenant/') || safe.startsWith('/professional'))
+      ? safe
+      : '';
+  if (safeStaffReturn) {
+    return safeStaffReturn;
   }
   if (user?.type === 'business_user') {
     const businessId =
@@ -98,8 +104,16 @@ export default function LoginPage() {
   const subscriptionEnded = searchParams.get('subscriptionEnded') === '1';
   const authBounce = searchParams.get('authBounce') === '1';
   const returnUrl =
-    safeReturnUrl(returnUrlParam, '') ||
-    (subdomain ? `/tenant/admin/dashboard?subdomain=${subdomain}${appParam === 'gestao' ? '&app=gestao' : ''}` : '/tenant/admin/dashboard');
+    (() => {
+      const safe = safeReturnUrl(returnUrlParam, '');
+      if (safe && (safe.startsWith('/tenant/') || safe.startsWith('/professional'))) {
+        return safe;
+      }
+      return '';
+    })() ||
+    (subdomain
+      ? `/tenant/admin/dashboard?subdomain=${subdomain}${appParam === 'gestao' ? '&app=gestao' : ''}`
+      : '/tenant/admin/dashboard');
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -500,7 +514,7 @@ export default function LoginPage() {
           <div className="mt-6 text-center text-sm text-neutral-600">
             Ainda não tem uma conta?{' '}
             <Link
-              href="/industries"
+              href="https://www.puncto.com.br/industries"
               className="text-blue-600 hover:underline font-medium"
             >
               Conhecer soluções

@@ -63,9 +63,15 @@ function buildGestaoLoginRedirect(request: NextRequest, returnPath: string): URL
   const safeReturn =
     !returnPath ||
     returnPath.startsWith('/unauthorized') ||
-    returnPath.startsWith('/auth/')
+    returnPath.startsWith('/auth/') ||
+    returnPath.startsWith('/industries') ||
+    (!returnPath.startsWith('/tenant/') &&
+      !returnPath.startsWith('/professional') &&
+      returnPath !== '/')
       ? '/tenant/admin/dashboard'
-      : returnPath;
+      : returnPath === '/'
+        ? '/tenant/admin/dashboard'
+        : returnPath;
 
   loginUrl.searchParams.set('returnUrl', safeReturn);
   loginUrl.searchParams.set('app', 'gestao');
@@ -449,6 +455,25 @@ export async function middleware(request: NextRequest) {
       gestaoProfessionalResponse.headers.set('x-middleware-request-url', request.url);
       gestaoProfessionalResponse.cookies.set('x-business-slug', subdomain, { path: '/', httpOnly: true, sameSite: 'lax', maxAge: 60 * 60 });
       return gestaoProfessionalResponse;
+    }
+
+    // Marketing / public paths do not exist under .gestao — send to www (never rewrite to /tenant/admin/industries etc.)
+    const isGestaoStaffPath =
+      url.pathname === '/' ||
+      url.pathname.startsWith('/tenant/') ||
+      url.pathname.startsWith('/auth/') ||
+      url.pathname.startsWith('/api') ||
+      url.pathname.startsWith('/unauthorized') ||
+      url.pathname.startsWith('/_next');
+
+    if (!isGestaoStaffPath) {
+      if (!useQuerySubdomain) {
+        return NextResponse.redirect(
+          new URL(`https://www.puncto.com.br${url.pathname}${url.search}`, request.url)
+        );
+      }
+      // localhost: fall through to next without admin rewrite
+      return NextResponse.next({ request: { headers: requestHeaders } });
     }
 
     // Normalize: /tenant/admin/dashboard -> /dashboard so rewrite yields /tenant/admin/dashboard (no double path)
