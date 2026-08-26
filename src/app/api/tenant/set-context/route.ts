@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/firebaseAdmin';
+import { auth, db } from '@/lib/firebaseAdmin';
 import type { CustomClaims } from '@/types/user';
 import { hasBusinessAccess, isPlatformAdmin } from '@/lib/auth/middleware-utils';
 import { authCookieBaseOptions, BUSINESS_SLUG_COOKIE } from '@/lib/auth/session-cookie';
@@ -56,17 +56,35 @@ export async function POST(request: NextRequest) {
     const allowed =
       isPlatformAdmin(claims) ||
       hasBusinessAccess(claims, businessId) ||
-      decoded.primaryBusinessId === businessId;
+      decoded.primaryBusinessId === businessId ||
+      Boolean(decoded.businessRoles?.[businessId]);
 
     if (!allowed) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const response = NextResponse.json({ ok: true });
+    const host = request.headers.get('host');
+
+    // Prefer slug in cookie (never leave raw Firestore id if resolvable)
+    let cookieValue = businessId;
+    try {
+      const looksLikeId = /^[a-zA-Z0-9]{19,21}$/.test(businessId);
+      if (looksLikeId) {
+        const doc = await db.collection('businesses').doc(businessId).get();
+        if (doc.exists) {
+          const slug = (doc.data() as { slug?: string })?.slug;
+          if (typeof slug === 'string' && slug.trim()) cookieValue = slug.trim();
+        }
+      }
+    } catch {
+      // keep businessId
+    }
+
     response.cookies.set(
       BUSINESS_SLUG_COOKIE,
-      businessId,
-      authCookieBaseOptions(60 * 60)
+      cookieValue,
+      authCookieBaseOptions(60 * 60, host)
     );
 
     return response;

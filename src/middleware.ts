@@ -69,10 +69,16 @@ function buildGestaoLoginRedirect(request: NextRequest, returnPath: string): URL
 
   loginUrl.searchParams.set('returnUrl', safeReturn);
   loginUrl.searchParams.set('app', 'gestao');
+  // Break login↔gestao bounce loops (login page will not auto-redirect when set)
+  loginUrl.searchParams.set('authBounce', '1');
+
+  // Prefer slug from gestao host over cookie (cookie may still hold Firestore id)
+  const hostSlug = host.includes('.gestao.') ? host.split('.')[0] : null;
   const subdomain =
-    request.cookies.get('x-business-slug')?.value ||
+    hostSlug ||
     new URL(request.url).searchParams.get('subdomain') ||
-    (host.includes('.gestao.') ? host.split('.')[0] : null);
+    request.cookies.get('x-business-slug')?.value ||
+    null;
   if (subdomain && subdomain !== 'www') {
     loginUrl.searchParams.set('subdomain', subdomain);
   }
@@ -351,12 +357,14 @@ export async function middleware(request: NextRequest) {
         const loginUrl = buildGestaoLoginRedirect(request, url.pathname + url.search);
         return NextResponse.redirect(loginUrl);
       }
-      // Cookie present but JWT not verifiable → re-login (not unauthorized loop)
+      // Cookie present but JWT not verifiable → re-login with bounce guard (no loop)
       if (!customClaims) {
         const loginUrl = buildGestaoLoginRedirect(request, url.pathname + url.search);
         const res = NextResponse.redirect(loginUrl);
-        res.cookies.set('__session', '', { path: '/', maxAge: 0 });
-        res.cookies.set('__session', '', { path: '/', maxAge: 0, domain: '.puncto.com.br' });
+        for (const name of ['__session', 'x-business-slug']) {
+          res.cookies.set(name, '', { path: '/', maxAge: 0 });
+          res.cookies.set(name, '', { path: '/', maxAge: 0, domain: '.puncto.com.br' });
+        }
         return res;
       }
       if (customClaims.userType !== 'business_user' && !isPlatformAdmin(customClaims)) {

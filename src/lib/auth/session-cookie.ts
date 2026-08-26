@@ -1,17 +1,27 @@
 /**
  * Cookie options for auth/tenant context shared across Puncto hosts.
- * Production: domain=.puncto.com.br so www → *.gestao.puncto.com.br keeps session.
- * Preview/dev: host-only (no Domain) — .puncto.com.br would break *.vercel.app.
+ * Production *.puncto.com.br: Domain=.puncto.com.br so www → *.gestao keeps session.
  */
 
 export const SESSION_COOKIE_NAME = '__session';
 export const BUSINESS_SLUG_COOKIE = 'x-business-slug';
 
-const isProdSharedDomain =
-  process.env.VERCEL_ENV === 'production' ||
-  (process.env.NODE_ENV === 'production' && !process.env.VERCEL_URL?.includes('vercel.app'));
+function shouldShareAcrossPunctoDomain(requestHost?: string | null): boolean {
+  const host = (requestHost || '').split(':')[0].toLowerCase();
+  if (host === 'puncto.com.br' || host.endsWith('.puncto.com.br')) {
+    return true;
+  }
+  // Serverless on Vercel production (Host may be *.vercel.app behind Cloudflare)
+  if (process.env.VERCEL_ENV === 'production') {
+    return true;
+  }
+  return false;
+}
 
-export function authCookieBaseOptions(maxAge: number) {
+export function authCookieBaseOptions(
+  maxAge: number,
+  requestHost?: string | null
+) {
   const opts: {
     path: string;
     httpOnly: boolean;
@@ -22,11 +32,14 @@ export function authCookieBaseOptions(maxAge: number) {
   } = {
     path: '/',
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production',
+    secure:
+      process.env.NODE_ENV === 'production' ||
+      process.env.VERCEL_ENV === 'production' ||
+      shouldShareAcrossPunctoDomain(requestHost),
     sameSite: 'lax',
     maxAge,
   };
-  if (isProdSharedDomain) {
+  if (shouldShareAcrossPunctoDomain(requestHost)) {
     opts.domain = '.puncto.com.br';
   }
   return opts;

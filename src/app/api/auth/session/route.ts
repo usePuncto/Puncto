@@ -38,10 +38,11 @@ export async function POST(request: NextRequest) {
     }
 
     const response = NextResponse.json({ ok: true });
+    const requestHost = request.headers.get('host');
     response.cookies.set(
       SESSION_COOKIE_NAME,
       sessionCookie,
-      authCookieBaseOptions(SESSION_MAX_AGE)
+      authCookieBaseOptions(SESSION_MAX_AGE, requestHost)
     );
 
     return response;

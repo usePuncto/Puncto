@@ -96,6 +96,7 @@ export default function LoginPage() {
   const returnUrlParam = searchParams.get('returnUrl');
   const appParam = searchParams.get('app');
   const subscriptionEnded = searchParams.get('subscriptionEnded') === '1';
+  const authBounce = searchParams.get('authBounce') === '1';
   const returnUrl =
     safeReturnUrl(returnUrlParam, '') ||
     (subdomain ? `/tenant/admin/dashboard?subdomain=${subdomain}${appParam === 'gestao' ? '&app=gestao' : ''}` : '/tenant/admin/dashboard');
@@ -143,47 +144,104 @@ export default function LoginPage() {
     !returnUrlParam.startsWith('/tenant/admin') &&
     !returnUrlParam.startsWith('/admin');
 
-  /** Set __session cookie so middleware recognizes auth on full page load (prevents redirect loop) */
-  async function ensureSessionCookie(): Promise<void> {
+  /** Set shared session + slug cookies; sync Auth claims from Firestore when needed. */
+  async function ensureSyncedSession(businessKey: string): Promise<{
+    ok: boolean;
+    slug: string | null;
+    gestaoHost: string | null;
+    error?: string;
+  }> {
     const firebaseUser = auth.currentUser;
-    if (!firebaseUser) return;
-    try {
-      const idToken = await firebaseUser.getIdToken(true);
-      await fetch('/api/auth/session', {
+    if (!firebaseUser) {
+      return { ok: false, slug: null, gestaoHost: null, error: 'Sessão Firebase ausente' };
+    }
+
+    const post = async (idToken: string) => {
+      const res = await fetch('/api/auth/sync-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken }),
+        body: JSON.stringify({ idToken, businessId: businessKey }),
         credentials: 'include',
       });
-    } catch {
-      // Continue redirect even if session setup fails
+      return { res, data: await res.json().catch(() => ({})) };
+    };
+
+    let idToken = await firebaseUser.getIdToken(true);
+    let { res, data } = await post(idToken);
+
+    if (data?.needsTokenRefresh) {
+      idToken = await firebaseUser.getIdToken(true);
+      ({ res, data } = await post(idToken));
     }
+
+    if (!res.ok || !data?.ok) {
+      return {
+        ok: false,
+        slug: null,
+        gestaoHost: null,
+        error: data?.error || data?.message || `Falha ao criar sessão (${res.status})`,
+      };
+    }
+
+    return {
+      ok: true,
+      slug: typeof data.slug === 'string' ? data.slug : null,
+      gestaoHost: typeof data.gestaoHost === 'string' ? data.gestaoHost : null,
+    };
   }
 
   async function redirectToTenant(targetUrl: string, businessId: string) {
     if (hasRedirected.current) return;
     hasRedirected.current = true;
 
-    await ensureSessionCookie();
-
-    try {
-      await fetch('/api/tenant/set-context', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ businessId }),
-        credentials: 'include',
-      });
-    } catch {
-      // Continue redirect even if set-context fails (cookie may already be set)
+    const synced = await ensureSyncedSession(businessId);
+    if (!synced.ok) {
+      hasRedirected.current = false;
+      setError(
+        synced.error ||
+          'Não foi possível abrir o painel. Confirme que sua conta tem permissão de gestão e tente novamente.'
+      );
+      return;
     }
 
-    const href = await resolvePostLoginHref(businessId, targetUrl);
+    const cleanPath = targetUrl.includes('?') ? targetUrl.split('?')[0] : targetUrl;
+    const staffPath = cleanPath.startsWith('/tenant/professional')
+      ? cleanPath
+      : cleanPath.startsWith('/tenant/time-clock')
+        ? cleanPath
+        : '/tenant/admin/dashboard';
+
+    if (typeof window !== 'undefined' && window.location.hostname.includes('.gestao.')) {
+      window.location.href = staffPath;
+      return;
+    }
+
+    if (isLocalOrPreviewHost()) {
+      const key = synced.slug || businessId;
+      window.location.href = `${staffPath}?subdomain=${encodeURIComponent(key)}&app=gestao`;
+      return;
+    }
+
+    if (synced.gestaoHost) {
+      window.location.href = `https://${synced.gestaoHost}${staffPath}`;
+      return;
+    }
+
+    // Last resort: resolve slug client-side
+    const href = await resolvePostLoginHref(businessId, staffPath);
     window.location.href = href;
   }
 
-  // Redirect if already logged in
+  // Redirect if already logged in (blocked when authBounce=1 to stop gestao↔login loops)
   useEffect(() => {
     if (!user || loading || hasRedirected.current) return;
+
+    if (authBounce) {
+      setError(
+        'Não foi possível entrar no painel de gestão automaticamente. Faça login novamente (as permissões da conta serão sincronizadas).'
+      );
+      return;
+    }
 
     // Use user.type (from Firestore) - customClaims may not be on user object
     if (user.type === 'business_user') {
@@ -249,29 +307,14 @@ export default function LoginPage() {
           (user as { customClaims?: { primaryBusinessId?: string } }).customClaims?.primaryBusinessId);
 
       if (businessId) {
-        hasRedirected.current = true;
-        ensureSessionCookie()
-          .then(() =>
-            fetch('/api/tenant/set-context', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ businessId }),
-              credentials: 'include',
-            })
-          )
-          .catch(() => {})
-          .finally(() => {
-            void resolvePostLoginHref(businessId, url).then((href) => {
-              window.location.href = href;
-            });
-          });
+        void redirectToTenant(url, businessId);
         return;
       }
     }
 
     hasRedirected.current = true;
     router.push(url);
-  }, [user, loading, router, returnUrl, returnUrlParam, subdomain, appParam, getBusinessRole]);
+  }, [user, loading, router, returnUrl, returnUrlParam, subdomain, appParam, getBusinessRole, authBounce]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -282,36 +325,36 @@ export default function LoginPage() {
       await login(email, password);
 
       const firebaseUser = auth.currentUser;
-      if (firebaseUser) {
-        const tokenResult = await firebaseUser.getIdTokenResult();
-        const claims = tokenResult.claims as {
-          primaryBusinessId?: string;
-          businessRoles?: Record<string, string>;
-        };
-        const businessKey =
-          subdomain ||
-          claims.primaryBusinessId ||
-          (claims.businessRoles ? Object.keys(claims.businessRoles)[0] : null);
-
-        if (await blockIfSubscriptionEnded(businessKey)) {
-          return;
-        }
-
-        try {
-          const idToken = await firebaseUser.getIdToken(true);
-          const sessionRes = await fetch('/api/auth/session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ idToken }),
-            credentials: 'include',
-          });
-          if (!sessionRes.ok) {
-            console.warn('[Login] Failed to set session cookie:', await sessionRes.text());
-          }
-        } catch (err) {
-          console.warn('[Login] Session cookie setup failed:', err);
-        }
+      if (!firebaseUser) {
+        setError('Login concluído, mas a sessão Firebase não ficou disponível. Tente novamente.');
+        return;
       }
+
+      // Force refresh so sync-session sees latest custom claims
+      const tokenResult = await firebaseUser.getIdTokenResult(true);
+      const claims = tokenResult.claims as {
+        primaryBusinessId?: string;
+        businessRoles?: Record<string, string>;
+        userType?: string;
+      };
+
+      const businessKey =
+        subdomain ||
+        claims.primaryBusinessId ||
+        (claims.businessRoles ? Object.keys(claims.businessRoles)[0] : null) ||
+        '';
+
+      if (businessKey && (await blockIfSubscriptionEnded(businessKey))) {
+        return;
+      }
+
+      const role = businessKey ? getBusinessRole(businessKey) : null;
+      const target =
+        role === 'professional' ? '/tenant/professional' : '/tenant/admin/dashboard';
+
+      // Business login page: always open gestao via sync-session (sets Domain=.puncto.com.br cookies)
+      hasRedirected.current = false;
+      await redirectToTenant(target, businessKey);
     } catch (err: any) {
       setError(err.message || 'Erro ao fazer login');
     } finally {
