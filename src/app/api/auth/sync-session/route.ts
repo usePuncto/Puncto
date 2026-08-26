@@ -66,17 +66,25 @@ export async function POST(request: NextRequest) {
 
     // Sync Auth claims from Firestore when JWT is missing business/platform identity
     if (firestoreType === 'business_user') {
-      const rolesFromFs = userData.customClaims?.businessRoles || existingClaims.businessRoles || {};
+      let rolesFromFs = {
+        ...(existingClaims.businessRoles || {}),
+        ...(userData.customClaims?.businessRoles || {}),
+      } as Record<string, string>;
       const primary =
         userData.primaryBusinessId ||
         userData.customClaims?.primaryBusinessId ||
         existingClaims.primaryBusinessId ||
         Object.keys(rolesFromFs)[0];
 
+      // Owner bootstrap: primary business without roles map still needs a role for ProtectedRoute
+      if (primary && Object.keys(rolesFromFs).length === 0) {
+        rolesFromFs = { [primary]: 'owner' };
+      }
+
       nextClaims = {
         ...nextClaims,
         userType: 'business_user',
-        businessRoles: rolesFromFs,
+        businessRoles: rolesFromFs as CustomClaims['businessRoles'],
         ...(primary ? { primaryBusinessId: primary } : {}),
         ...(userData.customClaims?.professionalId || existingClaims.professionalId
           ? {

@@ -45,20 +45,51 @@ function roleMatchesAllowed(
 
   if (businessId) {
     const role = normalize(getBusinessRole(user, businessId));
-    return (
+    if (
       role != null &&
       allowedRoles.includes(role as 'owner' | 'manager' | 'professional' | 'attendant')
-    );
+    ) {
+      return true;
+    }
   }
 
   const roles = user.customClaims?.businessRoles || {};
-  return Object.values(roles).some((r) => {
-    const role = normalize(r);
-    return (
-      role != null &&
-      allowedRoles.includes(role as 'owner' | 'manager' | 'professional' | 'attendant')
-    );
-  });
+  if (
+    Object.values(roles).some((r) => {
+      const role = normalize(r);
+      return (
+        role != null &&
+        allowedRoles.includes(role as 'owner' | 'manager' | 'professional' | 'attendant')
+      );
+    })
+  ) {
+    return true;
+  }
+
+  // Owner fallback: business_user with primaryBusinessId but missing businessRoles map
+  if (
+    user.type === 'business_user' &&
+    user.primaryBusinessId &&
+    allowedRoles.includes('owner') &&
+    (!roles || Object.keys(roles).length === 0)
+  ) {
+    return !businessId || businessId === user.primaryBusinessId;
+  }
+
+  return false;
+}
+
+function loginUrlForHost(redirectTo: string, returnPath: string): string {
+  const isGestao =
+    typeof window !== 'undefined' && window.location.hostname.includes('.gestao.');
+  const subdomain = isGestao ? window.location.hostname.split('.')[0] : null;
+  const params = new URLSearchParams({ returnUrl: returnPath });
+  if (subdomain) {
+    params.set('subdomain', subdomain);
+    params.set('app', 'gestao');
+  }
+  const base = isGestao ? 'https://www.puncto.com.br/auth/login' : redirectTo;
+  return `${base}?${params.toString()}`;
 }
 
 export function ProtectedRoute({
@@ -79,43 +110,38 @@ export function ProtectedRoute({
   useEffect(() => {
     if (loading) return;
 
+    const goLogin = () => {
+      const currentPath = window.location.pathname + window.location.search;
+      const href = loginUrlForHost(redirectTo, currentPath);
+      if (href.startsWith('http')) {
+        window.location.href = href;
+      } else {
+        router.push(href);
+      }
+    };
+
     // No user - redirect to login
     if (!user) {
-      const currentPath = window.location.pathname + window.location.search;
-      // Prefer www login from gestao so session cookie + sync-session stay consistent
-      const isGestao =
-        typeof window !== 'undefined' && window.location.hostname.includes('.gestao.');
-      const subdomain = isGestao ? window.location.hostname.split('.')[0] : null;
-      const params = new URLSearchParams({ returnUrl: currentPath });
-      if (subdomain) {
-        params.set('subdomain', subdomain);
-        params.set('app', 'gestao');
-      }
-      const loginBase = isGestao ? 'https://www.puncto.com.br/auth/login' : redirectTo;
-      if (isGestao) {
-        window.location.href = `${loginBase}?${params.toString()}`;
-      } else {
-        router.push(`${redirectTo}?${params.toString()}`);
-      }
+      goLogin();
       return;
     }
 
     // Check platform admin requirement
     if (requirePlatformAdmin && !isPlatformAdmin(user)) {
-      router.push(redirectTo);
+      goLogin();
       return;
     }
 
     // Check business access requirement
     if (requireBusinessAccess && !isBusinessStaff(user, requireBusinessAccess)) {
-      router.push(redirectTo);
+      goLogin();
       return;
     }
 
     // Check allowed roles
     if (allowedRoles && allowedRoles.length > 0) {
       if (!roleMatchesAllowed(user, allowedRoles, requireBusinessAccess)) {
-        router.push(redirectTo);
+        goLogin();
       }
     }
   }, [user, loading, requirePlatformAdmin, requireBusinessAccess, allowedRoles, redirectTo, router]);

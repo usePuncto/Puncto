@@ -99,28 +99,56 @@ export function AuthProvider({ children, ignoreAuth }: { children: ReactNode; ig
 
             const claimUserType = claims.userType as User['type'] | undefined;
             const effectiveType = claimUserType || userData.type;
+            const prevClaims =
+              userData.customClaims && typeof userData.customClaims === 'object'
+                ? (userData.customClaims as CustomClaims)
+                : ({} as CustomClaims);
+            const mergedRoles =
+              (claims.businessRoles as CustomClaims['businessRoles']) ||
+              prevClaims.businessRoles ||
+              {};
+            const mergedPrimary =
+              (typeof claims.primaryBusinessId === 'string' && claims.primaryBusinessId) ||
+              userData.primaryBusinessId ||
+              prevClaims.primaryBusinessId;
+
+            // Always merge JWT ↔ Firestore claims so ProtectedRoute sees businessRoles
+            userData = {
+              ...userData,
+              type: effectiveType || userData.type,
+              primaryBusinessId: mergedPrimary || userData.primaryBusinessId,
+              customClaims: {
+                ...prevClaims,
+                userType: (effectiveType || prevClaims.userType || userData.type) as CustomClaims['userType'],
+                platformAdmin:
+                  (claims.platformAdmin as boolean | undefined) ?? prevClaims.platformAdmin,
+                platformRole:
+                  (claims.platformRole as CustomClaims['platformRole']) || prevClaims.platformRole,
+                businessRoles: mergedRoles,
+                primaryBusinessId: mergedPrimary,
+                professionalId:
+                  (typeof claims.professionalId === 'string' && claims.professionalId) ||
+                  prevClaims.professionalId,
+              },
+            };
 
             if (effectiveType === 'student') {
               const fromClaim = (k: string) => (typeof claims[k] === 'string' ? (claims[k] as string) : undefined);
               const sc =
                 fromClaim('studentCustomerId') ||
                 userData.studentCustomerId ||
-                (userData.customClaims as CustomClaims | undefined)?.studentCustomerId;
+                prevClaims.studentCustomerId;
               const sb =
                 fromClaim('studentBusinessId') ||
                 userData.studentBusinessId ||
-                (userData.customClaims as CustomClaims | undefined)?.studentBusinessId;
-              const prevClaims =
-                userData.customClaims && typeof userData.customClaims === 'object'
-                  ? (userData.customClaims as CustomClaims)
-                  : ({} as CustomClaims);
+                prevClaims.studentBusinessId;
               userData = {
                 ...userData,
                 type: 'student',
                 studentCustomerId: sc,
                 studentBusinessId: sb,
                 customClaims: {
-                  ...prevClaims,
+                  ...userData.customClaims,
                   userType: 'student',
                   ...(sc ? { studentCustomerId: sc } : {}),
                   ...(sb ? { studentBusinessId: sb } : {}),
@@ -148,12 +176,7 @@ export function AuthProvider({ children, ignoreAuth }: { children: ReactNode; ig
             // Set business roles (only if userType is business_user)
             const businessRolesData =
               (claims.userType === 'business_user' || userData.type === 'business_user')
-                ? (claims.businessRoles as Record<string, 'owner' | 'manager' | 'professional'>) ||
-                  (userData.customClaims?.businessRoles as Record<
-                    string,
-                    'owner' | 'manager' | 'professional'
-                  >) ||
-                  {}
+                ? (mergedRoles as Record<string, 'owner' | 'manager' | 'professional'>) || {}
                 : {};
             setBusinessRoles(businessRolesData);
           } else {
