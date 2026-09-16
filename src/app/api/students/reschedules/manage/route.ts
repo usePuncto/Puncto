@@ -89,27 +89,54 @@ async function getActor(request: NextRequest): Promise<DecodedActor | null> {
 async function resolveStaffAccess(request: NextRequest, businessId: string) {
   const authResult = await requireBusinessAuth(request, businessId);
   if (authError(authResult)) {
-    return { allowed: false, role: null as null, professionalId: undefined as string | undefined };
+    return {
+      allowed: false,
+      role: null as null,
+      professionalId: undefined as string | undefined,
+      canManageAllAttendance: false,
+    };
   }
   const { actor } = authResult;
   if (actor.isPlatformAdmin) {
-    return { allowed: true, role: 'platform_admin' as const, professionalId: undefined as string | undefined };
+    return {
+      allowed: true,
+      role: 'platform_admin' as const,
+      professionalId: undefined as string | undefined,
+      canManageAllAttendance: true,
+    };
   }
   if (actor.role === 'owner' || actor.role === 'manager') {
     return {
       allowed: true,
       role: actor.role,
       professionalId: actor.professionalId,
+      canManageAllAttendance: true,
     };
   }
   if (actor.role === 'professional') {
+    let canManageAllAttendance = false;
+    if (actor.professionalId) {
+      const proSnap = await db
+        .collection('businesses')
+        .doc(businessId)
+        .collection('professionals')
+        .doc(actor.professionalId)
+        .get();
+      canManageAllAttendance = proSnap.data()?.canManageAllAttendance === true;
+    }
     return {
       allowed: Boolean(actor.permissions?.manageBookings || actor.professionalId),
       role: 'professional' as const,
       professionalId: actor.professionalId,
+      canManageAllAttendance,
     };
   }
-  return { allowed: false, role: null as null, professionalId: undefined as string | undefined };
+  return {
+    allowed: false,
+    role: null as null,
+    professionalId: undefined as string | undefined,
+    canManageAllAttendance: false,
+  };
 }
 
 async function findPendingRequestByAttendance(businessId: string, attendanceRollCallId: string) {
@@ -149,7 +176,12 @@ export async function POST(request: NextRequest) {
 
     const isStudent = actor.userType === 'student';
     const staffAccess = isStudent
-      ? { allowed: false, role: null as null, professionalId: undefined as string | undefined }
+      ? {
+          allowed: false,
+          role: null as null,
+          professionalId: undefined as string | undefined,
+          canManageAllAttendance: false,
+        }
       : await resolveStaffAccess(request, businessId);
 
     if (action === 'create_request') {
@@ -363,7 +395,7 @@ export async function POST(request: NextRequest) {
       const turmaData = turmaSnap.data() as { name?: string; professionalId?: string };
 
       const targetProfessionalId = reqData.professionalId || turmaData.professionalId;
-      if (staffAccess.role === 'professional') {
+      if (staffAccess.role === 'professional' && !staffAccess.canManageAllAttendance) {
         if (!staffAccess.professionalId || targetProfessionalId !== staffAccess.professionalId) {
           return NextResponse.json(
             { error: 'Profissional pode revisar apenas remarcacoes das suas turmas' },

@@ -12,6 +12,8 @@ interface ProfessionalContextType {
   professionalId: string | null;
   isLoading: boolean;
   isOwnerProfessional?: boolean;
+  /** Professional can mark presence on any turma (shared desk / curinga). */
+  canManageAllAttendance?: boolean;
 }
 
 const ProfessionalContext = createContext<ProfessionalContextType | null>(null);
@@ -121,6 +123,8 @@ export function ProfessionalProvider({ children }: { children: ReactNode }) {
     ((professional as Professional & { isOwner?: boolean }).isOwner === true ||
       professional.userId === user?.id);
 
+  const canManageAllAttendance = professional?.canManageAllAttendance === true;
+
   return (
     <ProfessionalContext.Provider
       value={{
@@ -128,6 +132,7 @@ export function ProfessionalProvider({ children }: { children: ReactNode }) {
         professionalId: professional?.id ?? null,
         isLoading,
         isOwnerProfessional: !!isOwnerProfessional,
+        canManageAllAttendance,
       }}
     >
       {children}

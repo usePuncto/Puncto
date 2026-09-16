@@ -25,6 +25,7 @@ function isIsoDate(value: string) {
 /**
  * Quem pode marcar chamada nesta turma:
  * - Owner / manager / platform admin
+ * - Professional com canManageAllAttendance (mesa compartilhada / curinga)
  * - Professional vinculado à turma (professionalId)
  */
 async function canManageAttendance(
@@ -35,7 +36,32 @@ async function canManageAttendance(
   if (actor.isPlatformAdmin) return true;
   if (actor.role === 'owner' || actor.role === 'manager') return true;
 
-  if (actor.role === 'professional' && actor.professionalId) {
+  if (actor.role === 'professional') {
+    let professionalId = actor.professionalId;
+
+    if (!professionalId) {
+      const byUser = await db
+        .collection('businesses')
+        .doc(businessId)
+        .collection('professionals')
+        .where('userId', '==', actor.uid)
+        .limit(1)
+        .get();
+      professionalId = byUser.docs[0]?.id;
+    }
+
+    if (!professionalId) return false;
+
+    const proSnap = await db
+      .collection('businesses')
+      .doc(businessId)
+      .collection('professionals')
+      .doc(professionalId)
+      .get();
+    if (proSnap.exists && proSnap.data()?.canManageAllAttendance === true) {
+      return true;
+    }
+
     const turmaSnap = await db
       .collection('businesses')
       .doc(businessId)
@@ -44,7 +70,7 @@ async function canManageAttendance(
       .get();
     if (!turmaSnap.exists) return false;
     const turmaData = turmaSnap.data() as { professionalId?: string };
-    return turmaData.professionalId === actor.professionalId;
+    return turmaData.professionalId === professionalId;
   }
 
   return false;

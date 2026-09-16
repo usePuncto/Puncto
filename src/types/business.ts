@@ -263,6 +263,11 @@ export interface Professional {
   canBookOnline: boolean;
   /** Access role used when this professional gets login access */
   accessRole?: 'professional' | 'manager';
+  /**
+   * Shared desk / “curinga”: stays as professional (no admin/finance),
+   * but can view and mark attendance for all turmas.
+   */
+  canManageAllAttendance?: boolean;
   bufferTimeBefore?: number;
   bufferTimeAfter?: number;
   commissionPercent?: number;

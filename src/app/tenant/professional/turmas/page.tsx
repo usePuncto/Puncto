@@ -24,12 +24,25 @@ function slotLabel(slot: { weekday: number; startTime: string; endTime: string }
 
 export default function ProfessionalTurmasPage() {
   const { business } = useBusiness();
-  const { professional, isOwnerProfessional } = useProfessional();
+  const { professional, isOwnerProfessional, canManageAllAttendance } = useProfessional();
   const { data: allProfessionals } = useProfessionals(business?.id ?? '', { active: true });
   const { data: turmas = [], isLoading } = useTurmas(business?.id ?? '');
 
   const [viewProId, setViewProId] = useState<string | null>(null);
-  const effectiveProId = viewProId ?? professional?.id ?? '';
+  const showProSwitcher =
+    (!!canManageAllAttendance || !!isOwnerProfessional) &&
+    !!allProfessionals &&
+    allProfessionals.length > 1;
+
+  const defaultProId = useMemo(() => {
+    if (!canManageAllAttendance) return professional?.id ?? '';
+    const withTurmas = allProfessionals?.find((p) =>
+      turmas.some((t) => t.professionalId === p.id),
+    );
+    return withTurmas?.id ?? allProfessionals?.[0]?.id ?? professional?.id ?? '';
+  }, [canManageAllAttendance, allProfessionals, turmas, professional?.id]);
+
+  const effectiveProId = viewProId ?? defaultProId;
 
   const myTurmas = useMemo(
     () => turmas.filter((t) => t.professionalId === effectiveProId),
@@ -57,10 +70,16 @@ export default function ProfessionalTurmasPage() {
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Minhas turmas</h1>
-          <p className="mt-1 text-neutral-600">Turmas em que você está como professor</p>
+          <h1 className="text-2xl font-bold text-neutral-900">
+            {canManageAllAttendance || showProSwitcher ? 'Turmas' : 'Minhas turmas'}
+          </h1>
+          <p className="mt-1 text-neutral-600">
+            {canManageAllAttendance || showProSwitcher
+              ? 'Selecione o professor para ver as turmas'
+              : 'Turmas em que você está como professor'}
+          </p>
         </div>
-        {isOwnerProfessional && allProfessionals && allProfessionals.length > 1 && (
+        {showProSwitcher && (
           <div className="flex flex-col gap-1">
             <label className="text-xs text-neutral-500">Visualizar como</label>
             <select

@@ -24,14 +24,27 @@ import { toast } from 'sonner';
 
 function ProfessionalAttendanceContent() {
   const { business } = useBusiness();
-  const { professional, isOwnerProfessional } = useProfessional();
+  const { professional, isOwnerProfessional, canManageAllAttendance } = useProfessional();
   const searchParams = useSearchParams();
   const { data: allProfessionals } = useProfessionals(business?.id ?? '', { active: true });
   const { data: turmas = [] } = useTurmas(business?.id ?? '');
   const { data: customers = [] } = useCustomers(business?.id ?? '');
 
   const [viewProId, setViewProId] = useState<string | null>(null);
-  const effectiveProId = viewProId ?? professional?.id ?? '';
+  const showProSwitcher =
+    (!!canManageAllAttendance || !!isOwnerProfessional) &&
+    !!allProfessionals &&
+    allProfessionals.length > 1;
+
+  const defaultProId = useMemo(() => {
+    if (!canManageAllAttendance) return professional?.id ?? '';
+    const withTurmas = allProfessionals?.find((p) =>
+      turmas.some((t) => t.professionalId === p.id),
+    );
+    return withTurmas?.id ?? allProfessionals?.[0]?.id ?? professional?.id ?? '';
+  }, [canManageAllAttendance, allProfessionals, turmas, professional?.id]);
+
+  const effectiveProId = viewProId ?? defaultProId;
 
   const myTurmas = useMemo(
     () => turmas.filter((t) => t.professionalId === effectiveProId),
@@ -169,11 +182,11 @@ function ProfessionalAttendanceContent() {
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Lista de chamada</h1>
           <p className="mt-1 text-neutral-600">
-            Registre presença das suas turmas. A data da chamada segue apenas os dias em que a turma tem aula na
-            grade (inclui datas passadas para consulta ou correção).
+            Registre presença das turmas. A data da chamada segue apenas os dias em que a turma tem aula na grade
+            (inclui datas passadas para consulta ou correção).
           </p>
         </div>
-        {isOwnerProfessional && allProfessionals && allProfessionals.length > 1 && (
+        {showProSwitcher && (
           <div className="flex flex-col gap-1">
             <label className="text-xs text-neutral-500">Professor</label>
             <select
@@ -196,21 +209,33 @@ function ProfessionalAttendanceContent() {
 
       <RescheduleRequestsReviewPanel
         businessId={business.id}
-        professionalId={effectiveProId}
+        professionalId={canManageAllAttendance ? undefined : effectiveProId}
         title="Solicitações de reposição"
-        description="Aprove ou reprovar pedidos das suas turmas."
+        description={
+          canManageAllAttendance
+            ? 'Aprove ou reprovar pedidos de todas as turmas.'
+            : 'Aprove ou reprovar pedidos das suas turmas.'
+        }
       />
 
       {myTurmas.length === 0 ? (
         <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-8 text-center text-sm text-neutral-600">
-          Nenhuma turma vinculada a este professor. Peça ao administrador para associar suas turmas em{' '}
-          <span className="font-medium">Turmas</span> no painel admin.
+          {canManageAllAttendance ? (
+            <>
+              Nenhuma turma vinculada a este professor. Selecione outro professor no filtro acima.
+            </>
+          ) : (
+            <>
+              Nenhuma turma vinculada a este professor. Peça ao administrador para associar suas turmas em{' '}
+              <span className="font-medium">Turmas</span> no painel admin.
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="rounded-lg border border-neutral-200 bg-white">
             <div className="border-b border-neutral-200 px-4 py-3">
-              <h3 className="font-medium text-neutral-900">Minhas turmas</h3>
+              <h3 className="font-medium text-neutral-900">Turmas</h3>
               <p className="text-xs text-neutral-500">Selecione a turma para registrar a chamada.</p>
             </div>
             <div className="max-h-[65vh] overflow-y-auto p-2">
