@@ -501,6 +501,41 @@ export function ManualTuitionsSection() {
     }
   };
 
+  const handleExportPlansReport = () => {
+    const escapeCsv = (value: string) => {
+      const normalized = value ?? '';
+      if (normalized.includes('"') || normalized.includes(';') || normalized.includes('\n')) {
+        return `"${normalized.replace(/"/g, '""')}"`;
+      }
+      return normalized;
+    };
+
+    const rows: string[][] = [['Aluno', 'Plano', 'Vencimento do plano']];
+
+    const sorted = [...filteredEnrollments].sort((a, b) =>
+      a.customerName.localeCompare(b.customerName, 'pt-BR', { sensitivity: 'base' }),
+    );
+
+    for (const enrollment of sorted) {
+      const planEndLabel = enrollment.planEndDate
+        ? formatDueDate(new Date(enrollment.planEndDate + 'T12:00:00'))
+        : '—';
+      rows.push([enrollment.customerName, enrollment.planName, planEndLabel]);
+    }
+
+    const csv = rows.map((row) => row.map((cell) => escapeCsv(cell)).join(';')).join('\n');
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const today = new Date().toISOString().split('T')[0];
+    link.href = url;
+    link.setAttribute('download', `relatorio-mensalidades-planos-${today}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
   const isLoading = enrollmentsLoading || installmentsLoading;
 
   return (
@@ -513,13 +548,23 @@ export function ManualTuitionsSection() {
             automaticamente conforme o ciclo do pacote. Acompanhe pagamentos, atrasos e vencimentos.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setShowForm(true)}
-          className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
-        >
-          + Nova mensalidade
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={handleExportPlansReport}
+            disabled={isLoading || filteredEnrollments.length === 0}
+            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Exportar relatório
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowForm(true)}
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+          >
+            + Nova mensalidade
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
