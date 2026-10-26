@@ -61,6 +61,11 @@ service cloud.firestore {
               get(/databases/$(database)/documents/businesses/$(businessId)/staff/$(request.auth.uid)).data.active != false);
     }
 
+    // Pilot: teachers may schedule experimental lessons for Yoga Spanda only
+    function teachersCanScheduleExperimentalLessons(businessId) {
+      return businessId == 'Z30cuko6DhVhnDGxJQ6w' && isBusinessStaff(businessId);
+    }
+
     function hasPermission(businessId, permission) {
       // Check staff document for manager permissions
       return isBusinessOwner(businessId) ||
@@ -214,6 +219,11 @@ service cloud.firestore {
         allow write: if isBusinessOwner(businessId) ||
                        hasPermission(businessId, 'manageBookings') ||
                        isPlatformAdmin();
+
+        // Pilot teachers: create experimental visitors only (no convert / enroll)
+        allow create: if teachersCanScheduleExperimentalLessons(businessId) &&
+                        request.resource.data.businessId == businessId &&
+                        request.resource.data.isExperimentalStudent == true;
       }
 
       // Educação: turmas e vínculo com alunos (customer IDs)
@@ -232,7 +242,8 @@ service cloud.firestore {
         allow read: if isBusinessStaff(businessId) || isPlatformAdmin();
         allow write: if isBusinessOwner(businessId) ||
                        hasPermission(businessId, 'manageBookings') ||
-                       isPlatformAdmin();
+                       isPlatformAdmin() ||
+                       teachersCanScheduleExperimentalLessons(businessId);
       }
 
       // Educação: registros de chamada por turma/aluno/data

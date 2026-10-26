@@ -4,6 +4,7 @@ import { createContext, useContext, ReactNode, useState, useEffect } from 'react
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Professional } from '@/types/business';
+import { getBusinessRole } from '@/lib/permissions';
 import { useAuth } from './AuthContext';
 import { useBusiness } from './BusinessContext';
 
@@ -18,6 +19,27 @@ interface ProfessionalContextType {
 
 const ProfessionalContext = createContext<ProfessionalContextType | null>(null);
 
+function mapProfessionalSnap(
+  snap: { id: string; data: () => Record<string, unknown> }
+): Professional {
+  const data = snap.data();
+  return {
+    id: snap.id,
+    ...data,
+    createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() || data.createdAt,
+    updatedAt: (data.updatedAt as { toDate?: () => Date })?.toDate?.() || data.updatedAt,
+  } as Professional;
+}
+
+async function fetchProfessionalById(
+  businessId: string,
+  professionalId: string
+): Promise<Professional | null> {
+  const snap = await getDoc(doc(db, 'businesses', businessId, 'professionals', professionalId));
+  if (!snap.exists()) return null;
+  return mapProfessionalSnap(snap as { id: string; data: () => Record<string, unknown> });
+}
+
 export function ProfessionalProvider({ children }: { children: ReactNode }) {
   const { user, firebaseUser } = useAuth();
   const { business } = useBusiness();
@@ -26,6 +48,7 @@ export function ProfessionalProvider({ children }: { children: ReactNode }) {
 
   const claims = user?.customClaims as { professionalId?: string } | undefined;
   const professionalIdFromClaims = claims?.professionalId ?? null;
+  const businessRole = user && business?.id ? getBusinessRole(user, business.id) : null;
 
   useEffect(() => {
     if (!business?.id || !user?.id) {
@@ -36,58 +59,57 @@ export function ProfessionalProvider({ children }: { children: ReactNode }) {
 
     async function loadProfessional() {
       try {
-        // 1. If user has professionalId in claims, fetch that
+        const businessId = business!.id;
+        const uid = user!.id;
+
+        // 1. Claims professionalId — only if the doc exists in THIS business
         if (professionalIdFromClaims) {
-          const professionalRef = doc(
-            db,
-            'businesses',
-            business.id,
-            'professionals',
-            professionalIdFromClaims
-          );
-          const snap = await getDoc(professionalRef);
-          if (snap.exists()) {
-            const data = snap.data() as Record<string, unknown>;
-            setProfessional({
-              id: snap.id,
-              ...data,
-              createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() || data.createdAt,
-              updatedAt: (data.updatedAt as { toDate?: () => Date })?.toDate?.() || data.updatedAt,
-            } as Professional);
+          const fromClaims = await fetchProfessionalById(businessId, professionalIdFromClaims);
+          if (fromClaims) {
+            setProfessional(fromClaims);
             return;
           }
         }
 
-        // 2. Otherwise look up by userId (owner linked to professional) or email
-        const prosRef = collection(db, 'businesses', business.id, 'professionals');
-        const uid = user?.id;
+        // 2. Staff doc (invite syncs professionalId here; claims may be for another tenant)
+        const staffSnap = await getDoc(doc(db, 'businesses', businessId, 'staff', uid));
+        const staffProfessionalId = staffSnap.exists()
+          ? (staffSnap.data() as { professionalId?: string }).professionalId
+          : undefined;
+        if (staffProfessionalId) {
+          const fromStaff = await fetchProfessionalById(businessId, staffProfessionalId);
+          if (fromStaff) {
+            setProfessional(fromStaff);
+            return;
+          }
+        }
+
+        // 3. Lookup by userId (linked professional) or legacy public email
+        const prosRef = collection(db, 'businesses', businessId, 'professionals');
         const userEmail = (user as { email?: string }).email;
-
-        if (!uid) return;
-
         const byUserId = query(prosRef, where('userId', '==', uid));
         const byEmail = userEmail ? query(prosRef, where('email', '==', userEmail)) : null;
 
         const [userIdSnap, emailSnap] = await Promise.all([
           getDocs(byUserId),
-          byEmail ? getDocs(byEmail) : Promise.resolve({ docs: [] } as any),
+          byEmail ? getDocs(byEmail) : Promise.resolve({ docs: [] as { id: string; data: () => Record<string, unknown> }[] }),
         ]);
 
         const docSnap = userIdSnap.docs[0] || emailSnap.docs[0];
         if (docSnap) {
-          const data = docSnap.data() as Record<string, unknown>;
-          setProfessional({
-            id: docSnap.id,
-            ...data,
-            createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() || data.createdAt,
-            updatedAt: (data.updatedAt as { toDate?: () => Date })?.toDate?.() || data.updatedAt,
-          } as Professional);
+          setProfessional(mapProfessionalSnap(docSnap as { id: string; data: () => Record<string, unknown> }));
           return;
         }
 
-        // 3. No professional found - try to ensure owner professional exists
+        // 4. Bootstrap owner/manager professional only — never call for pure professionals (403)
+        const canEnsureOwner = businessRole === 'owner' || businessRole === 'manager';
+        if (!canEnsureOwner) {
+          setProfessional(null);
+          return;
+        }
+
         const token = await firebaseUser?.getIdToken();
-        const res = await fetch(`/api/professionals/ensure-owner?businessId=${business.id}`, {
+        const res = await fetch(`/api/professionals/ensure-owner?businessId=${businessId}`, {
           method: 'POST',
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           credentials: 'include',
@@ -95,19 +117,14 @@ export function ProfessionalProvider({ children }: { children: ReactNode }) {
         if (res.ok) {
           const { professionalId: newId } = await res.json();
           if (newId) {
-            const ref = doc(db, 'businesses', business.id, 'professionals', newId);
-            const snap = await getDoc(ref);
-            if (snap.exists()) {
-              const data = snap.data() as Record<string, unknown>;
-              setProfessional({
-                id: snap.id,
-                ...data,
-                createdAt: (data.createdAt as { toDate?: () => Date })?.toDate?.() || data.createdAt,
-                updatedAt: (data.updatedAt as { toDate?: () => Date })?.toDate?.() || data.updatedAt,
-              } as Professional);
+            const created = await fetchProfessionalById(businessId, newId);
+            if (created) {
+              setProfessional(created);
+              return;
             }
           }
         }
+        setProfessional(null);
       } catch {
         setProfessional(null);
       } finally {
@@ -116,7 +133,7 @@ export function ProfessionalProvider({ children }: { children: ReactNode }) {
     }
 
     loadProfessional();
-  }, [business?.id, user?.id, user?.email, professionalIdFromClaims, firebaseUser]);
+  }, [business?.id, user?.id, user?.email, professionalIdFromClaims, businessRole, firebaseUser]);
 
   const isOwnerProfessional =
     professional != null &&

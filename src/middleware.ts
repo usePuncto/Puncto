@@ -11,11 +11,23 @@ function stripHostPort(host: string): string {
   return host.split(':')[0];
 }
 
+type ResolvedBusinessHost = { id: string; slug: string; subscriptionStatus?: string | null };
+
+// Só dados públicos do negócio (id/slug/status), nunca dados do usuário: a checagem de role
+// continua usando as claims do token em toda requisição. TTL curto limita atraso de
+// bloqueio de assinatura / troca de slug.
+const HOST_KEY_CACHE_TTL_MS = 30_000;
+const HOST_KEY_CACHE_MAX_ENTRIES = 500;
+const hostKeyCache = new Map<string, { value: ResolvedBusinessHost | null; expiresAt: number }>();
+
 /** Middleware (Edge): resolve slug/id do host para checar `businessRoles` (chaves = id Firestore). */
 async function resolveBusinessHostKey(
   request: NextRequest,
   hostLabel: string,
-): Promise<{ id: string; slug: string; subscriptionStatus?: string | null } | null> {
+): Promise<ResolvedBusinessHost | null> {
+  const cached = hostKeyCache.get(hostLabel);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
   try {
     const u = new URL('/api/tenant/resolve-host', request.url);
     u.searchParams.set('key', hostLabel);
@@ -24,6 +36,10 @@ async function resolveBusinessHostKey(
       headers: { 'x-middleware-resolve': '1' },
       cache: 'no-store',
     });
+    if (res.status === 404) {
+      cacheHostKey(hostLabel, null);
+      return null;
+    }
     if (!res.ok) return null;
     const data = (await res.json()) as {
       id?: string;
@@ -33,10 +49,17 @@ async function resolveBusinessHostKey(
     if (typeof data.id !== 'string') return null;
     const slug =
       typeof data.slug === 'string' && data.slug.trim() ? data.slug.trim() : hostLabel;
-    return { id: data.id, slug, subscriptionStatus: data.subscriptionStatus ?? null };
+    const value = { id: data.id, slug, subscriptionStatus: data.subscriptionStatus ?? null };
+    cacheHostKey(hostLabel, value);
+    return value;
   } catch {
     return null;
   }
+}
+
+function cacheHostKey(hostLabel: string, value: ResolvedBusinessHost | null) {
+  if (hostKeyCache.size >= HOST_KEY_CACHE_MAX_ENTRIES) hostKeyCache.clear();
+  hostKeyCache.set(hostLabel, { value, expiresAt: Date.now() + HOST_KEY_CACHE_TTL_MS });
 }
 
 function subscriptionEndedLoginUrl(request: NextRequest, slug: string, appGestao = false): URL {
@@ -206,6 +229,7 @@ export async function middleware(request: NextRequest) {
 
   // Auth helper APIs must bypass claims lookup (fallback fetch would recurse through middleware)
   if (
+    url.pathname === '/api/tenant/resolve-host' ||
     url.pathname === '/api/auth/verify-session' ||
     url.pathname === '/api/auth/session-to-client' ||
     url.pathname === '/api/auth/sync-session' ||

@@ -53,7 +53,7 @@ export function usePayments(businessId: string) {
       });
     },
     enabled: !!businessId,
-    refetchInterval: 15000,
+    refetchInterval: 60000,
     refetchOnWindowFocus: true,
   });
 }

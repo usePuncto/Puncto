@@ -1,17 +1,17 @@
 'use client';
 
 import { ReactNode, useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { ProfessionalProvider, useProfessional } from '@/lib/contexts/ProfessionalContext';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { getBusinessRole } from '@/lib/permissions';
+import { teachersCanScheduleExperimentalLessons } from '@/lib/features/teacherExperimentalLessons';
 import { NotificationsBell } from '@/components/notifications/NotificationsBell';
 
 function ProfessionalLayoutInner({ children }: { children: ReactNode }) {
-  const router = useRouter();
   const pathname = usePathname();
   const { user, logout, loading } = useAuth();
   const { business } = useBusiness();
@@ -19,18 +19,9 @@ function ProfessionalLayoutInner({ children }: { children: ReactNode }) {
 
   const role = user && business ? getBusinessRole(user, business.id) : null;
   const isProfessional = role === 'professional';
-  const professionalId = (user?.customClaims as { professionalId?: string })?.professionalId;
-
-  useEffect(() => {
-    if (loading || isLoading) return;
-    // Owners/managers can access professional dashboard (they have owner professional).
-    // Pure professionals need professionalId (invite); redirect if missing.
-    if (role === 'professional' && !professionalId && !professional) {
-      router.replace('/tenant/admin/dashboard');
-    }
-  }, [loading, isLoading, role, professionalId, professional, router]);
 
   const isEducation = business?.industry === 'education';
+  const showExperimentalLessons = teachersCanScheduleExperimentalLessons(business);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   useEffect(() => {
@@ -42,6 +33,9 @@ function ProfessionalLayoutInner({ children }: { children: ReactNode }) {
         { href: '/tenant/professional', label: 'Calendário', icon: '📅' },
         { href: '/tenant/professional/attendance', label: 'Lista de chamada', icon: '📝' },
         { href: '/tenant/professional/turmas', label: 'Minhas turmas', icon: '🎓' },
+        ...(showExperimentalLessons
+          ? [{ href: '/tenant/professional/aulas-experimentais', label: 'Aulas experimentais', icon: '🧪' }]
+          : []),
         { href: '/tenant/professional/notifications', label: 'Notificações', icon: '🔔' },
         { href: '/tenant/professional/clients', label: 'Alunos', icon: '👤' },
       ]

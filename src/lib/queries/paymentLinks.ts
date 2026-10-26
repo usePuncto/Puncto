@@ -25,7 +25,7 @@ export function usePaymentLinks(businessId: string) {
       });
     },
     enabled: !!businessId,
-    refetchInterval: 15000,
+    refetchInterval: 60000,
     refetchOnWindowFocus: true,
   });
 }

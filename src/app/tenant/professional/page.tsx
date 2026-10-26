@@ -46,7 +46,9 @@ export default function ProfessionalDashboardPage() {
   if (!professional) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-neutral-500">Carregando...</p>
+        <p className="text-neutral-500">
+          Perfil de professor não encontrado. Peça ao administrador para reenviar o convite.
+        </p>
       </div>
     );
   }
