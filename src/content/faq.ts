@@ -1,68 +1,63 @@
 export const faqItems = [
   {
-    question: 'Como funciona o modelo da Puncto?',
+    question: 'O que a Puncto faz?',
     answer:
-      'Somos um ERP modular customizado. Você escolhe os módulos que precisa — agendamento, estoque, ponto, fiscal, CRM e outros — e nós adaptamos cada implementação aos seus processos e regras de negócio. Não vendemos um sistema pronto de prateleira: o sistema se adapta a você, não o contrário.',
+      'A Puncto ajuda a centralizar e organizar a gestão da empresa em um único sistema — agenda, clientes, financeiro, estoque, equipe e outras áreas — ajustado à forma como o seu negócio já trabalha.',
   },
   {
-    question: 'Quantos módulos posso escolher em cada plano?',
+    question: 'Por que não vejo preços no site?',
     answer:
-      'No plano Grátis você escolhe até 2 módulos. No Starter, até 8. No Growth, até 10. No Pro, até 12. Alguns módulos avançados — como gestão fiscal, estoque, ponto eletrônico e automação — só ficam disponíveis a partir do plano Growth. Integrações/API e Produção (KDS) são exclusivos do Pro.',
+      'Porque cada empresa tem necessidades diferentes. Preferimos entender sua operação no diagnóstico gratuito e só então apresentar valores em uma proposta personalizada.',
   },
   {
-    question: 'O que está incluído em pequenas customizações?',
+    question: 'Como funciona o diagnóstico gratuito?',
     answer:
-      'Pequenas customizações estão incluídas para os módulos contratados no seu plano: ajustes de interface, nomenclatura de campos, adaptações visuais leves e configurações do sistema. O limite é de até 2 horas técnicas de desenvolvimento por mês calendário, sem acúmulo de horas não utilizadas.',
+      'Você preenche um formulário curto sobre o negócio. Em seguida agendamos uma conversa e preparamos uma demonstração próxima da sua realidade. Sem compromisso.',
   },
   {
-    question: 'E se eu precisar de algo além das 2 horas mensais?',
+    question: 'O sistema pode ser ajustado à minha rotina?',
     answer:
-      'Novas regras de negócio, integrações complexas, relatórios avançados não previstos no sistema original ou qualquer demanda que ultrapasse o limite mensal são tratadas como Desenvolvimento Específico, com análise técnica, orçamento separado e aprovação prévia.',
+      'Sim. Partimos de áreas já desenvolvidas e fazemos ajustes para adequar o sistema ao seu jeito de trabalhar — em vez de obrigar a equipe a mudar tudo de uma vez.',
   },
   {
-    question: 'Como funciona o suporte técnico?',
+    question: 'Como funciona o suporte?',
     answer:
-      'O suporte é realizado por e-mail, WhatsApp e telefone, em dias úteis das 09h às 18h. O prazo de resposta (SLA) é de até 3 horas úteis, conforme a criticidade da solicitação.',
-  },
-  {
-    question: 'Quais formas de pagamento são aceitas?',
-    answer:
-      'No momento aceitamos somente cartões de crédito (Visa, Mastercard, Elo, Amex). Para assinatura da Puncto, você pode pagar mensalmente ou anualmente (com desconto). Para receber pagamentos dos seus clientes, oferecemos PIX instantâneo e todas as bandeiras de cartão via Stripe.',
+      'O suporte é feito por e-mail, WhatsApp e telefone, em dias úteis das 09h às 18h. O prazo de resposta é de até 3 horas úteis, conforme a urgência.',
   },
   {
     question: 'O sistema gerencia nota fiscal?',
     answer:
-      'Sim. O módulo Gestão de NF permite cadastrar, arquivar e consultar NFS-e, NFC-e e NF-e emitidas fora da Puncto (pelo seu contador ou emissor). Você centraliza número, chave de acesso, valores, XML/PDF e status no painel — sem cotas de emissão.',
+      'Sim. Você pode organizar e consultar notas do negócio no painel. A emissão em si continua com o seu emissor ou contador.',
   },
   {
     question: 'Posso usar o Puncto em mais de uma unidade?',
     answer:
-      'Sim! O Puncto foi desenvolvido para multi-unidades e franquias. A partir do plano Pro, você pode gerenciar todas as suas unidades em um único lugar, com visão consolidada ou individual, e controle de acesso por localidade.',
+      'Sim. A Puncto pode atender operações com várias unidades ou franquias, com visão consolidada ou por localidade. Detalhamos isso no diagnóstico.',
   },
   {
-    question: 'Como funcionam as integrações com WhatsApp?',
+    question: 'Como funcionam os lembretes no WhatsApp?',
     answer:
-      'Usamos a API oficial do WhatsApp Business Platform para enviar lembretes de agendamento, confirmações e campanhas de marketing. É necessário ter uma conta no WhatsApp Business verificada. Ajudamos na configuração inicial.',
+      'É possível enviar lembretes de agendamento, confirmações e comunicações pelo WhatsApp Business. Ajudamos na configuração inicial.',
   },
   {
     question: 'Meus dados estão seguros?',
     answer:
-      'Absolutamente! Utilizamos criptografia de ponta (TLS 1.3), armazenamento em nuvem com redundância (Firebase/Google Cloud), e somos totalmente compatíveis com a LGPD. Realizamos backups automáticos diários e temos certificação de segurança.',
+      'Sim. Usamos conexão segura, armazenamento em nuvem com redundância e estamos alinhados à LGPD, com backups automáticos.',
   },
   {
     question: 'Posso migrar dados de outro sistema?',
     answer:
-      'Sim! Nossa equipe de suporte pode ajudar a migrar seus dados de clientes, serviços e histórico de outros sistemas. Para o planos Pro, oferecemos migração assistida sem custo adicional.',
+      'Sim. Nossa equipe pode ajudar a trazer cadastros de clientes, serviços e histórico de outras ferramentas. Combinamos o melhor caminho no diagnóstico.',
   },
   {
     question: 'Existe contrato de fidelidade?',
     answer:
-      'Não! Nossos planos são mensais e você pode cancelar a qualquer momento sem multa. Acreditamos que a qualidade do nosso produto deve ser o motivo para você ficar, não um contrato.',
+      'As condições comerciais são apresentadas na proposta após o diagnóstico. Acreditamos que a qualidade do produto e do atendimento devem ser o motivo para continuar conosco.',
   },
   {
-    question: 'O Puncto funciona offline?',
+    question: 'O Puncto funciona sem internet?',
     answer:
-      'Sim! O Puncto é um PWA (Progressive Web App) que continua funcionando mesmo sem internet. Você pode visualizar a agenda, fazer marcações e registrar vendas. Quando a conexão voltar, tudo é sincronizado automaticamente.',
+      'Em muitos casos é possível continuar visualizando agenda e registrando informações básicas offline; quando a conexão volta, tudo é sincronizado. Detalhes dependem do uso — esclarecemos na demonstração.',
   },
 ];
 

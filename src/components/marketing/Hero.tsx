@@ -25,7 +25,7 @@ export default function Hero() {
             >
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary-100 text-primary-700 text-sm font-medium mb-6">
                 <span className="w-2 h-2 bg-primary-500 rounded-full animate-pulse" />
-                ERP Modular Customizado
+                Gestão do seu negócio em um só lugar
               </span>
             </motion.div>
 
@@ -36,8 +36,8 @@ export default function Hero() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              Transforme processos manuais em{' '}
-              <span className="text-gradient">inteligência e lucro</span>
+              Veja como a Puncto pode funcionar na{' '}
+              <span className="text-gradient">realidade da sua empresa</span>
             </motion.h1>
 
             {/* Subheadline */}
@@ -47,8 +47,9 @@ export default function Hero() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.2 }}
             >
-              Um ERP modular em que você escolhe os módulos e nós customizamos cada detalhe 
-              para a sua operação. O sistema se adapta ao seu negócio.
+              A Puncto ajuda a centralizar e organizar a gestão da sua empresa —
+              agenda, clientes, financeiro, estoque e equipe — em um único sistema,
+              ajustado à forma como o seu negócio já trabalha.
             </motion.p>
 
             {/* CTA Buttons */}
@@ -58,9 +59,8 @@ export default function Hero() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.3 }}
             >
-              {/* Link WhatsApp Business */}
-              <Link href="https://wa.me/5541991626161" target="_blank" className="btn-primary btn-lg w-full sm:w-auto">
-                Agendar Diagnóstico Gratuito
+              <Link href="/demo" className="btn-primary btn-lg w-full sm:w-auto">
+                Agendar diagnóstico gratuito
                 <svg
                   className="w-5 h-5"
                   fill="none"
@@ -75,8 +75,8 @@ export default function Hero() {
                   />
                 </svg>
               </Link>
-              <Link href="#solucoes" className="btn-secondary btn-lg w-full sm:w-auto">
-                Ver Soluções
+              <Link href="#como-funciona" className="btn-secondary btn-lg w-full sm:w-auto">
+                Como funciona
               </Link>
             </motion.div>
 
@@ -91,19 +91,19 @@ export default function Hero() {
                 <svg className="w-5 h-5 text-secondary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                Módulos à sua escolha
+                Diagnóstico sem compromisso
               </div>
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-secondary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                Customizado para você
+                Demonstração personalizada
               </div>
               <div className="flex items-center gap-2">
                 <svg className="w-5 h-5 text-secondary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                Atendimento Humanizado
+                Ajustado ao seu jeito de trabalhar
               </div>
             </motion.div>
           </div>
@@ -122,7 +122,6 @@ export default function Hero() {
                   <div className="w-3 h-3 rounded-full bg-yellow-500" />
                   <div className="w-3 h-3 rounded-full bg-green-500" />
                 </div>
-                {/* Endereço fake */}
                 <div className="flex-1 flex justify-center">
                   <div className="bg-slate-800 rounded-lg px-4 py-1.5 text-slate-400 text-sm">
                     Painel Administrativo Puncto
@@ -140,7 +139,6 @@ export default function Hero() {
                 />
               </div>
               
-              {/* Card flutuante 1 */}
               <div className="absolute -left-8 top-1/4 bg-white rounded-xl shadow-soft-lg p-4 hidden lg:block animate-float">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-secondary-100 rounded-lg flex items-center justify-center">
@@ -149,13 +147,12 @@ export default function Hero() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-slate-900">Relatório Gerado</p>
-                    <p className="text-xs text-slate-500">Automação concluída</p>
+                    <p className="text-sm font-medium text-slate-900">Tudo organizado</p>
+                    <p className="text-xs text-slate-500">Em um só lugar</p>
                   </div>
                 </div>
               </div>
 
-              {/* Card flutuante 2 */}
               <div className="absolute -right-8 bottom-1/4 bg-white rounded-xl shadow-soft-lg p-4 hidden lg:block animate-float" style={{ animationDelay: '1s' }}>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
@@ -164,8 +161,8 @@ export default function Hero() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-slate-900">Venda Registrada</p>
-                    <p className="text-xs text-slate-500">+R$ 2.450,00</p>
+                    <p className="text-sm font-medium text-slate-900">Menos retrabalho</p>
+                    <p className="text-xs text-slate-500">Mais tempo para vender</p>
                   </div>
                 </div>
               </div>

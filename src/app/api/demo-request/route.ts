@@ -19,6 +19,13 @@ const demoRequestSchema = z.object({
   billing: z.enum(['monthly', 'annual']).optional(),
   page: z.string().optional(),
   subject: z.string().optional(),
+  leadType: z.enum(['demo_request', 'pre_diagnosis']).optional(),
+  teamSize: z.string().optional(),
+  organizeAreas: z.array(z.string()).optional(),
+  currentTools: z.string().optional(),
+  mainDifficulty: z.string().optional(),
+  desiredFeature: z.string().nullable().optional(),
+  howFound: z.string().optional(),
 });
 
 function normalizeModules(modules: string[] | string | undefined): string[] {
@@ -60,22 +67,30 @@ export async function POST(request: NextRequest) {
     const utmMedium = request.headers.get('x-utm-medium') || body.utmMedium || null;
     const utmCampaign = request.headers.get('x-utm-campaign') || body.utmCampaign || null;
 
+    const leadType = data.leadType || 'demo_request';
+
     // Store demo request in Firestore
     const demoRef = await db.collection('leads').add({
-      type: 'demo_request',
+      type: leadType,
       name: data.name,
       email: data.email.toLowerCase(),
       phone: data.phone || null,
       company: data.company || null,
       businessType: data.businessType || null,
       message: data.message || null,
-      subject: data.subject || 'Solicitação de demonstração',
+      subject: data.subject || (leadType === 'pre_diagnosis' ? 'Pré-diagnóstico gratuito' : 'Solicitação de demonstração'),
       preferredDate: data.preferredDate || null,
       preferredTime: data.preferredTime || null,
       plan: data.plan || null,
       modules,
       industry: data.industry || null,
       billing: data.billing || null,
+      teamSize: data.teamSize || null,
+      organizeAreas: data.organizeAreas || [],
+      currentTools: data.currentTools || null,
+      mainDifficulty: data.mainDifficulty || null,
+      desiredFeature: data.desiredFeature || null,
+      howFound: data.howFound || null,
       source: {
         page: data.page || '/demo',
         utmSource,
@@ -97,6 +112,7 @@ export async function POST(request: NextRequest) {
     // Also create in a dedicated demo_requests collection for sales team
     await db.collection('demo_requests').add({
       leadId: demoRef.id,
+      type: leadType,
       name: data.name,
       email: data.email.toLowerCase(),
       phone: data.phone || null,
@@ -109,6 +125,12 @@ export async function POST(request: NextRequest) {
       modules,
       industry: data.industry || null,
       billing: data.billing || null,
+      teamSize: data.teamSize || null,
+      organizeAreas: data.organizeAreas || [],
+      currentTools: data.currentTools || null,
+      mainDifficulty: data.mainDifficulty || null,
+      desiredFeature: data.desiredFeature || null,
+      howFound: data.howFound || null,
       status: 'pending',
       scheduledAt: null,
       completedAt: null,

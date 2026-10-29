@@ -20,8 +20,8 @@ interface CTASectionProps {
 export default function CTASection({
   title = 'Pronto para um sistema feito para você?',
   description = 'Agende um diagnóstico gratuito e descubra como montar o ERP modular ideal para a sua operação.',
-  primaryCTA = { text: 'Agendar Diagnóstico', href: '/contact' },
-  secondaryCTA = { text: 'Falar com Vendas', href: '/contact' },
+  primaryCTA = { text: 'Agendar diagnóstico gratuito', href: '/demo' },
+  secondaryCTA = { text: 'Falar conosco', href: '/contact' },
   variant = 'gradient',
 }: CTASectionProps) {
   const bgClasses = {

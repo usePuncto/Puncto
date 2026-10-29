@@ -1,9 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
+import Link from 'next/link';
 
 import LeadCaptureForm from '@/components/marketing/LeadCaptureForm';
-import { testimonials } from '@/components/marketing/TestimonialCard';
 
 export default function DemoPage() {
   return (
@@ -11,28 +11,28 @@ export default function DemoPage() {
       {/* Hero Section */}
       <section className="section bg-gradient-to-b from-primary-50 to-white">
         <div className="container-marketing">
-          <div className="grid lg:grid-cols-2 gap-12 items-center">
-            {/* Left: Content */}
+          <div className="grid lg:grid-cols-2 gap-12 items-start">
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
             >
-              <span className="badge-primary mb-4">Demonstração gratuita</span>
+              <span className="badge-primary mb-4">Diagnóstico gratuito</span>
               <h1 className="heading-xl text-slate-900 mb-6">
-                Veja o Puncto em ação
+                Veja como a Puncto pode funcionar na realidade da sua empresa
               </h1>
               <p className="body-lg mb-8">
-                Agende um diagnóstico gratuito e veja como montamos o ERP modular 
-                ideal para a sua operação. Nossa equipe mostra os módulos e 
-                customizações mais relevantes para o seu tipo de negócio.
+                Antes da reunião, entendemos um pouco da sua operação para preparar
+                uma demonstração mais próxima do que você realmente precisa.
+                Sem compromisso — e sem valores na página: a proposta vem depois
+                do diagnóstico.
               </p>
 
               <div className="space-y-4 mb-8">
                 {[
-                  'Demonstração ao vivo de 30 minutos',
-                  'Personalizada para seu tipo de negócio',
-                  'Tire todas as suas dúvidas',
-                  'Sem compromisso',
+                  'Formulário rápido para entendermos seu contexto',
+                  'Conversa de diagnóstico gratuita',
+                  'Demonstração personalizada para o seu negócio',
+                  'Proposta com valores só depois de alinharmos a necessidade',
                 ].map((item, i) => (
                   <div key={i} className="flex items-center gap-3">
                     <div className="w-6 h-6 bg-secondary-100 rounded-full flex items-center justify-center flex-shrink-0">
@@ -55,43 +55,24 @@ export default function DemoPage() {
                 ))}
               </div>
 
-              {/* Testimonial - Commented out until we have real testimonials
-              <div className="bg-white rounded-xl p-6 shadow-soft border border-slate-100">
-                <div className="flex gap-1 mb-3">
-                  {[...Array(5)].map((_, i) => (
-                    <svg
-                      key={i}
-                      className="w-4 h-4 text-accent-400"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                    </svg>
-                  ))}
-                </div>
-                <blockquote className="text-slate-700 mb-4">
-                  &ldquo;{testimonials[0].quote}&rdquo;
-                </blockquote>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                    <span className="font-semibold text-primary-600">
-                      {testimonials[0].author.charAt(0)}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-900">
-                      {testimonials[0].author}
-                    </p>
-                    <p className="text-sm text-slate-500">
-                      {testimonials[0].role} @ {testimonials[0].company}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              */}
+              <p className="text-sm text-slate-500">
+                Prefere falar direto?{' '}
+                <a
+                  href="https://wa.me/5541991626161"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  Chame no WhatsApp
+                </a>
+                {' '}ou{' '}
+                <Link href="/contact" className="text-primary-600 hover:text-primary-700 font-medium">
+                  envie uma mensagem
+                </Link>
+                .
+              </p>
             </motion.div>
 
-            {/* Right: Form */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -99,13 +80,17 @@ export default function DemoPage() {
               className="bg-white rounded-2xl shadow-soft-lg border border-slate-200 p-8"
             >
               <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                Agende sua demonstração
+                Formulário de pré-diagnóstico
               </h2>
               <p className="text-slate-600 mb-6">
-                Preencha o formulário e entraremos em contato para agendar.
+                Quanto mais contexto você compartilhar, mais útil será a conversa.
               </p>
 
-              <LeadCaptureForm variant="demo" page="/demo" leadType="demo_request" />
+              <LeadCaptureForm
+                variant="diagnosis"
+                page="/demo"
+                leadType="pre_diagnosis"
+              />
             </motion.div>
           </div>
         </div>
@@ -121,7 +106,7 @@ export default function DemoPage() {
             className="text-center mb-12"
           >
             <h2 className="heading-lg text-slate-900 mb-4">
-              O que esperar da demonstração
+              O que acontece depois do formulário
             </h2>
           </motion.div>
 
@@ -131,19 +116,19 @@ export default function DemoPage() {
                 step: '1',
                 title: 'Entendemos seu negócio',
                 description:
-                  'Conversamos sobre suas necessidades, desafios e objetivos para personalizar a demonstração.',
+                  'Lemos o que você compartilhou e, se precisar, esclarecemos detalhes antes da reunião.',
               },
               {
                 step: '2',
-                title: 'Mostramos as funcionalidades',
+                title: 'Mostramos o sistema no seu contexto',
                 description:
-                  'Navegamos pela plataforma mostrando os recursos mais relevantes para seu tipo de negócio.',
+                  'Preparamos uma demonstração próxima da sua rotina — com as áreas que fazem sentido para você.',
               },
               {
                 step: '3',
-                title: 'Respondemos suas dúvidas',
+                title: 'Alinhamos próximos passos',
                 description:
-                  'Tiramos todas as suas dúvidas sobre funcionalidades, preços, migração e suporte.',
+                  'Tiramos dúvidas e, se fizer sentido, apresentamos uma proposta com valores sob medida.',
               },
             ].map((item, index) => (
               <motion.div
@@ -168,7 +153,7 @@ export default function DemoPage() {
       </section>
 
       {/* FAQ */}
-      <section className="section bg-slate-50">
+      <section id="faq" className="section bg-slate-50">
         <div className="container-marketing">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -184,20 +169,24 @@ export default function DemoPage() {
           <div className="max-w-2xl mx-auto space-y-4">
             {[
               {
-                q: 'A demonstração é gratuita?',
-                a: 'Sim! A demonstração é totalmente gratuita e sem compromisso.',
+                q: 'O diagnóstico é gratuito?',
+                a: 'Sim. A conversa de diagnóstico e a demonstração são gratuitas e sem compromisso.',
               },
               {
-                q: 'Quanto tempo dura a demonstração?',
-                a: 'Aproximadamente 30 minutos, mas podemos estender se necessário.',
+                q: 'Por que não vejo preços no site?',
+                a: 'Porque cada empresa tem necessidades diferentes. Preferimos entender sua operação e só então apresentar valores em uma proposta personalizada.',
               },
               {
-                q: 'Preciso de algum software ou instalação?',
-                a: 'Não! A demonstração acontece por videoconferência (Google Meet ou Zoom).',
+                q: 'Quanto tempo dura a reunião?',
+                a: 'Em geral cerca de 30 a 45 minutos, mas podemos ajustar conforme a necessidade.',
+              },
+              {
+                q: 'Preciso instalar algum programa?',
+                a: 'Não. A conversa acontece por videoconferência (Google Meet ou Zoom).',
               },
               {
                 q: 'Posso convidar minha equipe?',
-                a: 'Claro! Quanto mais pessoas participarem, melhor para alinhar expectativas.',
+                a: 'Claro. Quanto mais pessoas relevantes participarem, melhor para alinhar expectativas.',
               },
             ].map((faq, index) => (
               <motion.div

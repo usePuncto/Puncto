@@ -6,33 +6,14 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 
 import LeadCaptureForm from '@/components/marketing/LeadCaptureForm';
-import ServiceTermsSection from '@/components/marketing/ServiceTermsSection';
-import {
-  getModuleById,
-  PLAN_LABELS,
-  type PlanId,
-} from '@/content/modules';
-
-const VALID_PLANS: PlanId[] = ['gratis', 'starter', 'growth', 'pro'];
 
 function ContactContent() {
   const searchParams = useSearchParams();
   const subject = searchParams.get('subject') || undefined;
-  const plan = searchParams.get('plan') || undefined;
   const message = searchParams.get('message') || undefined;
-  const industry = searchParams.get('industry') || undefined;
-  const billingParam = searchParams.get('billing');
-  const billing = billingParam === 'annual' || billingParam === 'monthly' ? billingParam : undefined;
-  const modulesParam = searchParams.get('modules') || '';
-  const selectedModuleIds = modulesParam.split(',').filter(Boolean);
-  const selectedModules = selectedModuleIds
-    .map((id) => getModuleById(id))
-    .filter(Boolean);
-  const planId = plan && VALID_PLANS.includes(plan as PlanId) ? (plan as PlanId) : undefined;
 
   return (
     <>
-      {/* Hero Section */}
       <section className="section-sm bg-gradient-to-b from-primary-50 to-white">
         <div className="container-marketing">
           <motion.div
@@ -45,18 +26,21 @@ function ContactContent() {
               Fale conosco
             </h1>
             <p className="body-lg">
-              Envie sua mensagem e nossa equipe responderá em até 3 horas úteis
-              no suporte técnico (dias úteis, 9h às 18h).
+              Envie sua mensagem e nossa equipe responde em horário comercial
+              (dias úteis, 9h às 18h). Para ver o sistema na sua realidade,
+              prefira o{' '}
+              <Link href="/demo" className="text-primary-600 hover:text-primary-700 font-medium">
+                diagnóstico gratuito
+              </Link>
+              .
             </p>
           </motion.div>
         </div>
       </section>
 
-      {/* Contact Grid */}
       <section className="section bg-white">
         <div className="container-marketing">
           <div className="grid lg:grid-cols-3 gap-12">
-            {/* Contact Info */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -67,7 +51,6 @@ function ContactContent() {
               </h2>
 
               <div className="space-y-6">
-                {/* Email */}
                 <div className="flex gap-4">
                   <div className="w-12 h-12 bg-primary-100 rounded-xl flex items-center justify-center flex-shrink-0">
                     <svg
@@ -90,7 +73,6 @@ function ContactContent() {
                   </div>
                 </div>
 
-                {/* WhatsApp */}
                 <div className="flex gap-4">
                   <div className="w-12 h-12 bg-secondary-100 rounded-xl flex items-center justify-center flex-shrink-0">
                     <svg
@@ -103,9 +85,9 @@ function ContactContent() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-slate-900">WhatsApp</h3>
-                    <a 
-                      href="https://wa.me/5541991626161" 
-                      target="_blank" 
+                    <a
+                      href="https://wa.me/5541991626161"
+                      target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary-600 hover:text-primary-700"
                     >
@@ -116,11 +98,8 @@ function ContactContent() {
                     </p>
                   </div>
                 </div>
-
-                
               </div>
 
-              {/* Quick Links */}
               <div className="mt-8 pt-8 border-t border-slate-200">
                 <h3 className="font-semibold text-slate-900 mb-4">
                   Links úteis
@@ -131,7 +110,7 @@ function ContactContent() {
                       href="/demo"
                       className="text-primary-600 hover:text-primary-700"
                     >
-                      Agendar Demonstração
+                      Agendar diagnóstico gratuito
                     </Link>
                   </li>
                   <li>
@@ -139,15 +118,7 @@ function ContactContent() {
                       href="/pricing"
                       className="text-primary-600 hover:text-primary-700"
                     >
-                      Ver Planos e Preços
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/pricing#termos-servico"
-                      className="text-primary-600 hover:text-primary-700"
-                    >
-                      Customizações, suporte e atualizações
+                      Como funciona o investimento
                     </Link>
                   </li>
                   <li>
@@ -155,95 +126,29 @@ function ContactContent() {
                       href="/features"
                       className="text-primary-600 hover:text-primary-700"
                     >
-                      Funcionalidades
+                      O que o sistema cobre
                     </Link>
                   </li>
                 </ul>
               </div>
             </motion.div>
 
-            {/* Contact Form */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-8"
             >
-              {plan && selectedModules.length > 0 && (
-                <div className="bg-primary-50 rounded-lg p-4 mb-6 border border-primary-100">
-                  <h3 className="font-semibold text-primary-900 mb-2">
-                    Resumo da sua seleção
-                  </h3>
-                  <p className="text-primary-800 text-sm mb-3">
-                    Plano <strong>{PLAN_LABELS[plan as PlanId] || plan}</strong> com{' '}
-                    {selectedModules.length} módulo{selectedModules.length !== 1 ? 's' : ''}:
-                  </p>
-                  <ul className="space-y-1">
-                    {selectedModules.map((module) => (
-                      <li key={module!.id} className="text-sm text-primary-700 flex items-center gap-2">
-                        <svg className="w-4 h-4 text-secondary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                        {module!.name}
-                      </li>
-                    ))}
-                  </ul>
-                  <Link
-                    href={`/pricing/choose-modules?plan=${plan}${modulesParam ? `&modules=${modulesParam}` : ''}`}
-                    className="inline-block mt-3 text-sm text-primary-600 hover:text-primary-700 font-medium"
-                  >
-                    Alterar módulos selecionados
-                  </Link>
-                  <p className="text-xs text-primary-700/80 mt-3 pt-3 border-t border-primary-100">
-                    Inclui até 2h/mês de pequenas customizações nos módulos contratados.
-                    Demandas maiores são orçadas como Desenvolvimento Específico.{' '}
-                    <a href="#termos-servico" className="underline hover:text-primary-900">
-                      Ver detalhes
-                    </a>
-                  </p>
-                </div>
-              )}
-
-              {plan === 'enterprise' && (
-                <div className="bg-primary-50 rounded-lg p-4 mb-6">
-                  <h3 className="font-semibold text-primary-900">
-                    Interessado no plano Enterprise
-                  </h3>
-                  <p className="text-primary-700 text-sm">
-                    Nossa equipe comercial entrará em contato para entender suas
-                    necessidades e apresentar uma proposta personalizada.
-                  </p>
-                </div>
-              )}
-
               <LeadCaptureForm
                 variant="contact"
-                subject={subject || (plan ? `Interesse no plano ${plan}` : undefined)}
+                subject={subject}
                 defaultMessage={message}
-                plan={plan}
-                modules={selectedModuleIds}
-                industry={industry}
-                billing={billing}
                 page="/contact"
-                leadType={
-                  plan === 'enterprise'
-                    ? 'enterprise'
-                    : plan && selectedModuleIds.length > 0
-                      ? 'module_interest'
-                      : 'contact'
-                }
+                leadType="contact"
               />
             </motion.div>
           </div>
         </div>
       </section>
-
-      {planId && (
-        <section className="section bg-slate-50 border-t border-slate-100">
-          <div className="container-marketing max-w-5xl">
-            <ServiceTermsSection planId={planId} variant="compact" />
-          </div>
-        </section>
-      )}
     </>
   );
 }

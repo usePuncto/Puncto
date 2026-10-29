@@ -44,9 +44,9 @@ export const features = [
   {
     id: 'production',
     icon: 'chart',
-    title: 'Módulo de Produção (KDS) e Qualidade',
+    title: 'Produção e qualidade na operação',
     description:
-      'Digitalize seu chão de fábrica. Instruções visuais, checklists obrigatórios de qualidade e tradução automática para equipes multiculturais.',
+      'Organize a produção com instruções visuais, checklists de qualidade e apoio a equipes que falam idiomas diferentes.',
     benefits: [
       'Telas interativas nas bancadas',
       'Checklists visuais anti-erro',
@@ -128,14 +128,14 @@ export const features = [
   {
     id: 'integracao',
     icon: 'code',
-    title: 'Integração de Sistemas',
+    title: 'Conexão com outras ferramentas',
     description:
-      'Conecte o Puncto com suas ferramentas favoritas através de API REST, webhooks e integrações prontas.',
+      'Ligue a Puncto ao que sua empresa já usa — calendários, pagamentos, WhatsApp e outros sistemas do dia a dia.',
     benefits: [
-      'API REST e GraphQL',
-      'Webhooks para eventos',
-      'Integrações com calendários',
-      'Segurança da informação',
+      'Conexão com ferramentas existentes',
+      'Avisos automáticos quando algo acontece',
+      'Sincronização com calendários',
+      'Dados protegidos',
     ],
     categories: ['api'],
   },

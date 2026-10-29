@@ -10,13 +10,13 @@ import CTASection from '@/components/marketing/CTASection';
 const featureCategories = [
   { id: 'all', name: 'Todos' },
   { id: 'scheduling', name: 'Agendamento' },
-  { id: 'payments', name: 'Pagamentos' },
-  { id: 'restaurant', name: 'Restaurante' },
+  { id: 'payments', name: 'Financeiro' },
+  { id: 'restaurant', name: 'Cardápio e pedidos' },
   { id: 'timeClock', name: 'Ponto' },
   { id: 'inventory', name: 'Estoque' },
-  { id: 'crm', name: 'CRM' },
-  { id: 'api', name: 'API' },
-  { id: 'analytics', name: 'Analytics' },
+  { id: 'crm', name: 'Clientes' },
+  { id: 'api', name: 'Integrações' },
+  { id: 'analytics', name: 'Relatórios' },
 ];
 
 export default function FeaturesPage() {
@@ -38,13 +38,13 @@ export default function FeaturesPage() {
             animate={{ opacity: 1, y: 0 }}
             className="text-center max-w-3xl mx-auto"
           >
-            <span className="badge-primary mb-4">Funcionalidades</span>
+            <span className="badge-primary mb-4">O que o sistema cobre</span>
             <h1 className="heading-xl text-slate-900 mb-6">
               Tudo que você precisa para gerenciar seu negócio
             </h1>
             <p className="body-lg">
-              Módulos de gestão que você combina e customiza conforme a necessidade 
-              do seu negócio. O sistema se adapta a você.
+              Áreas de gestão que combinamos e ajustamos conforme a necessidade
+              do seu negócio. O sistema se adapta a você — não o contrário.
             </p>
           </motion.div>
         </div>
@@ -172,53 +172,27 @@ export default function FeaturesPage() {
         </div>
       </section>
 
-      {/* Pay As You Go / Transparency Section */}
+      {/* How we price reminder */}
       <section className="section bg-white">
         <div className="container-marketing">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="max-w-3xl mx-auto"
+            className="max-w-3xl mx-auto text-center"
           >
-            <div className="p-6 md:p-8 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100/80 border border-slate-200 shadow-sm">
-              <h3 className="font-bold text-slate-900 text-xl mb-4">
-                📋 Transparência: Entenda os limites do seu plano
-              </h3>
-              <p className="text-slate-700 mb-6 leading-relaxed">
-                Nós crescemos junto com a sua empresa. Nossos planos possuem cotas desenhadas para atender diferentes estágios do seu negócio, garantindo que você só pague por aquilo que realmente precisa.
-              </p>
-              <div className="space-y-5 mb-5">
-                <div className="bg-white/80 rounded-xl p-4 border border-slate-200/60">
-                  <p className="text-slate-800 font-semibold text-sm mb-2">👥 Limite de Colaboradores (Usuários no sistema)</p>
-                  <ul className="text-sm text-slate-600 space-y-1 ml-4">
-                    <li><strong>Starter:</strong> Até 10 colaboradores.</li>
-                    <li><strong>Growth:</strong> Até 20 colaboradores.</li>
-                    <li><strong>Pro:</strong> Até 30 colaboradores.</li>
-                  </ul>
-                  <p className="text-sm text-slate-500 italic mt-2">
-                    (Sua operação é maior? Fale com nosso time de vendas para montarmos um plano personalizado para o seu tamanho!)
-                  </p>
-                </div>
-                <div className="bg-white/80 rounded-xl p-4 border border-slate-200/60">
-                  <p className="text-slate-800 font-semibold text-sm mb-2">🚀 Cotas de Automação (WhatsApp)</p>
-                  <p className="text-slate-600 text-sm mb-2">Disponíveis nos planos mais avançados para turbinar sua operação mensalmente:</p>
-                  <ul className="text-sm text-slate-600 space-y-1 ml-4">
-                    <li><strong>Growth:</strong> 150 mensagens de WhatsApp automáticas.</li>
-                    <li><strong>Pro:</strong> 300 mensagens de WhatsApp automáticas.</li>
-                  </ul>
-                  <p className="text-sm text-slate-500 mt-2">
-                    A Gestão de NF é ilimitada no módulo: você arquiva e consulta as notas emitidas pelo seu contador/emissor.
-                  </p>
-                </div>
-              </div>
-              <div className="pt-4 border-t border-slate-200">
-                <p className="text-slate-800 font-semibold text-sm mb-1">💡 E se eu ultrapassar a minha cota no mês?</p>
-                <p className="text-slate-600 text-sm leading-relaxed">
-                  Fique tranquilo, o Puncto não vai travar a sua operação! Nós trabalhamos com o modelo Pay As You Go (pague pelo que usar). Se você tiver um mês de pico e precisar enviar mais mensagens automáticas, o sistema continuará funcionando normalmente. O uso excedente será cobrado de forma avulsa apenas na sua próxima fatura, com valores acessíveis.
-                </p>
-              </div>
-            </div>
+            <h3 className="heading-md text-slate-900 mb-4">
+              Valores sob medida, após o diagnóstico
+            </h3>
+            <p className="body-lg mb-6">
+              Não publicamos tabelas de preço no site. No diagnóstico gratuito
+              entendemos o que você precisa organizar e, na demonstração,
+              mostramos o sistema na sua realidade — a proposta com valores
+              vem depois.
+            </p>
+            <Link href="/demo" className="btn-primary">
+              Agendar diagnóstico gratuito
+            </Link>
           </motion.div>
         </div>
       </section>
@@ -290,23 +264,23 @@ export default function FeaturesPage() {
               viewport={{ once: true }}
             >
               <span className="badge bg-primary-500/20 text-primary-300 mb-4">
-                Para Desenvolvedores
+                Integrações
               </span>
               <h2 className="heading-lg text-white mb-4">
-                API completa e bem documentada
+                Conecte com o que sua empresa já usa
               </h2>
               <p className="text-slate-300 text-lg mb-6">
-                Integre o Puncto com seus sistemas existentes ou construa soluções
-                personalizadas usando nossa API REST e GraphQL.
+                Quando precisar, a Puncto pode se ligar a outras ferramentas do
+                seu dia a dia — calendários, pagamentos, WhatsApp e sistemas
+                internos. No diagnóstico, alinhamos o que faz sentido.
               </p>
               <ul className="space-y-3 mb-8">
                 {[
-                  'API REST com OpenAPI/Swagger',
-                  'GraphQL para consultas flexíveis',
-                  'Webhooks para eventos em tempo real',
-                  'SDKs para JavaScript e Python (em breve)',
-                  'Rate limiting generoso',
-                  'Documentação interativa',
+                  'Lembretes e mensagens no WhatsApp',
+                  'Pagamentos e PIX',
+                  'Sincronização com calendários',
+                  'Conexão com outras ferramentas quando necessário',
+                  'Documentação clara para quem cuida da tecnologia',
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-3">
                     <svg
@@ -328,16 +302,16 @@ export default function FeaturesPage() {
               </ul>
               <div className="flex gap-4">
                 <Link
-                  href="/contact"
+                  href="/demo"
                   className="btn bg-white text-slate-900 hover:bg-slate-100"
                 >
-                  Solicitar Acesso à API
+                  Agendar diagnóstico
                 </Link>
                 <Link
-                  href="/pricing"
+                  href="/contact"
                   className="btn bg-transparent text-white border border-slate-600 hover:bg-slate-800"
                 >
-                  Ver Planos com API
+                  Falar sobre integrações
                 </Link>
               </div>
             </motion.div>
@@ -383,9 +357,10 @@ console.log('Agendamento criado:', booking.id);`}</code>
 
       {/* CTA */}
       <CTASection
-        title="Pronto para montar seu ERP?"
-        description="Agende um diagnóstico gratuito e descubra quais módulos e customizações fazem sentido para a sua operação."
-        primaryCTA={{ text: 'Agendar Diagnóstico', href: '/contact' }}
+        title="Pronto para ver isso na sua empresa?"
+        description="Agende um diagnóstico gratuito e descubra o que faz sentido organizar na sua operação."
+        primaryCTA={{ text: 'Agendar diagnóstico gratuito', href: '/demo' }}
+        secondaryCTA={{ text: 'Falar conosco', href: '/contact' }}
         variant="gradient"
       />
     </>

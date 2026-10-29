@@ -7,9 +7,9 @@ import Logo from './Logo';
 const footerLinks = {
   produto: [
     { name: 'Recursos', href: '/features' },
-    { name: 'Preços', href: '/pricing' },
+    { name: 'Diagnóstico gratuito', href: '/demo' },
+    { name: 'Como funciona o investimento', href: '/pricing' },
     { name: 'Integrações', href: '/features#integrations' },
-    { name: 'API', href: '/features#api' },
     // { name: 'Changelog', href: '/blog' }, // Commented out until we have blog content
   ],
   setores: [
@@ -180,7 +180,8 @@ export default function Footer() {
           <div className="col-span-2 md:col-span-3 lg:col-span-1">
             <Logo variant="dark" className="mb-4" />
             <p className="text-slate-400 text-sm mb-4">
-              Transformando a gestão de negócios com ERP modular customizado.
+              Centralize e organize a gestão da sua empresa em um só lugar,
+              ajustado à sua rotina.
             </p>
             <div className="flex gap-3">
               {socialLinks.map((social) => (

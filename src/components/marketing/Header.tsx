@@ -7,10 +7,10 @@ import Logo from './Logo';
 
 const navigation = [
   { name: 'Recursos', href: '/features' },
-  { name: 'Preços', href: '/pricing' },
   { name: 'Setores', href: '/industries' },
   { name: 'Sobre', href: '/about' },
   // { name: 'Blog', href: '/blog' }, // Commented out until we have blog content
+  { name: 'Diagnóstico', href: '/demo' },
   { name: 'Contato', href: '/contact' },
 ];
 
@@ -60,8 +60,8 @@ export default function Header() {
             >
               Entrar
             </Link>
-            <Link href="/contact" className="btn-primary btn-sm">
-              Agendar Diagnóstico
+            <Link href="/demo" className="btn-primary btn-sm">
+              Agendar diagnóstico
             </Link>
           </div>
 
@@ -128,11 +128,11 @@ export default function Header() {
                   Entrar
                 </Link>
                 <Link
-                  href="/contact"
+                  href="/demo"
                   className="block btn-primary text-center"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  Agendar Diagnóstico
+                  Agendar diagnóstico
                 </Link>
               </div>
 

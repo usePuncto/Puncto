@@ -1,16 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 
 import { Industry, industryIcons } from '@/content/industries';
 import { getModulesForIndustry } from '@/content/businessModules';
-import { PLAN_MODULE_LIMITS } from '@/content/modules';
-import { planIntrosByIndustry, addOnContentByIndustry } from '@/content/featureDetailsByIndustry';
-import PricingCard, { pricingPlans } from '@/components/marketing/PricingCard';
-import type { PricingPlan } from '@/components/marketing/PricingCard';
-import TestimonialCard, { testimonials } from '@/components/marketing/TestimonialCard';
 import CTASection from '@/components/marketing/CTASection';
 
 interface IndustryPageClientProps {
@@ -18,26 +12,7 @@ interface IndustryPageClientProps {
 }
 
 export default function IndustryPageClient({ industry }: IndustryPageClientProps) {
-  const [isAnnual, setIsAnnual] = useState(true);
   const segmentModules = getModulesForIndustry(industry.slug);
-
-  const introsForIndustry = planIntrosByIndustry[industry.slug];
-  const billingParam = isAnnual ? 'annual' : 'monthly';
-  const plansForIndustry: PricingPlan[] = pricingPlans.map((plan) => {
-    const intro = introsForIndustry?.[plan.id];
-    const chooseModulesUrl = `/pricing/choose-modules?plan=${plan.id}&industry=${industry.slug}&billing=${billingParam}`;
-    return {
-      ...plan,
-      description: intro?.intro ?? plan.description,
-      cta: {
-        text: 'Escolher Módulos',
-        href: chooseModulesUrl,
-      },
-    };
-  });
-
-  // Get a relevant testimonial (in real app, filter by industry)
-  const relevantTestimonial = testimonials[0];
 
   return (
     <>
@@ -100,8 +75,8 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
               <p className="body-lg mb-8">{industry.longDescription}</p>
 
               <div className="flex flex-col sm:flex-row gap-4 mb-8">
-                <a href="#precos" className="btn-primary btn-lg">
-                  Ver Pacotes de Módulos
+                <Link href="/demo" className="btn-primary btn-lg">
+                  Agendar diagnóstico gratuito
                   <svg
                     className="w-5 h-5"
                     fill="none"
@@ -115,10 +90,10 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
                       d="M13 7l5 5m0 0l-5 5m5-5H6"
                     />
                   </svg>
-                </a>
-                <Link href="/demo" className="btn-secondary btn-lg">
-                  Ver Demonstração
                 </Link>
+                <a href="#solucoes" className="btn-secondary btn-lg">
+                  Ver o que dá para organizar
+                </a>
               </div>
 
               <div className="flex gap-8">
@@ -180,7 +155,7 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
       </section>
 
       {/* Benefits Section */}
-      <section className="section bg-white">
+      <section id="solucoes" className="section bg-white">
         <div className="container-marketing">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -189,27 +164,21 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
             className="text-center mb-12"
           >
             <h2 className="heading-lg text-slate-900 mb-4">
-              Benefícios para seu negócio
+              O que dá para organizar
             </h2>
             <p className="body-lg max-w-2xl mx-auto">
-              Catálogo de módulos pensado para as necessidades de{' '}
-              {industry.name.toLowerCase()}.
+              Áreas pensadas para as necessidades de{' '}
+              {industry.name.toLowerCase()}. No diagnóstico, mostramos o que faz
+              sentido para a sua rotina.
             </p>
           </motion.div>
 
-          {/* Module catalog from tiersModulos.txt */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             className="mb-12"
           >
-            <h3 className="heading-md text-slate-900 mb-6 text-center">
-              Módulos do catálogo
-            </h3>
-            <p className="body-md text-slate-600 text-center max-w-2xl mx-auto mb-8">
-              Estes são os módulos disponíveis para {industry.name.toLowerCase()}.
-            </p>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {segmentModules.map((mod, i) => (
                 <motion.div
@@ -220,137 +189,25 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
                   transition={{ delay: i * 0.03 }}
                   className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm"
                 >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <h5 className="font-semibold text-slate-800 text-base">
-                      {mod.name}
-                    </h5>
-                    {i < PLAN_MODULE_LIMITS.gratis && (
-                      <span className="inline-flex text-xs font-medium px-2 py-1 rounded-full bg-secondary-100 text-secondary-800 flex-shrink-0">
-                        Grátis
-                      </span>
-                    )}
-                  </div>
+                  <h5 className="font-semibold text-slate-800 text-base mb-2">
+                    {mod.name}
+                  </h5>
                   <p className="text-slate-600 text-sm leading-relaxed">
                     {mod.description}
                   </p>
                 </motion.div>
               ))}
             </div>
-          </motion.div>
 
-          {/* Plan cards - same style as index page */}
-          {'planFeatures' in industry && industry.planFeatures && (
-            <motion.div
-              id="precos"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              className="mb-12 scroll-mt-24"
-            >
-              <h3 className="heading-md text-slate-900 mb-2 text-center">
-                Pacotes modulares de referência
-              </h3>
-              <p className="text-slate-600 text-sm text-center max-w-2xl mx-auto mb-6">
-                Os pacotes abaixo são pontos de partida. Após o diagnóstico, montamos 
-                a combinação de módulos e customizações ideal para a sua operação.
+            <div className="mt-10 text-center">
+              <Link href="/demo" className="btn-primary">
+                Agendar diagnóstico gratuito
+              </Link>
+              <p className="text-sm text-slate-500 mt-3">
+                Valores são apresentados após a demonstração personalizada.
               </p>
-
-              {/* Billing toggle */}
-              <div className="flex justify-center mb-8">
-                <div className="inline-flex items-center gap-4 bg-white rounded-full p-1 shadow-soft border border-slate-200">
-                  <button
-                    onClick={() => setIsAnnual(false)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      !isAnnual
-                        ? 'bg-primary-600 text-white'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Mensal
-                  </button>
-                  <button
-                    onClick={() => setIsAnnual(true)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      isAnnual
-                        ? 'bg-primary-600 text-white'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Anual
-                    <span className="ml-2 text-xs bg-secondary-500 text-white px-2 py-0.5 rounded-full">
-                      -20%
-                    </span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {plansForIndustry.map((plan, index) => (
-                  <PricingCard
-                    key={plan.id}
-                    plan={plan}
-                    isAnnual={isAnnual}
-                    index={index}
-                  />
-                ))}
-              </div>
-
-              {addOnContentByIndustry[industry.slug] && (
-                <div className="mt-6 rounded-2xl bg-gradient-to-br from-primary-50 via-secondary-50/30 to-primary-50/50 border border-primary-200/80 p-6 md:p-8 shadow-sm">
-                  <h4 className="font-bold text-slate-900 text-lg mb-3">
-                    {addOnContentByIndustry[industry.slug].title}
-                  </h4>
-                  <p className="text-slate-700 text-sm leading-relaxed">
-                    {addOnContentByIndustry[industry.slug].description}
-                  </p>
-                </div>
-              )}
-
-              {/* Transparency info box */}
-              <div className="mt-8 p-6 md:p-8 rounded-2xl bg-gradient-to-br from-slate-50 to-slate-100/80 border border-slate-200 shadow-sm">
-                <h4 className="font-bold text-slate-900 text-lg mb-4">
-                  📋 Como montamos sua proposta
-                </h4>
-                <p className="text-slate-700 mb-6 text-sm leading-relaxed">
-                  Os pacotes acima servem como referência de módulos e investimento. 
-                  Na prática, cada implementação é customizada para os processos e 
-                  regras do seu negócio — você escolhe os módulos e nós adaptamos 
-                  cada detalhe.
-                </p>
-                <div className="space-y-5 mb-5">
-                  <div className="bg-white/80 rounded-xl p-4 border border-slate-200/60">
-                    <p className="text-slate-800 font-semibold text-sm mb-2">👥 Limite de Colaboradores (Usuários no sistema)</p>
-                    <ul className="text-sm text-slate-600 space-y-1 ml-4">
-                      <li><strong>Starter:</strong> Até 10 colaboradores.</li>
-                      <li><strong>Growth:</strong> Até 20 colaboradores.</li>
-                      <li><strong>Pro:</strong> Até 30 colaboradores.</li>
-                    </ul>
-                    <p className="text-sm text-slate-500 italic mt-2">
-                      (Sua operação é maior? Fale com nosso time para montarmos um pacote personalizado!)
-                    </p>
-                  </div>
-                  <div className="bg-white/80 rounded-xl p-4 border border-slate-200/60">
-                    <p className="text-slate-800 font-semibold text-sm mb-2">🚀 Cotas de Automação (WhatsApp)</p>
-                    <p className="text-slate-600 text-sm mb-2">Disponíveis nos planos mais avançados para turbinar sua operação mensalmente:</p>
-                    <ul className="text-sm text-slate-600 space-y-1 ml-4">
-                      <li><strong>Growth:</strong> 150 mensagens de WhatsApp automáticas.</li>
-                      <li><strong>Pro:</strong> 300 mensagens de WhatsApp automáticas.</li>
-                    </ul>
-                    <p className="text-sm text-slate-500 mt-2">
-                      A Gestão de NF é ilimitada no módulo: arquive e consulte notas emitidas pelo seu contador/emissor.
-                    </p>
-                  </div>
-                </div>
-                <div className="pt-4 border-t border-slate-200">
-                  <p className="text-slate-800 font-semibold text-sm mb-1">💡 E se eu ultrapassar a minha cota no mês?</p>
-                  <p className="text-slate-600 text-sm leading-relaxed">
-                    Fique tranquilo, o Puncto não vai travar a sua operação! Nós trabalhamos com o modelo Pay As You Go (pague pelo que usar). Se você tiver um mês de pico e precisar enviar mais mensagens automáticas, o sistema continuará funcionando normalmente. O uso excedente será cobrado de forma avulsa apenas na sua próxima fatura, com valores acessíveis.
-                  </p>
-                </div>
-              </div>
-
-            </motion.div>
-          )}
+            </div>
+          </motion.div>
         </div>
       </section>
 
@@ -385,26 +242,11 @@ export default function IndustryPageClient({ industry }: IndustryPageClientProps
         </div>
       </section>
 
-      {/* Testimonial - Commented out until we have real testimonials
-      <section className="section bg-slate-50">
-        <div className="container-marketing">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="max-w-3xl mx-auto"
-          >
-            <TestimonialCard testimonial={relevantTestimonial} />
-          </motion.div>
-        </div>
-      </section>
-      */}
-
-      {/* CTA */}
       <CTASection
-        title={`Pronto para transformar seu ${industry.shortName.toLowerCase()}?`}
-        description="Comece gratuitamente e veja os resultados em poucos dias."
-        primaryCTA={{ text: 'Agendar Diagnóstico', href: '/contact' }}
+        title={`Pronto para ver a Puncto no seu ${industry.shortName.toLowerCase()}?`}
+        description="Agende um diagnóstico gratuito e veja uma demonstração próxima da sua realidade."
+        primaryCTA={{ text: 'Agendar diagnóstico gratuito', href: '/demo' }}
+        secondaryCTA={{ text: 'Falar conosco', href: '/contact' }}
         variant="gradient"
       />
     </>

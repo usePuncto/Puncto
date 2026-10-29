@@ -37,8 +37,8 @@ export default function ServiceTermsSection({
         </h2>
         <p className={isCompact ? 'text-slate-600 text-sm' : 'body-lg max-w-2xl mx-auto'}>
           {planId
-            ? 'Regras claras sobre o que está coberto na sua assinatura e o que é tratado como desenvolvimento específico.'
-            : 'Entenda exatamente o que está incluído na sua assinatura e como funcionam as customizações do seu ERP.'}
+            ? 'Regras claras sobre o que está coberto e o que é tratado como desenvolvimento específico.'
+            : 'Entenda o que costuma estar incluído no acompanhamento e como funcionam os ajustes do sistema.'}
         </p>
       </motion.div>
 

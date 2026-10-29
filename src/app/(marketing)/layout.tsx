@@ -10,20 +10,19 @@ import { JsonLd, generateOrganizationSchema, generateWebsiteSchema } from '@/lib
 
 export const metadata = {
   title: {
-    default: 'Puncto - ERP Modular Customizado para seu Negócio',
+    default: 'Puncto - Gestão da sua empresa em um só lugar',
     template: '%s | Puncto',
   },
   description:
-    'ERP modular customizado para cada cliente. Escolha os módulos que precisa e tenha um sistema adaptado à sua operação — não o contrário.',
+    'Centralize agenda, clientes, financeiro, estoque e equipe em um sistema ajustado à rotina do seu negócio. Agende um diagnóstico gratuito.',
   keywords: [
-    'ERP modular',
-    'ERP customizado',
     'gestão de negócios',
-    'sistema sob medida',
+    'sistema de gestão',
+    'organizar empresa',
     'agendamento online',
     'controle de ponto',
-    'pagamentos',
-    'PIX',
+    'gestão financeira',
+    'estoque',
     'gestão empresarial Brasil',
   ],
   authors: [{ name: 'Puncto' }],
@@ -39,9 +38,9 @@ export const metadata = {
     canonical: '/',
   },
   openGraph: {
-    title: 'Puncto - ERP Modular Customizado para seu Negócio',
+    title: 'Puncto - Gestão da sua empresa em um só lugar',
     description:
-      'ERP modular customizado para cada cliente. Escolha os módulos e tenha um sistema adaptado à sua operação.',
+      'Centralize e organize a gestão do seu negócio. Diagnóstico gratuito e demonstração personalizada.',
     url: 'https://puncto.com.br',
     siteName: 'Puncto',
     locale: 'pt_BR',
@@ -57,8 +56,8 @@ export const metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Puncto - Plataforma Completa de Gestão',
-    description: 'Simplifique agendamentos, pagamentos e gestão de equipe.',
+    title: 'Puncto - Gestão da sua empresa em um só lugar',
+    description: 'Organize agenda, clientes, financeiro e equipe. Diagnóstico gratuito.',
     images: ['/og-image.png'],
   },
   robots: {

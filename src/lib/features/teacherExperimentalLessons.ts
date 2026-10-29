@@ -4,6 +4,7 @@
  */
 export const TEACHER_EXPERIMENTAL_LESSONS_BUSINESS_IDS = new Set<string>([
   'Z30cuko6DhVhnDGxJQ6w', // Yoga Spanda
+  'QmujrWL6Jj8BQoUL46HR',
 ]);
 
 export function teachersCanScheduleExperimentalLessons(
