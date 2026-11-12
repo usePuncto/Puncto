@@ -25,6 +25,7 @@ import { formatPhoneInput } from '@/lib/utils/phone';
 import { formatCpfInput } from '@/lib/utils/cpf';
 import { BRAZIL_UFS } from '@/lib/constants/brazilUfs';
 import { STUDENT_MODALITY_OPTIONS } from '@/lib/education/studentModality';
+import { CustomerMensalidadesTab } from '@/components/admin/CustomerMensalidadesTab';
 
 function normalizePhone(phone: string | undefined): string {
   if (!phone) return '';
@@ -614,7 +615,7 @@ export function CustomerDetailModal({
   );
   const saveResponse = useSaveAnamnesisResponse(businessId);
 
-  const [activeTab, setActiveTab] = useState<'info' | 'records' | 'prontuario'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'records' | 'prontuario' | 'mensalidades'>('info');
   const [formData, setFormData] = useState({
     firstName: customer.firstName,
     lastName: customer.lastName,
@@ -764,7 +765,9 @@ export function CustomerDetailModal({
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-hidden rounded-xl bg-white shadow-xl"
+        className={`max-h-[90vh] w-full overflow-hidden rounded-xl bg-white shadow-xl ${
+          isEducation ? 'max-w-3xl' : 'max-w-2xl'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-neutral-200 px-6 py-4">
@@ -817,10 +820,23 @@ export function CustomerDetailModal({
                 Prontuário ({anamnesisResponses.length})
               </button>
             )}
+            {isEducation && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('mensalidades')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${
+                  activeTab === 'mensalidades'
+                    ? 'border-neutral-900 text-neutral-900'
+                    : 'border-transparent text-neutral-600 hover:text-neutral-900'
+                }`}
+              >
+                Mensalidades
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="max-h-[50vh] overflow-y-auto p-6">
+        <div className={`overflow-y-auto p-6 ${activeTab === 'mensalidades' ? 'max-h-[60vh]' : 'max-h-[50vh]'}`}>
           {activeTab === 'info' && (
             <form onSubmit={handleSave} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -1103,6 +1119,10 @@ export function CustomerDetailModal({
                 </div>
               )}
             </div>
+          )}
+
+          {activeTab === 'mensalidades' && isEducation && (
+            <CustomerMensalidadesTab businessId={businessId} customerId={customer.id} />
           )}
         </div>
       </div>
