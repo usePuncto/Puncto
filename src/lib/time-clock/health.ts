@@ -7,7 +7,7 @@
  */
 
 import { db, auth } from '@/lib/firebaseAdmin';
-import { getBrazilianLegalTime } from './legal-time';
+import { getBrazilianLegalTime, getMaxSyncAgeMs } from './legal-time';
 import {
   recordAvailabilityTransition,
   recordExternalOutageMarker,
@@ -35,7 +35,38 @@ export type HealthReport = {
 };
 
 const DEFINITION =
-  'REP-P AVAILABLE somente quando API, ARP Firestore, Firebase Auth, HLB (NTP.br ≤30s) e caminho de batida estão ok. Transições 07/08 só em mudança real de estado, preferencialmente via monitor agendado independente.';
+  'REP-P AVAILABLE somente quando API, ARP Firestore, Firebase Auth, HLB (NTP.br ao vivo ou cached_hlb fresco ≤ TTL, skew ≤30s) e caminho de batida estão ok. Transições 07/08 só em mudança real de estado, preferencialmente via monitor agendado independente.';
+
+/**
+ * HLB for availability: live NTP or fresh Firestore cache from syncRepPHlb.
+ * Stale cache (Cloud Function stopped) → UNAVAILABLE.
+ */
+export function isLegalTimeHealthyForAvailability(legal: {
+  source: string;
+  within30sLimit: boolean;
+  syncAgeMs: number;
+  syncStatus: string;
+}): { ok: boolean; reason?: string } {
+  const maxAgeMs = getMaxSyncAgeMs();
+  const trustedSource = legal.source === 'ntp_br_on' || legal.source === 'cached_hlb';
+
+  if (!trustedSource) {
+    return { ok: false, reason: `fonte não confiável (${legal.source})` };
+  }
+  if (legal.syncStatus === 'failed') {
+    return { ok: false, reason: 'syncStatus=failed' };
+  }
+  if (!legal.within30sLimit) {
+    return { ok: false, reason: 'desvio vs HLB > 30s' };
+  }
+  if (legal.syncAgeMs > maxAgeMs) {
+    return {
+      ok: false,
+      reason: `cache HLB expirado (idade ${legal.syncAgeMs}ms > TTL ${maxAgeMs}ms)`,
+    };
+  }
+  return { ok: true };
+}
 
 export async function probeRepPComponents(businessId?: string): Promise<{
   available: boolean;
@@ -87,13 +118,13 @@ export async function probeRepPComponents(businessId?: string): Promise<{
 
   try {
     const legal = await getBrazilianLegalTime();
-    const ok = legal.source === 'ntp_br_on' && legal.within30sLimit;
+    const health = isLegalTimeHealthyForAvailability(legal);
     components.push({
       id: 'legal_time',
-      ok,
-      detail: ok
-        ? `${legal.hlbTraceability}; skew=${legal.absSkewMs}ms`
-        : legal.hlbTraceability,
+      ok: health.ok,
+      detail: health.ok
+        ? `${legal.hlbTraceability}; skew=${legal.absSkewMs}ms; source=${legal.source}`
+        : `${legal.hlbTraceability}${health.reason ? ` — ${health.reason}` : ''}`,
     });
   } catch (e) {
     components.push({

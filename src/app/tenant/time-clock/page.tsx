@@ -6,6 +6,7 @@ import { useBusiness } from '@/lib/contexts/BusinessContext';
 import { useAuth } from '@/lib/contexts/AuthContext';
 import { ClockInType } from '@/types/timeClock';
 import { hasModuleAccess } from '@/lib/features/moduleAccess';
+import { getBusinessRole } from '@/lib/permissions';
 
 type StatusPayload = {
   displayName?: string;
@@ -50,6 +51,8 @@ export default function TimeClockPage() {
   const [lastReceiptId, setLastReceiptId] = useState<string | null>(null);
 
   const moduleEnabled = business ? hasModuleAccess(business, 'ponto_eletronico') : false;
+  const role = user && business ? getBusinessRole(user, business.id) : null;
+  const isStaffOnly = role === 'professional';
 
   const loadStatus = useCallback(async () => {
     if (!business?.id || !firebaseUser) return;
@@ -165,8 +168,11 @@ export default function TimeClockPage() {
           <p className="mt-2 text-sm text-neutral-600">
             O módulo de ponto eletrônico não está ativo para este negócio.
           </p>
-          <Link href="/tenant/admin/dashboard" className="mt-4 inline-block text-sm text-blue-600 hover:underline">
-            Voltar ao painel
+          <Link
+            href={isStaffOnly ? '/tenant/professional' : '/tenant/admin/dashboard'}
+            className="mt-4 inline-block text-sm text-blue-600 hover:underline"
+          >
+            Voltar
           </Link>
         </div>
       </div>
@@ -309,9 +315,21 @@ export default function TimeClockPage() {
         )}
 
         <div className="mt-8 flex flex-col items-center gap-2 text-center">
-          <Link href="/tenant/admin/time-clock" className="text-sm text-neutral-500 hover:text-neutral-800">
-            Ir para gestão de ponto
-          </Link>
+          {isStaffOnly ? (
+            <Link
+              href="/tenant/professional"
+              className="text-sm text-neutral-500 hover:text-neutral-800"
+            >
+              Voltar à área do profissional
+            </Link>
+          ) : (
+            <Link
+              href="/tenant/admin/time-clock"
+              className="text-sm text-neutral-500 hover:text-neutral-800"
+            >
+              Ir para gestão de ponto
+            </Link>
+          )}
         </div>
       </div>
     </div>

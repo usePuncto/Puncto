@@ -15,11 +15,14 @@ import { useTurmas } from '@/lib/queries/turmas';
 import { Professional } from '@/types/business';
 import type { Turma } from '@/types/turma';
 import { getAuthHeaders } from '@/lib/auth/clientAuthHeaders';
+import { formatCpfInput, isValidCpf, normalizeCpfDigits } from '@/lib/utils/cpf';
+import { hasModuleAccess } from '@/lib/features/moduleAccess';
 
 const initialFormData = {
   name: '',
   email: '',
   phone: '',
+  cpf: '',
   bio: '',
   specialties: '',
   avatarUrl: '',
@@ -141,6 +144,25 @@ export default function AdminProfessionalsPage() {
     }
   };
 
+  const syncRepPFromCpf = async (userId: string, cpfDigits: string | null, name: string) => {
+    if (!hasModuleAccess(business, 'ponto_eletronico')) return;
+    const res = await fetch('/api/time-clock/employees', {
+      method: 'POST',
+      headers: await getAuthHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({
+        businessId: business.id,
+        userId,
+        name,
+        cpf: cpfDigits || '',
+        repPEnabled: Boolean(cpfDigits),
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      console.warn('[professionals] sync REP-P:', data.error || res.status);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -148,15 +170,27 @@ export default function AdminProfessionalsPage() {
       setError('Nome é obrigatório');
       return;
     }
+    const cpfDigits = normalizeCpfDigits(formData.cpf);
+    if (cpfDigits && !isValidCpf(cpfDigits)) {
+      setError('CPF inválido');
+      return;
+    }
+    const cpfNormalized = cpfDigits.length === 11 && isValidCpf(cpfDigits) ? cpfDigits : null;
+    const repPEnabled = Boolean(cpfNormalized);
     const canBookOnline = isEducation ? false : formData.canBookOnline;
+    const name = formData.name.trim();
     try {
+      let linkedUserId = editingProfessional?.userId;
       if (editingProfessional) {
         await updateProfessional.mutateAsync({
           professionalId: editingProfessional.id,
           updates: {
-            name: formData.name.trim(),
+            name,
             email: formData.email.trim() || undefined,
             phone: formData.phone.trim() || undefined,
+            cpf: cpfNormalized,
+            repPEnabled,
+            repPReady: repPEnabled,
             bio: formData.bio.trim() || undefined,
             avatarUrl: formData.avatarUrl || undefined,
             specialties: formData.specialties
@@ -169,10 +203,13 @@ export default function AdminProfessionalsPage() {
           },
         });
       } else {
-        await createProfessional.mutateAsync({
-          name: formData.name.trim(),
+        const created = await createProfessional.mutateAsync({
+          name,
           email: formData.email.trim() || undefined,
           phone: formData.phone.trim() || undefined,
+          cpf: cpfNormalized,
+          repPEnabled,
+          repPReady: repPEnabled,
           bio: formData.bio.trim() || undefined,
           avatarUrl: formData.avatarUrl || undefined,
           specialties: formData.specialties
@@ -184,6 +221,10 @@ export default function AdminProfessionalsPage() {
           canBookOnline,
           accessRole: formData.accessRole,
         });
+        linkedUserId = (created as { userId?: string }).userId;
+      }
+      if (linkedUserId) {
+        await syncRepPFromCpf(linkedUserId, cpfNormalized, name);
       }
       setShowForm(false);
       setEditingProfessional(null);
@@ -203,6 +244,7 @@ export default function AdminProfessionalsPage() {
       name: professional.name,
       email: professional.email || '',
       phone: professional.phone || '',
+      cpf: formatCpfInput(professional.cpf || ''),
       bio: professional.bio || '',
       specialties: (professional.specialties || []).join(', '),
       avatarUrl: professional.avatarUrl || '',
@@ -318,6 +360,23 @@ export default function AdminProfessionalsPage() {
                 className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
                 placeholder="email@exemplo.com"
               />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">CPF</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={formData.cpf}
+                onChange={(e) =>
+                  setFormData({ ...formData, cpf: formatCpfInput(e.target.value) })
+                }
+                className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none focus:ring-1 focus:ring-neutral-900"
+                placeholder="000.000.000-00"
+              />
+              <p className="mt-1 text-xs text-neutral-500">
+                Com CPF válido, o colaborador fica apto a registrar ponto eletrônico (REP-P).
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium text-neutral-700 mb-1">Telefone</label>

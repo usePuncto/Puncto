@@ -93,6 +93,12 @@ export default function AdminTimeClockPage() {
   const [error, setError] = useState<string | null>(null);
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [fiscalMsg, setFiscalMsg] = useState<string | null>(null);
+  const [goLiveAt, setGoLiveAt] = useState<string | null>(null);
+  const [goLiveTaxId, setGoLiveTaxId] = useState<string | null>(null);
+  const [goLiveLoading, setGoLiveLoading] = useState(false);
+  const [goLiveSubmitting, setGoLiveSubmitting] = useState(false);
+  const [showGoLiveModal, setShowGoLiveModal] = useState(false);
+  const [goLiveError, setGoLiveError] = useState<string | null>(null);
   const [adjForm, setAdjForm] = useState({
     userId: '',
     kind: 'manual_insert',
@@ -201,6 +207,24 @@ export default function AdminTimeClockPage() {
     }
   }, [authHeaders, business?.id, firebaseUser]);
 
+  const loadGoLive = useCallback(async () => {
+    if (!business?.id || !firebaseUser) return;
+    setGoLiveLoading(true);
+    setGoLiveError(null);
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`/api/time-clock/go-live?businessId=${business.id}`, { headers });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao carregar status REP-P');
+      setGoLiveAt(data.repPGoLiveAt || null);
+      setGoLiveTaxId(data.taxId || null);
+    } catch (err) {
+      setGoLiveError(err instanceof Error ? err.message : 'Erro ao carregar status REP-P');
+    } finally {
+      setGoLiveLoading(false);
+    }
+  }, [authHeaders, business?.id, firebaseUser]);
+
   useEffect(() => {
     if (tab === 'live') void loadLive();
     else if (tab === 'history') void loadHistory();
@@ -208,8 +232,38 @@ export default function AdminTimeClockPage() {
     else if (tab === 'treatment') void loadAdjustments();
     else if (tab === 'fiscal') {
       setLoading(false);
+      void loadGoLive();
     } else setLoading(false);
-  }, [tab, loadLive, loadHistory, loadReports, loadAdjustments]);
+  }, [tab, loadLive, loadHistory, loadReports, loadAdjustments, loadGoLive]);
+
+  const confirmGoLive = async () => {
+    if (!business?.id) return;
+    setGoLiveSubmitting(true);
+    setGoLiveError(null);
+    try {
+      const headers = await authHeaders();
+      const res = await fetch('/api/time-clock/go-live', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ businessId: business.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const detail =
+          Array.isArray(data.blockers) && data.blockers.length
+            ? data.blockers.join('; ')
+            : data.error || 'Erro ao ativar REP-P';
+        throw new Error(detail);
+      }
+      setGoLiveAt(data.repPGoLiveAt || null);
+      setShowGoLiveModal(false);
+      setFiscalMsg(data.message || 'REP-P ativado com sucesso.');
+    } catch (err) {
+      setGoLiveError(err instanceof Error ? err.message : 'Erro ao ativar REP-P');
+    } finally {
+      setGoLiveSubmitting(false);
+    }
+  };
 
   const reviewClockIn = async (clockInId: string, rhReviewed: boolean) => {
     if (!business?.id) return;
@@ -407,6 +461,45 @@ export default function AdminTimeClockPage() {
       ) : tab === 'fiscal' ? (
         <div className="space-y-6">
           <div className="rounded-lg border border-neutral-200 bg-white p-6">
+            <h2 className="text-lg font-semibold">Início oficial do REP-P</h2>
+            <p className="mt-1 text-sm text-neutral-600">
+              Antes de registrar marcações fiscais, defina a data de início oficial deste
+              estabelecimento. Sem essa data, a batida de ponto permanece bloqueada.
+            </p>
+            {goLiveLoading ? (
+              <p className="mt-4 text-sm text-neutral-500">Carregando status…</p>
+            ) : goLiveAt ? (
+              <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
+                <p className="font-medium">REP-P ativo</p>
+                <p className="mt-1">
+                  Início oficial: {formatDateTime(goLiveAt)}
+                  {goLiveTaxId ? ` · Estabelecimento ${goLiveTaxId}` : ''}
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 space-y-3">
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  REP-P ainda não ativado. Marcações fiscais (AFD/NSR) ficam bloqueadas até a
+                  confirmação.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGoLiveError(null);
+                    setShowGoLiveModal(true);
+                  }}
+                  className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+                >
+                  Ativar REP-P
+                </button>
+              </div>
+            )}
+            {goLiveError && !showGoLiveModal && (
+              <p className="mt-3 text-sm text-red-700">{goLiveError}</p>
+            )}
+          </div>
+
+          <div className="rounded-lg border border-neutral-200 bg-white p-6">
             <h2 className="text-lg font-semibold">Arquivos fiscais (geração imediata)</h2>
             <p className="mt-1 text-sm text-neutral-600">
               Selecione o período e baixe AFD 004 (.txt + .p7s) e AEJ 002 (.txt + .p7s) sob demanda.
@@ -425,34 +518,101 @@ export default function AdminTimeClockPage() {
               <button
                 type="button"
                 onClick={() => void exportFiscal('afd', 'txt')}
-                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+                disabled={!goLiveAt}
+                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Gerar AFD (.txt)
               </button>
               <button
                 type="button"
                 onClick={() => void exportFiscal('afd', 'p7s')}
-                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50"
+                disabled={!goLiveAt}
+                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Baixar AFD (.p7s)
               </button>
               <button
                 type="button"
                 onClick={() => void exportFiscal('aej', 'txt')}
-                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+                disabled={!goLiveAt}
+                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Gerar AEJ (.txt)
               </button>
               <button
                 type="button"
                 onClick={() => void exportFiscal('aej', 'p7s')}
-                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50"
+                disabled={!goLiveAt}
+                className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Baixar AEJ (.p7s)
               </button>
             </div>
+            {!goLiveAt && !goLiveLoading && (
+              <p className="mt-3 text-sm text-neutral-500">
+                Ative o REP-P acima para liberar a geração de arquivos fiscais.
+              </p>
+            )}
             {fiscalMsg && <p className="mt-4 text-sm text-neutral-700">{fiscalMsg}</p>}
           </div>
+
+          {showGoLiveModal && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+              onClick={() => {
+                if (!goLiveSubmitting) setShowGoLiveModal(false);
+              }}
+              role="presentation"
+            >
+              <div
+                className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="go-live-modal-title"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2
+                  id="go-live-modal-title"
+                  className="text-lg font-semibold text-neutral-900"
+                >
+                  Ativar REP-P
+                </h2>
+                <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                  <p className="font-medium">Atenção</p>
+                  <p className="mt-1">
+                    Ao definir a data de início oficial, o registro de ponto entrará em modo
+                    fiscal, o contador NSR será iniciado e esta data não poderá ser alterada.
+                  </p>
+                </div>
+                <p className="mt-3 text-sm text-neutral-600">
+                  A data usada será a Hora Legal Brasileira do servidor no momento da
+                  confirmação.
+                  {goLiveTaxId ? ` Estabelecimento: ${goLiveTaxId}.` : ''}
+                </p>
+                {goLiveError && (
+                  <p className="mt-3 text-sm text-red-700">{goLiveError}</p>
+                )}
+                <div className="mt-6 flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    disabled={goLiveSubmitting}
+                    onClick={() => setShowGoLiveModal(false)}
+                    className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={goLiveSubmitting}
+                    onClick={() => void confirmGoLive()}
+                    className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                  >
+                    {goLiveSubmitting ? 'Ativando…' : 'Confirmar ativação'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       ) : tab === 'treatment' ? (
         <div className="space-y-6">

@@ -9,6 +9,7 @@ import { ProfessionalProvider, useProfessional } from '@/lib/contexts/Profession
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { getBusinessRole } from '@/lib/permissions';
 import { teachersCanScheduleExperimentalLessons } from '@/lib/features/teacherExperimentalLessons';
+import { hasModuleAccess } from '@/lib/features/moduleAccess';
 import { NotificationsBell } from '@/components/notifications/NotificationsBell';
 
 function ProfessionalLayoutInner({ children }: { children: ReactNode }) {
@@ -22,11 +23,16 @@ function ProfessionalLayoutInner({ children }: { children: ReactNode }) {
 
   const isEducation = business?.industry === 'education';
   const showExperimentalLessons = teachersCanScheduleExperimentalLessons(business);
+  const showTimeClock = business ? hasModuleAccess(business, 'ponto_eletronico') : false;
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   useEffect(() => {
     setIsMobileNavOpen(false);
   }, [pathname]);
+
+  const timeClockNav = showTimeClock
+    ? [{ href: '/tenant/time-clock', label: 'Ponto', icon: '⏰' }]
+    : [];
 
   const navItems = isEducation
     ? [
@@ -36,12 +42,14 @@ function ProfessionalLayoutInner({ children }: { children: ReactNode }) {
         ...(showExperimentalLessons
           ? [{ href: '/tenant/professional/aulas-experimentais', label: 'Aulas experimentais', icon: '🧪' }]
           : []),
+        ...timeClockNav,
         { href: '/tenant/professional/notifications', label: 'Notificações', icon: '🔔' },
         { href: '/tenant/professional/clients', label: 'Alunos', icon: '👤' },
       ]
     : [
         { href: '/tenant/professional', label: 'Agenda', icon: '📅' },
         { href: '/tenant/professional/bookings', label: 'Agendamentos', icon: '📋' },
+        ...timeClockNav,
         { href: '/tenant/professional/notifications', label: 'Notificações', icon: '🔔' },
         { href: '/tenant/professional/clients', label: 'Clientes', icon: '👤' },
         { href: '/tenant/professional/services', label: 'Serviços', icon: '✂️' },

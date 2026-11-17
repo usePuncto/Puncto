@@ -221,6 +221,12 @@ const educationAdminNavItems: NavItem[] = [
     capability: { modules: ['relatorio_financeiro'], feature: 'analytics' },
   },
   {
+    href: '/tenant/admin/time-clock',
+    key: 'timeClock',
+    icon: '⏰',
+    capability: { modules: ['ponto_eletronico'], feature: 'timeClock' },
+  },
+  {
     href: '/tenant/admin/fiscal-notes',
     key: 'fiscalNotes',
     icon: '🧾',

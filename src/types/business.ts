@@ -242,6 +242,11 @@ export interface Professional {
   name: string;
   email?: string;
   phone?: string;
+  /** CPF do colaborador — habilita REP-P automaticamente quando válido */
+  cpf?: string | null;
+  /** Derivado do CPF: true quando há CPF válido cadastrado */
+  repPEnabled?: boolean;
+  repPReady?: boolean;
   bio?: string;
   avatarUrl?: string;
   specialties: string[];
